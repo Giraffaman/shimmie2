@@ -36,6 +36,7 @@ padding:10px 20px 0;
 body {
 -x-system-font:none;
 background-color:#161618;
+color: #f2f5f4;
 font-family:"Helvetica Neue", Helvetica, Arial, sans-serif;
 font-size:80%;
 font-size-adjust:none;
@@ -250,12 +251,18 @@ margin:0;
 padding:0;
 }
 a.tab:link {
-	color:#f2f5f4;
+	color:#f5f7f6;
 }
 a.tag_name:link {
 	color:#75c0c7;
 }
 a.tag_name:hover {
+	color:#1db992;
+}
+.comment a:link {
+	color:#75c0c7;
+}
+.comment a:hover {
 	color:#1db992;
 }
 a:link {
