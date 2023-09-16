@@ -319,8 +319,14 @@ margin-left:16px;
 margin-right:16px;
 font-size: 90%;
 }
-input {
+input, textarea {
 	background-color:#212121;
 	border-color: #2a2e31;
 	color:#f2f5f4;
 }
+.tagit.ui-widget.ui-widget-content.ui-corner-all {
+	background-color:#212121;
+	border-color: #2a2e31;
+	color:#f2f5f4;
+}
+
