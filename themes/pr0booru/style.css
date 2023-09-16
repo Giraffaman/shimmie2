@@ -249,14 +249,14 @@ font-family:verdana,sans-serif;
 margin:0;
 padding:0;
 }
-a.tab {
+a.tab:link {
 	color:#f2f5f4;
 }
-a.tag_name {
+a.tag_name:link {
 	color:#75c0c7;
 }
 a.tag_name:hover {
-	color:#008fff;
+	color:#1db992;
 }
 a:link {
 color:#d23c22;
