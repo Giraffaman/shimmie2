@@ -249,20 +249,29 @@ font-family:verdana,sans-serif;
 margin:0;
 padding:0;
 }
+a.tab {
+	color:#f2f5f4;
+}
+a.tag_name {
+	color:#75c0c7;
+}
+a.tag_name:hover {
+	color:#008fff;
+}
 a:link {
-color:#75c0c7;
+color:#d23c22;
 text-decoration:none;
 }
 a:visited {
-color:#75c0c7;
+color:#d23c22;
 text-decoration:none;
 }
 a:hover {
-color:#008fff;
+color:#ee4d2e;
 text-decoration:none;
 }
 a:active {
-color:#008fff;
+color:#ee4d2e;
 text-decoration:none;
 }
 ul.flat-list {
