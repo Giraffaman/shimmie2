@@ -17,7 +17,7 @@ services:
   shimmie:
     build:
       context: .
-      dockerfile: DockerFile
+      dockerfile: Dockerfile
     #image: shish2k/shimmie2:latest
     container_name: shimmie
     restart: unless-stopped
