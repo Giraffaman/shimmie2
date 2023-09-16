@@ -235,9 +235,15 @@ background:#AAFFAA none repeat scroll 0 0;
 -moz-background-origin:padding;
 background:#FFAAAA none repeat scroll 0 0;
 }
-.comment .username {
-font-size:1.5em;
+.comment .username:link {
+font-size:1.0em;
 font-weight:bold;
+color:#75c0c7;
+}
+.comment .username:hover {
+	font-size:1.0em;
+	font-weight:bold;
+	color:#1db992;
 }
 HEADER {
 text-align:left;
@@ -312,4 +318,9 @@ position: relative;
 margin-left:16px;
 margin-right:16px;
 font-size: 90%;
+}
+input {
+	background-color:#212121;
+	border-color: #2a2e31;
+	color:#f2f5f4;
 }
