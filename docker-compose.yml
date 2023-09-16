@@ -1,0 +1,50 @@
+version: "3"
+services:
+  sql:
+    image: postgres:15-alpine
+    container_name: shimmie-sql
+    restart: unless-stopped
+    #user: 1000:1000
+    environment:
+      - POSTGRES_DB=${PSQL_DB}
+      - POSTGRES_USER=${PSQL_USER}
+      - POSTGRES_PASSWORD=${PSQL_PW}
+    volumes:
+      - db:/var/lib/postgresql/data
+    networks:
+      - bay-21-internal
+      
+  shimmie:
+    build:
+      context: .
+      dockerfile: DockerFile
+    #image: shish2k/shimmie2:latest
+    container_name: shimmie
+    restart: unless-stopped
+    environment:
+      - POSTGRES_HOST=sql
+      - POSTGRES_DB=${PSQL_DB}
+      - POSTGRES_USER=${PSQL_USER}
+      - POSTGRES_PASSWORD=${PSQL_PW}
+      - UPLOAD_MAX_FILESIZE=512M
+
+      #INSTALL_DSN: "pgsql:user=shimmie;password=shimmie;host=sql;dbname=shimmie"
+    ports:
+      - ${PORT}:8000
+    volumes:
+      - app:/app/data
+    networks:
+      - bay-21-internal
+    links:
+      - sql
+
+volumes:
+  db:
+    driver: local
+  app: 
+    driver: local
+
+networks:
+  bay-21-internal:
+    external: true
+    name: bay-21-internal
