@@ -49,7 +49,6 @@ EOD
         if (file_exists($configFileName)) {
             @include_once $configFileName;
 			$bannerLink = "<a href='$logoUrl'><img src='$logo'></a>";
-			}
         } else {
 			$bannerLink = "<h1><a style='text-decoration: none;' href='".make_link()."'><span>$sitename</span></a></h1>";
 		}
