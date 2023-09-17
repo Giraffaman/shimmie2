@@ -369,3 +369,9 @@ li.tagit-new input.ui-widget-content {
 	border-color: #2a2e31 !important; 
 	color: #f2f5f4 !important;
 }
+
+.tagit {
+	background: red !important;
+	border: 1px blue solid !important;
+	color: yellow !important;
+}
