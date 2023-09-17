@@ -257,8 +257,29 @@ font-family:verdana,sans-serif;
 margin:0;
 padding:0;
 }
-a.tab:link {
+a.current-page:link {
 	color:#f5f7f6;
+}
+a.current-page:visited {
+	color:#f5f7f6;
+}
+a.current-page:hover {
+	color:#ffffff;
+}
+a.current-page:active {
+	color:#ffffff;
+}
+a.tab:link {
+	color:#d23c22;
+}
+a.tab:visited {
+	color:#d23c22;
+}
+a.tab:hover {
+	color:#ee4d2e;
+}
+a.tab:active {
+	color:#ee4d2e;
 }
 a.tag_name:link {
 	color:#75c0c7;
@@ -331,3 +352,8 @@ input, textarea {
 	color:#f2f5f4;
 }
 
+ul.tagit.ui-widget.ui-widget-content.ui-corner-all {
+	background-color:#212121;
+	border-color: #2a2e31;
+	color:#f2f5f4;
+}

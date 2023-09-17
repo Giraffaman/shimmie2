@@ -118,8 +118,15 @@ class Page extends BasePage
         //if($this->heading==$site_name)$this->heading = '';
         //$title_link = "<h1><a href='".make_link($main_page)."'>$site_name</a>/$this->heading</h1>";
 
-        // bzchan: prepare main title link
-        $title_link = "<h1 id='site-title'><a href='".make_link($main_page)."'>$site_name</a></h1>";
+        // changed 2023-09-17 - check and import config file which can contain a path to $logo and custom $logoUrl
+        // otherwise, prepare main title link
+        $configFileName = "theme.conf.php";
+        if (file_exists($configFileName)) {
+            @include_once $configFileName;
+			$title_link = "<a href='$logoUrl'><img src='$logo'></a>";
+        } else {
+            $title_link = "<h1 id='site-title'><a href='".make_link($main_page)."'>$site_name</a></h1>";
+		}
 
         if ($this->left_enabled) {
             $left = "<nav>$left_block_html</nav>";
