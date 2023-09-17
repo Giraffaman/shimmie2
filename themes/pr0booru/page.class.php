@@ -120,7 +120,8 @@ class Page extends BasePage
 
         // changed 2023-09-17 - check and import config file which can contain a path to $logo and custom $logoUrl
         // otherwise, prepare main title link
-        $configFileName = "theme.conf.php";
+        $theme = get_theme();
+        $configFileName = "themes/$theme/theme.conf.php";
         if (file_exists($configFileName)) {
             @include_once $configFileName;
 			$title_link = "<a href='$logoUrl'><img src='$logo'></a>";
