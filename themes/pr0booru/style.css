@@ -373,3 +373,8 @@ input, textarea {
 	border: 1px #2a2e31 solid !important;
 	color: #f2f5f4 !important;
 }
+
+ul.tagit input[type="text"] {
+	background: inherit;
+	color: inherit;
+}
