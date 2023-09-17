@@ -35,7 +35,8 @@ HEADER #site-title {
 padding:10px 20px 0;
 }
 img.header-logo {
-	width:15%;
+	width: 10rem;
+	max-height: 4rem;
 }
 body {
 -x-system-font:none;
