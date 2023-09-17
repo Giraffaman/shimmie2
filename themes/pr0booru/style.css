@@ -284,7 +284,13 @@ a.tab:active {
 a.tag_name:link {
 	color:#75c0c7;
 }
+a.tag_name:visited {
+	color:#75c0c7;
+}
 a.tag_name:hover {
+	color:#1db992;
+}
+a.tag_name:active {
 	color:#1db992;
 }
 .comment a:link {
