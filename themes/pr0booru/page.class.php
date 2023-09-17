@@ -123,7 +123,7 @@ class Page extends BasePage
         $configFileName = "data/config/theme.conf.php";
         if (file_exists($configFileName)) {
             @include_once $configFileName;
-			$title_link = "<a href='$logoUrl'><img src='$logo'></a>";
+			$title_link = "<a href='$logoUrl'><img class='header-logo' src='$logo'></a>";
         } else {
             $title_link = "<h1 id='site-title'><a href='".make_link($main_page)."'>$site_name</a></h1>";
 		}

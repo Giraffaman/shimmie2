@@ -34,6 +34,9 @@ padding:0 5px;
 HEADER #site-title {
 padding:10px 20px 0;
 }
+img.header-logo {
+	width:15%;
+}
 body {
 -x-system-font:none;
 background-color:#161618;
