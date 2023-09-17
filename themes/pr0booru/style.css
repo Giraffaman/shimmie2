@@ -224,6 +224,10 @@ height:220px;
 text-align:center;
 width:220px;
 }
+.thumb a.selected {
+	outline: 3px solid #008fff;
+	display: block;
+}
 #pagelist {
 margin-top:32px;
 }
