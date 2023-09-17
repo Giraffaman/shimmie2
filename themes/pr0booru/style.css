@@ -140,6 +140,21 @@ overflow:hidden;
 text-align:left;
 width:150px;
 }
+.comment blockquote {
+	background: #2a2e31;
+	display: block;
+	border: none;
+}
+.comment blockquote em {
+	font-style: normal;
+	font-weight: normal;
+	color: #888;
+}
+.comment blockquote small {
+	font-style: italic;
+	font-weight: normal;
+	font-size: 100%;
+}
 TABLE.tag_list {
 	border-collapse: collapse;
 }
@@ -352,26 +367,9 @@ input, textarea {
 	border-color: #2a2e31;
 	color:#f2f5f4;
 }
-.tagit.ui-widget.ui-widget-content.ui-corner-all {
-	background-color:#212121;
-	border-color: #2a2e31;
-	color:#f2f5f4;
-}
-
-li.tagit-new input.ui-widget-content {
-	background:#212121;
-	border: #2a2e31;
-	color:#f2f5f4;
-}
-
-.widget-content {
-	background-color: #212121 !important;
-	border-color: #2a2e31 !important; 
-	color: #f2f5f4 !important;
-}
 
 .tagit {
-	background: red !important;
-	border: 1px blue solid !important;
-	color: yellow !important;
+	background: #212121 !important;
+	border: 1px #2a2e31 solid !important;
+	color: #f2f5f4 !important;
 }
