@@ -352,8 +352,8 @@ input, textarea {
 	color:#f2f5f4;
 }
 
-ul.tagit.ui-widget.ui-widget-content.ui-corner-all {
-	background-color:#212121;
-	border-color: #2a2e31;
+li.tagit-new input.ui-widget-content {
+	background:#212121;
+	border: #2a2e31;
 	color:#f2f5f4;
 }
