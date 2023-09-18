@@ -26,7 +26,7 @@ services:
       - POSTGRES_DB=${PSQL_DB}
       - POSTGRES_USER=${PSQL_USER}
       - POSTGRES_PASSWORD=${PSQL_PW}
-      - UPLOAD_MAX_FILESIZE=512M
+      - UPLOAD_MAX_FILESIZE=4096M
 
       #INSTALL_DSN: "pgsql:user=shimmie;password=shimmie;host=sql;dbname=shimmie"
     ports:
