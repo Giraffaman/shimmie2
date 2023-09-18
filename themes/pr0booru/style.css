@@ -73,7 +73,7 @@ h5 {
 font-size:1.2em;
 }
 table.zebra {border-collapse: collapse;border-spacing: 0;}
-table.zebra > tbody > tr:hover {background: #212121;}
+table.zebra > tbody > tr:hover {background: #2a2e31;}
 table.zebra th {color: white; padding-right: 8px;}
 table.zebra td {border: 1px dotted #EEE;margin: 0;padding-right: 8px;}
 table.zebra th {margin: 0;text-align: left;}
@@ -217,7 +217,7 @@ div#paginator a:hover {
 -moz-background-clip:border;
 -moz-background-inline-policy:continuous;
 -moz-background-origin:padding;
-background:#008fff none repeat scroll 0 0;
+background:#2a2e31 none repeat scroll 0 0;
 color:white;
 }
 span.thumb {
