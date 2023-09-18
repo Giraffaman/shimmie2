@@ -223,17 +223,13 @@ color:white;
 span.thumb {
 display:inline-block;
 float:left;
-height:12em;
+height:220px;
 text-align:center;
-width:12em;
+width:220px;
 }
 .thumb a.selected {
 	outline: 3px solid #008fff;
 	display: block;
-}
-.thumb img {
-	width: 11.5em;
-	height: 11.5em;
 }
 #pagelist {
 margin-top:32px;
@@ -250,22 +246,44 @@ width:350px;
 .helpable {
 border-bottom:1px dashed gray;
 }
+#flash {
+	background: rgba(247, 197, 22, 0.25);
+	display: block;
+	padding: 8px;
+	margin: 8px;
+	border: none;
+	color: #f7c516;
+	width: 50%;
+	text-align: center;
+}
 .ok {
--moz-background-clip:border;
--moz-background-inline-policy:continuous;
--moz-background-origin:padding;
-background:#1db992 none repeat scroll 0 0;
+	-moz-background-clip:border;
+	-moz-background-inline-policy:continuous;
+	-moz-background-origin:padding;
+	background: rgba(91, 185, 28, 0.25);
+	display: block;
+	padding: 8px;
+	margin: 8px;
+	width: 50%;
+	text-align: center;
+	color: #1db992;
 }
 .bad {
--moz-background-clip:border;
--moz-background-inline-policy:continuous;
--moz-background-origin:padding;
-background:#fc8833 none repeat scroll 0 0;
+	-moz-background-clip:border;
+	-moz-background-inline-policy:continuous;
+	-moz-background-origin:padding;
+	background: rgba(197, 43, 47, 0.25);
+	display: block;
+	padding: 8px;
+	margin: 8px;
+	width: 50%;
+	text-align: center;
+	color: #fc8833;
 }
 .comment .username:link {
-font-size:1.0em;
-font-weight:bold;
-color:#75c0c7;
+	font-size:1.0em;
+	font-weight:bold;
+	color:#75c0c7;
 }
 .comment .username:hover {
 	font-size:1.0em;
