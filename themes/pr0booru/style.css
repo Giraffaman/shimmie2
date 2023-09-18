@@ -73,8 +73,8 @@ h5 {
 font-size:1.2em;
 }
 table.zebra {border-collapse: collapse;border-spacing: 0;}
-table.zebra > tbody > tr:hover {background: #FFD;}
-table.zebra th {color: #171BB3; padding-right: 8px;}
+table.zebra > tbody > tr:hover {background: #212121;}
+table.zebra th {color: white; padding-right: 8px;}
 table.zebra td {border: 1px dotted #EEE;margin: 0;padding-right: 8px;}
 table.zebra th {margin: 0;text-align: left;}
 thead {
@@ -207,9 +207,9 @@ text-align:center;
 div#paginator b {
 margin:3px;
 padding:4px 8px;
+color:white;
 }
 div#paginator a {
-border:1px solid #EEEEEE;
 margin:3px;
 padding:4px 8px;
 }
@@ -217,20 +217,23 @@ div#paginator a:hover {
 -moz-background-clip:border;
 -moz-background-inline-policy:continuous;
 -moz-background-origin:padding;
-background:blue none repeat scroll 0 0;
-border:1px solid #EEEEEE;
+background:#008fff none repeat scroll 0 0;
 color:white;
 }
 span.thumb {
 display:inline-block;
 float:left;
-height:220px;
+height:12em;
 text-align:center;
-width:220px;
+width:12em;
 }
 .thumb a.selected {
 	outline: 3px solid #008fff;
 	display: block;
+}
+.thumb img {
+	width: 11.5em;
+	height: 11.5em;
 }
 #pagelist {
 margin-top:32px;
@@ -251,13 +254,13 @@ border-bottom:1px dashed gray;
 -moz-background-clip:border;
 -moz-background-inline-policy:continuous;
 -moz-background-origin:padding;
-background:#AAFFAA none repeat scroll 0 0;
+background:#1db992 none repeat scroll 0 0;
 }
 .bad {
 -moz-background-clip:border;
 -moz-background-inline-policy:continuous;
 -moz-background-origin:padding;
-background:#FFAAAA none repeat scroll 0 0;
+background:#fc8833 none repeat scroll 0 0;
 }
 .comment .username:link {
 font-size:1.0em;
