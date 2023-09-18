@@ -223,9 +223,9 @@ color:white;
 span.thumb {
 display:inline-block;
 float:left;
-height:220px;
+height:154px;
 text-align:center;
-width:220px;
+width:154px;
 }
 .thumb a.selected {
 	outline: 3px solid #008fff;
