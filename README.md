@@ -1,3 +1,12 @@
+Forked this for personal use and added/changed some things here and there:
+- custom red Danbooru-based theme
+- changed Autocomplete extension to load current theme's css last (currently dirty since it results in theem's stylesheet being loaded twice, but mkay)
+- changed home page extension to allow for configurable logo and logo link
+- changed index.php's site title behavior to also be configurable with a logo and custom logo link
+
+To Dos:
+- see feature request issues
+
 ```
      _________.__     .__                   .__         ________
     /   _____/|  |__  |__|  _____    _____  |__|  ____  \_____  \
