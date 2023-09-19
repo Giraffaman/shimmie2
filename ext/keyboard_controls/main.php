@@ -16,14 +16,7 @@ class keyboardControls extends Extensino {
     public function onPageRequest(onPageRequestEvent $event) {
         global $page;
         if($event->page_matched("post/view")) {
-            
-            
-            return "
-<script type='text/javascript' language='javascript'>
-    var PREV_KEYS = <?php echo json_encode($config->get_array(keyBindings::PREV_KEYS);); ?>;
-    var NEXT_KEYS = <?php echo json_encode($config->get_array(keyBindings::NEXT_KEYS);); ?>;
-</script>
-";
+            $this->$theme->defineJsVars($page);
         }
     }
 }
