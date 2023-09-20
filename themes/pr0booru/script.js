@@ -1,6 +1,6 @@
 document.addEventListener('keydown', (e) => {
     // for testing if this is active
-    alert("running");
+    // alert("running");
 
     var PREV_KEYS = ("a","p");
     var NEXT_KEYS = ("d","n");
