@@ -1,4 +1,5 @@
 document.addEventListener('keydown', (e) => {
+    alert("running");
     switch(e.key) {
         case $PREV_KEYS.includes(e.key):
             $target = document.getElementById("prevlink").getAttribute("href");
