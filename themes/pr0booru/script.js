@@ -2,11 +2,11 @@ document.addEventListener('keydown', (e) => {
     // for testing if this is active
     // alert("running");
 
-    var PREV_KEYS = ("a","p");
-    var NEXT_KEYS = ("d","n");
-    var PRPG_KEYS = ("q");
-    var NXPG_KEYS = ("e");
-    var FAV_KEYS = ("f");
+    var $PREV_KEYS = ("a","p");
+    var $NEXT_KEYS = ("d","n");
+    var $PRPG_KEYS = ("q");
+    var $NXPG_KEYS = ("e");
+    var $FAV_KEYS = ("f");
     //var PLAY_KEYS = ("???")
 
     switch(e.key) {
@@ -26,15 +26,19 @@ document.addEventListener('keydown', (e) => {
                 break;
             }
             break;
-        case "f":
-            // grab "Favorite"/"Un-Favorite"-button and click it
-            $fb = document.querySelector('\
-                section#Post_Controlsleft > div.blockbody > form[action="/change_favorite"] > input[value="Favorite"],\
-                section#Post_Controlsleft > div.blockbody > form[action="/change_favorite"] > input[value="Un-Favorite"]\
-            ');
-            if($fb) {
-                $fb.click();
-                break;
+        case $FAV_KEYS.includes(e.key):    
+            if(window.location.pathname.match("/post/view/")) {
+                // grab "Favorite"/"Un-Favorite"-button and click it
+                $fb = document.querySelector('\
+                    section#Post_Controlsleft > div.blockbody > form[action="/change_favorite"] > input[value="Favorite"],\
+                    section#Post_Controlsleft > div.blockbody > form[action="/change_favorite"] > input[value="Un-Favorite"]\
+                ');
+                if($fb) {
+                    $fb.click();
+                    break;
+                } else {
+                    break;
+                }
             } else {
                 break;
             }
