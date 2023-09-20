@@ -35,7 +35,7 @@ class MimeType
     public const MP4_AUDIO = 'audio/mp4';
     public const MP4_VIDEO = 'video/mp4';
     // not supported still for some reason
-    public const M4A_VIDEO = 'video/x-m4a';
+    public const M4V_VIDEO = 'video/x-m4v';
     public const MPEG = 'video/mpeg';
     public const OCTET_STREAM = 'application/octet-stream';
     public const OGG = 'application/ogg';
