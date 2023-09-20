@@ -20,6 +20,7 @@ class VideoFileHandler extends DataHandlerExtension
         MimeType::FLASH_VIDEO,
         MimeType::MKV,
         MimeType::MP4_VIDEO,
+        MimeType::M4A_VIDEO,
         MimeType::OGG_VIDEO,
         MimeType::QUICKTIME,
         MimeType::WEBM,
