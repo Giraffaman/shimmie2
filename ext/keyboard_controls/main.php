@@ -16,7 +16,7 @@ class keyboardControls extends Extensino {
     public function onPageRequest(onPageRequestEvent $event) {
         global $page;
         if($event->page_matched("post/view")) {
-            $this->$theme->defineJsVars($page);
+            $this->theme->defineJsVars($page);
         }
     }
 }
