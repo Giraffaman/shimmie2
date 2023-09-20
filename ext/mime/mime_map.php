@@ -131,8 +131,8 @@ class MimeMap
         // trying to support video/x-m4v here:
         MimeType::M4V_VIDEO => [
             self::MAP_NAME => "M4V Video",
-            slef::MAP_EXT => [FileExtension::MP4, FileExtension::M4V],
-            self::MAP_MIME => [MimeType::MV4_VIDEO],
+            self::MAP_EXT => [FileExtension::MP4, FileExtension::M4V],
+            self::MAP_MIME => [MimeType::M4V_VIDEO],
         ],
         MimeType::MPEG => [
             self::MAP_NAME => "MPEG",
