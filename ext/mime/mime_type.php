@@ -33,8 +33,7 @@ class MimeType
     public const MKV = 'video/x-matroska';
     public const MP3 = 'audio/mpeg';
     public const MP4_AUDIO = 'audio/mp4';
-    public const MP4_VIDEO = 'video/mp4';
-    public const M4A_VIDEO = 'video/x-m4a';
+    public const MP4_VIDEO = 'video/x-m4a';
     public const MPEG = 'video/mpeg';
     public const OCTET_STREAM = 'application/octet-stream';
     public const OGG = 'application/ogg';
