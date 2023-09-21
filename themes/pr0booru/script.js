@@ -1,4 +1,3 @@
-document.addEventListener('keyup', (e) => {
     // for testing if this is active
     // alert("running");
 
@@ -6,9 +5,11 @@ document.addEventListener('keyup', (e) => {
     var NEXT_KEYS = ["d","n"];
     var PRPG_KEYS = ["q"];
     var NXPG_KEYS = ["e"];
-    var FAV_KEYS = ["f"];
+    var FAV_KEYS = ["F"];
     //var PLAY_KEYS = ("???")
 
+
+document.addEventListener('keyup', (e) => {
     if(window.location.pathname.match("/post/view/")) {
         console.log("post view controls");
         if(PREV_KEYS.includes(e.key)) {
@@ -19,19 +20,19 @@ document.addEventListener('keyup', (e) => {
             console.log(NEXT_KEYS);
             $target = document.getElementById("nextlink").pathname;
             window.location.href=$target;
-        } else if(FAV_KEYS.includes(e.key)) {
-            console.log(FAV_KEYS);
+        } else if(e.shiftKey && FAV_KEYS.includes(e.key)) {
+            console.log(FAV_KEYS+" pressed");
             // grab "Favorite"/"Un-Favorite"-button and click it
             fb = document.querySelector('\
                 section#Post_Controlsleft > div.blockbody > form[action="/change_favorite"] > input[value="Favorite"],\
                 section#Post_Controlsleft > div.blockbody > form[action="/change_favorite"] > input[value="Un-Favorite"]\
             ');
             if(fb) {
-            fb.click();
+                fb.click();
             } else {
                 ;
             }
-        } else {
+        }  else {
             ;
         }
     } else if(window.location.pathname.match("post/list")) {
@@ -70,3 +71,19 @@ document.addEventListener('keyup', (e) => {
     }
 });
 
+// since we want to prevent default action for spacebar and that action usually fires before keyup, need to check for keydown:
+document.addEventListener("keydown", e => {
+    if((window.location.pathname.match("/post/view/")) && (e.key === " ")) {
+        if(e.key === " ") {
+            var video = document.querySelector("video#main_image");
+            if(video != null) {
+                e.preventDefault();
+                if(!video.paused) {
+                    video.pause();  
+                } else {
+                    video.play();
+                }
+            }
+        } 
+    }
+});
