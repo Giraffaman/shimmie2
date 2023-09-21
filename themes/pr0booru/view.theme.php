@@ -61,8 +61,9 @@ class CustomViewImageTheme extends ViewImageTheme
         $imgUrl = "";
         $imgUrl = $image->get_image_link();
         if($imgUrl) {
-            $html .= "<a href='$imgUrl'><img src='/ext/pr0booru/save-red.png'></a>";
+            $html .= "<br><br><a href='javascript:void(0);' 'onclick='document.execCommand('SaveAs', true, '$imgUrl');'><img src='ext/pr0booru/save-red.png'></a>";
         }
+        
         return $html;
     }
 }
