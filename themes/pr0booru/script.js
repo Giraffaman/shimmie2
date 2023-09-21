@@ -8,18 +8,21 @@
     var FAV_KEYS = ["F"];
     //var PLAY_KEYS = ("???")
 
-
 document.addEventListener('keyup', (e) => {
     if(window.location.pathname.match("/post/view/")) {
         console.log("post view controls");
         if(PREV_KEYS.includes(e.key)) {
             console.log(PREV_KEYS);
-            $target = document.getElementById("prevlink").pathname;
-            window.location.href=$target;
+            target = document.getElementById("prevlink").pathname;
+            if(window.location.pathname.split("/")[3] != target.split("/")[3]) {
+                window.location.href = target;
+            }
         } else if(NEXT_KEYS.includes(e.key)) {
             console.log(NEXT_KEYS);
-            $target = document.getElementById("nextlink").pathname;
-            window.location.href=$target;
+            target = document.getElementById("nextlink").pathname;
+            if(window.location.pathname.split("/")[3] != target.split("/")[3]) {
+                window.location.href = target;
+            }
         } else if(e.shiftKey && FAV_KEYS.includes(e.key)) {
             console.log(FAV_KEYS+" pressed");
             // grab "Favorite"/"Un-Favorite"-button and click it
