@@ -127,7 +127,6 @@ class MimeMap
             self::MAP_NAME => "MP4 Video",
             self::MAP_EXT => [FileExtension::MP4, FileExtension::M4V],
             self::MAP_MIME => [MimeType::MP4_VIDEO, 'video/x-m4v'],
-            //self::MAP_MIME => [MimeType::MP4_VIDEO, 'video/mp4'],
         ],
         // 2023-09-21 - added to support https://github.com/Giraffaman/shimmie2/issues/11
         /*
