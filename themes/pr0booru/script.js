@@ -9,6 +9,11 @@
     //var PLAY_KEYS = ("???")
 
 document.addEventListener('keyup', (e) => {
+    // we don't want to react to shortcuts if user is typing into a comment box or the search menu:
+    if(e.target.matches("input") || e.target.matches("textarea")) {
+        return;
+    }
+
     if(window.location.pathname.match("/post/view/")) {
         console.log("post view controls");
         if(PREV_KEYS.includes(e.key)) {
@@ -72,6 +77,11 @@ document.addEventListener('keyup', (e) => {
 
 // since we want to prevent default action for spacebar and that action usually fires before keyup, need to check for keydown:
 document.addEventListener("keydown", e => {
+    // we don't want to react to shortcuts if user is typing into a comment box or the search menu:
+    if(e.target.matches("input") || e.target.matches("textarea")) {
+        return;
+    }
+    
     if((window.location.pathname.match("/post/view/")) && (e.key === " ")) {
         if(e.key === " ") {
             var video = document.querySelector("video#main_image");
