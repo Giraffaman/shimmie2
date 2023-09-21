@@ -20,7 +20,7 @@ class VideoFileHandler extends DataHandlerExtension
         MimeType::FLASH_VIDEO,
         MimeType::MKV,
         MimeType::MP4_VIDEO,
-        // 2023-09-21 - added to support https://github.com/Giraffaman/shimmie2/issues/11 but not sure if this did anthing by itself tbh:
+        // 2023-09-21 - added to support https://github.com/Giraffaman/shimmie2/issues/11
         MimeType::M4V_VIDEO,
         MimeType::OGG_VIDEO,
         MimeType::QUICKTIME,

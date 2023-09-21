@@ -36,7 +36,13 @@ document.addEventListener('keyup', (e) => {
         }
     } else if(window.location.pathname.match("post/list")) {
         console.log("only page controls");
+        var paginatorDiv = document.getElementById("paginator");
+        var index = Array.prototype.indexOf.call(paginatorDiv.children, document.querySelector("#paginator b"));
         if(PRPG_KEYS.includes(e.key)) {
+            var prevlink = paginatorDiv.children[index-1];
+            if(prevlink) {
+                window.location.pathname = prevlink.pathname;
+            };
         /*
             do something to:
             - check which page we're on
@@ -45,6 +51,10 @@ document.addEventListener('keyup', (e) => {
             - if not, do nothing
         */
         } else if(NXPG_KEYS.includes(e.key)) {
+            nextlink = paginatorDiv.children[index+1];
+            if(nextlink) {
+                window.location.pathname = nextlink.pathname;
+            };
             /*
                 do something to:
                 - check which page we're on
