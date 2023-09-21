@@ -58,6 +58,11 @@ class CustomViewImageTheme extends ViewImageTheme
             $html .= "<br>Rating: $h_rating";
         }
 
+        $imgUrl = "";
+        $imgUrl = $image->get_image_link();
+        if($imUrl) {
+            $html .= "<a href='$imgUrl'><img src='/ext/pr0booru/save-red.png'></a>";
+        }
         return $html;
     }
 }

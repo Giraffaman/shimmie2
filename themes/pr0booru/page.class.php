@@ -8,7 +8,7 @@ use MicroHTML\HTMLElement;
 
 /**
  * Name: Danbooru Theme
- * Author: Bzchan <bzchan@animemahou.com>
+ * Author: Bzchan <bzchan@animemahou.com>$
  * Link: https://code.shishnet.org/shimmie2/
  * License: GPLv2
  * Description: This is a simple theme changing the css to make shimme
