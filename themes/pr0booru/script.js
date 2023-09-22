@@ -100,7 +100,16 @@ document.addEventListener("keydown", e => {
 // wait until the page is fully loaded, then set download link to full-size image
 window.addEventListener('load', function () {
     var dla = document.getElementById('dla');
-    var img = document.getElementById('main_image');
-    dla.href = img.src;
-dla.download = img.src;
+   	var main_image = document.getElementById('main_image') 
+    if(main_image) {
+        if(main_image.src) {
+            dla.href = main_image.src;
+            dla.download = main_image.src;
+        } else if(main_image.children[0].src) {
+            dla.href = main_image.children[0].src;
+            dla.download = main_image.children[0].src;
+        } else {
+            ;
+        }
+    }
 });
