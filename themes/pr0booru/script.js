@@ -96,3 +96,11 @@ document.addEventListener("keydown", e => {
         } 
     }
 });
+
+// wait until the page is fully loaded, then set download link to full-size image
+window.addEventListener('load', function () {
+    var dla = document.getElementById('dla');
+    var img = document.getElementById('main_image');
+    dla.href = img.src;
+dla.download = img.src;
+});

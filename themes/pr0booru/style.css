@@ -407,3 +407,15 @@ ul.tagit input[type="text"] {
 	background: inherit;
 	color: inherit;
 }
+
+div#dlimg {
+	background-image: url('/themes/pr0booru/save-red.png');
+	background-size: 100%;
+	width: 24px;
+	height: 24px;
+ }
+ 
+ div#dlimg:hover {
+	background-image: url('/themes/pr0booru/save-white.png');
+ }
+ 
