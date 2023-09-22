@@ -63,7 +63,7 @@ class CustomViewImageTheme extends ViewImageTheme
         if($imgUrl) {
             // change this to dynamically get this theme's path
             // TO DO: image link and onclick content are getting garbled here - move this into script.js!
-            $html .= "<br><br><a href='javascript:void(0);' id='dla'><div id='dlimg'></div></a><br>";
+            $html .= "<br><br><a href='javascript:void(0);' id='dla'><div id='dlimg'>DOWNLOAD</div></a><br>";
         }
         
         return $html;
