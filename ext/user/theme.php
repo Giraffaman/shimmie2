@@ -250,7 +250,7 @@ class UserPageTheme extends Themelet
                     "Change Name",
                     TBODY(TR(
                         TH("New name"),
-                        TD(INPUT(["type"=>'text', "name"=>'name', "value"=>$duser->name]))
+                        TD(INPUT(["type"=>'text', "name"=>'name', "value"=>$duser->name, "required"=>true]))
                     )),
                     "Set"
                 ));
@@ -279,7 +279,7 @@ class UserPageTheme extends Themelet
                 "Change Email",
                 TBODY(TR(
                     TH("Address"),
-                    TD(INPUT(["type"=>'text', "name"=>'address', "value"=>$duser->email, "autocomplete"=>'email', "inputmode"=>'email']))
+                    TD(INPUT(["type"=>'text', "name"=>'address', "value"=>$duser->email, "autocomplete"=>'email', "inputmode"=>'email', "required"=>true]))
                 )),
                 "Set"
             ));
