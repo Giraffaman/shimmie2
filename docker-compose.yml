@@ -1,8 +1,8 @@
 version: "3"
 services:
   sql:
-    PUID: ${PUID}
-    PGID: ${PGID}
+    PUID: ${P_UID}
+    PGID: ${P_GID}
     image: postgres:15-alpine
     container_name: shimmie-sql
     restart: unless-stopped
@@ -17,8 +17,8 @@ services:
       - bay-21-internal
       
   shimmie:
-    PUID: ${PUID}
-    PGID: ${PGID}
+    PUID: ${P_UID}
+    PGID: ${P_GID}
     build:
       context: .
       dockerfile: Dockerfile
