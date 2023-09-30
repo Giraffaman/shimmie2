@@ -17,15 +17,15 @@ document.addEventListener('keyup', (e) => {
     if(window.location.pathname.match("/post/view/")) {
         console.log("post view controls");
         if(PREV_KEYS.includes(e.key)) {
-            console.log(PREV_KEYS);
+            console.log(e.key);
             target = document.getElementById("prevlink").pathname;
             window.location.href = target;
         } else if(NEXT_KEYS.includes(e.key)) {
-            console.log(NEXT_KEYS);
+            console.log(e.key);
             target = document.getElementById("nextlink").pathname;
             window.location.href = target;
         } else if(e.shiftKey && FAV_KEYS.includes(e.key)) {
-            console.log(FAV_KEYS+" pressed");
+            console.log(e.key);
             // grab "Favorite"/"Un-Favorite"-button and click it
             fb = document.querySelector('\
                 section#Post_Controlsleft > div.blockbody > form[action="/change_favorite"] > input[value="Favorite"],\
@@ -56,6 +56,7 @@ document.addEventListener('keyup', (e) => {
             - if not, do nothing
         */
         } else if(NXPG_KEYS.includes(e.key)) {
+            console.log(e.key);
             nextlink = paginatorDiv.children[index+1];
             if(nextlink) {
                 window.location.pathname = nextlink.pathname;
@@ -81,7 +82,8 @@ document.addEventListener("keydown", e => {
     if(e.target.matches("input") || e.target.matches("textarea")) {
         return;
     }
-    
+    console.log(e.key);
+
     if((window.location.pathname.match("/post/view/")) && (e.key === " ")) {
         if(e.key === " ") {
             var video = document.querySelector("video#main_image");
