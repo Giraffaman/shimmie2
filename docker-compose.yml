@@ -5,8 +5,9 @@ services:
     container_name: shimmie-sql
     restart: unless-stopped
     #user: 1000:1000
-    user: ${PUID}:${PGID}
     environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
       - POSTGRES_DB=${PSQL_DB}
       - POSTGRES_USER=${PSQL_USER}
       - POSTGRES_PASSWORD=${PSQL_PW}
@@ -20,10 +21,11 @@ services:
       context: .
       dockerfile: Dockerfile
     #image: shish2k/shimmie2:latest
-    user: ${PUID}:${PGID}
     container_name: shimmie
     restart: unless-stopped
     environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
       - POSTGRES_HOST=sql
       - POSTGRES_DB=${PSQL_DB}
       - POSTGRES_USER=${PSQL_USER}
