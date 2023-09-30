@@ -10,7 +10,7 @@ services:
       - POSTGRES_USER=${PSQL_USER}
       - POSTGRES_PASSWORD=${PSQL_PW}
     volumes:
-      - db:/var/lib/postgresql/data
+      - ${DB_PATH}:/var/lib/postgresql/data
     networks:
       - bay-21-internal
       
@@ -32,7 +32,7 @@ services:
     ports:
       - ${PORT}:8000
     volumes:
-      - app:/app/data
+      - ${APP_PATH}:/app/data
       #- ${PHP_INI}:/usr/local/etc/php/php.ini
       - ${PHP_INI}:/etc/php/8.2/cli/php.ini
     networks:
