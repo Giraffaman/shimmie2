@@ -1,13 +1,13 @@
 version: "3"
 services:
   sql:
-    PUID: ${P_UID}
-    PGID: ${P_GID}
     image: postgres:15-alpine
     container_name: shimmie-sql
     restart: unless-stopped
     #user: 1000:1000
     environment:
+      - PUID: ${PUID}
+      - PGID: ${PGID}
       - POSTGRES_DB=${PSQL_DB}
       - POSTGRES_USER=${PSQL_USER}
       - POSTGRES_PASSWORD=${PSQL_PW}
@@ -17,8 +17,6 @@ services:
       - bay-21-internal
       
   shimmie:
-    PUID: ${P_UID}
-    PGID: ${P_GID}
     build:
       context: .
       dockerfile: Dockerfile
@@ -26,6 +24,8 @@ services:
     container_name: shimmie
     restart: unless-stopped
     environment:
+      - PUID: ${PUID}
+      - PGID: ${PGID}
       - POSTGRES_HOST=sql
       - POSTGRES_DB=${PSQL_DB}
       - POSTGRES_USER=${PSQL_USER}
