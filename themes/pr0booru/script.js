@@ -1,10 +1,10 @@
     // for testing if this is active
     // alert("running");
 
-    var PREV_KEYS = ["a","p"];
-    var NEXT_KEYS = ["d","n"];
-    var PRPG_KEYS = ["q"];
-    var NXPG_KEYS = ["e"];
+    var PREV_KEYS = ["a","p","ArrowLeft"];
+    var NEXT_KEYS = ["d","n","ArrowRight"];
+    var PRPG_KEYS = ["q","ArrowLeft"];
+    var NXPG_KEYS = ["e","ArrowRight"];
     var FAV_KEYS = ["F"];
     //var PLAY_KEYS = ("???")
 
