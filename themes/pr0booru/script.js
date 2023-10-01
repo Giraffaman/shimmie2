@@ -3,8 +3,8 @@
 
     var PREV_KEYS = ["a","p","ArrowLeft"];
     var NEXT_KEYS = ["d","n","ArrowRight"];
-    var PRPG_KEYS = ["q","ArrowLeft"];
-    var NXPG_KEYS = ["e","ArrowRight"];
+    var PRPG_KEYS = ["a","p","ArrowLeft"];
+    var NXPG_KEYS = ["d","m","ArrowRight"];
     var FAV_KEYS = ["F"];
     //var PLAY_KEYS = ("???")
 
