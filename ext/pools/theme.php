@@ -210,7 +210,7 @@ class PoolsTheme extends Themelet
             ),
             SHM_SIMPLE_FORM(
                 "post/list/pool_id=" . $pool->id . "/1",
-                SHM_SUBMIT("Post/List View", ["name"=>"edit", "id"=>$pool->id])
+                SHM_SUBMIT("Post/List View", ["name" => "edit", "id" => $pool->id])
             )
         );
 

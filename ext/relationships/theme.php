@@ -41,7 +41,7 @@ class RelationshipsTheme extends Themelet
             "Parent",
             !$user->is_anonymous(),
             strval($image->parent_id) ?: "None",
-            INPUT(["type"=>"number", "name"=>"tag_edit__parent", "value"=>$image->parent_id])
+            INPUT(["type" => "number", "name" => "tag_edit__parent", "value" => $image->parent_id])
         );
     }
 
