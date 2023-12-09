@@ -110,10 +110,10 @@ class Page extends BasePage
         if(Extension::is_enabled(RatingsInfo::KEY)) {
             $ratingRadio = "
                 <form action="">
-                    <input type="radio" id="SFW" name="Sfw" value="sfw">
-                    <label for="Sfw">S F W</label>
-                    <input type="radio" id="NSFW" name="Nsfw" value="nsfw">
-                    <label for="Nsfw">N S F W</label>
+                    <input type='radio' id='SFW' name='Sfw' value='sfw'>
+                    <label for='Sfw'>S F W</label>
+                    <input type='radio' id='NSFW' name='Nsfw' value='nsfw'>
+                    <label for='Nsfw'>N S F W</label>
                 </form>
             "
             $custom_links .= "<li>".$ratingRadio."</li>";
