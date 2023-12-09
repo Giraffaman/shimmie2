@@ -42,7 +42,7 @@ class TagList extends Extension
                 default:
                 case 'map':
                     $this->theme->set_heading("Tag Map");
-                    if($user->is_logged_in) {
+                    if($user->is_logged_in()) {
                         $this->theme->set_tag_list($this->build_tag_map());
                     }
                     break;
