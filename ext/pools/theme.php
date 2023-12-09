@@ -129,18 +129,6 @@ class PoolsTheme extends Themelet
 				<input type='hidden' name='q' value='pool/list'>
 			</form>";
 
-        $search = "<form action='".make_link('pool/list')."' method='GET'>
-				<input name='search' type='text'  style='width:75%'>
-				<input type='submit' value='Go' style='width:20%'>
-				<input type='hidden' name='q' value='pool/list'>
-			</form>";
-
-        $search = "<form action='".make_link('pool/list')."' method='GET'>
-				<input name='search' type='text'  style='width:75%'>
-				<input type='submit' value='Go' style='width:20%'>
-				<input type='hidden' name='q' value='pool/list'>
-			</form>";
-
         $page->add_block(new NavBlock());
         $page->add_block(new Block("Pool Navigation", $poolnav, "left", 10));
         $page->add_block(new Block("Search", $search, "left", 10));
