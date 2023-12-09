@@ -115,7 +115,7 @@ class Page extends BasePage
                     <input type='radio' id='NSFW' name='Nsfw' value='nsfw'>
                     <label for='Nsfw'>N S F W</label>
                 </form>
-            "
+            ";
             $custom_links .= "<li>".$ratingRadio."</li>";
         }
 
