@@ -105,6 +105,20 @@ class Page extends BasePage
             $custom_links .=  "<li>".$this->navlinks($nav_link->link, $nav_link->description, $nav_link->active)."</li>";
         }
 
+        # changed 2023-12-08:
+        # check if ratings extension is installed and, if yes, add ratings sfw/nsfw control at end of navbar links list
+        if(Extension::is_enabled(RatingsInfo::KEY)) {
+            $ratingRadio = "
+                <form action="">
+                    <input type="radio" id="SFW" name="Sfw" value="sfw">
+                    <label for="Sfw">S F W</label>
+                    <input type="radio" id="NSFW" name="Nsfw" value="nsfw">
+                    <label for="Nsfw">N S F W</label>
+                </form>
+            "
+            $custom_links .= "<li>".$ratingRadio."</li>";
+        }
+
         $custom_sublinks = "";
         if (!empty($sub_links)) {
             $custom_sublinks = "<div class='sbar'>";
