@@ -109,7 +109,7 @@ class Page extends BasePage
         # check if ratings extension is installed and, if yes, add ratings sfw/nsfw control at end of navbar links list
         if(Extension::is_enabled(RatingsInfo::KEY)) {
             $ratingRadio = "
-                <form action="">
+                <form action=''>
                     <input type='radio' id='SFW' name='Sfw' value='sfw'>
                     <label for='Sfw'>S F W</label>
                     <input type='radio' id='NSFW' name='Nsfw' value='nsfw'>
