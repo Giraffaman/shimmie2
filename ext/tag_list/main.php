@@ -29,7 +29,7 @@ class TagList extends Extension
 
     public function onPageRequest(PageRequestEvent $event)
     {
-        global $page;
+        global $page, $user;
 
         if ($event->page_matches("tags")) {
             $this->theme->set_navigation($this->build_navigation());
@@ -42,7 +42,9 @@ class TagList extends Extension
                 default:
                 case 'map':
                     $this->theme->set_heading("Tag Map");
-                    $this->theme->set_tag_list($this->build_tag_map());
+                    if($user->is_logged_in) {
+                        $this->theme->set_tag_list($this->build_tag_map());
+                    }
                     break;
                 case 'alphabetic':
                     $this->theme->set_heading("Alphabetic Tag List");
