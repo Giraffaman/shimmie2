@@ -65,14 +65,19 @@ class Page extends BasePage
         $checked = "";
         $html = "";
 
+        echo "custom bool from array function called....";
+
         if (!is_null($label)) {
+            echo "...label exists...";
             $html .= "<label for='{$name}'>{$label}</label>";
         }
 
         foreach ($ref as $optname => $optval) {
             if (in_array($optval, $current)) {
+                echo "$optval is active";
                 $checked = " checked";
             } else {
+                echo "$optval is inactive";
                 $checked = "";
             }
             $html .= "<input type='checkbox' id='$name' name='_config_$name'$checked>\n";
@@ -135,11 +140,14 @@ class Page extends BasePage
 
         # changed 2023-12-08:
         # check if ratings extension is installed and, if yes, add ratings sfw/nsfw control at end of navbar links list
+        echo "checking if Ratings is enabled...";
         if(Extension::is_enabled(RatingsInfo::KEY)) {
+            echo "Ratings is enabled!";
             global $user, $_shm_ratings;
             $userRatings = Ratings::get_user_class_privs($user);
 
             if(in_array("explicit", $userRatings)) {
+                echo "user allowd to see lewd stuff...";
             /*$ratingRadio = "
                 <form action=''>
                     <label class='ratingDispOpt'>Sfw
