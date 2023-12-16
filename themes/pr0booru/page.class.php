@@ -150,7 +150,7 @@ class Page extends BasePage
             $userRatings = [];
             $userRatings = Ratings::get_user_default_ratings();
 
-            if((in_array("e", $userRatings->search_term) || (in_array("?", $userRatings)))) {
+            if((in_array("e", $userRatings) || (in_array("?", $userRatings)))) {
                 echo "user allowd to see stuff...";
                 foreach($userRatings as $i) {
                     echo $i;
