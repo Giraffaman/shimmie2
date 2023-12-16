@@ -59,7 +59,7 @@ class Page extends BasePage
 
     public function add_boolFromArray(string $name, array $ratings, string $label = null) {
         global $config;
-        $current = $this->config->get_array($ratings);
+        $current = $config->get_array($ratings);
 
         foreach($current as $c) {
             echo $c;
@@ -154,7 +154,7 @@ class Page extends BasePage
                 echo "user allowd to see stuff...";
                 foreach($userRatings as $i) {
                     echo $i;
-                    echo $i->search_term;
+                    echo $userRatings[$i]->search_term;
                 };
                 
             /*$ratingRadio = "
