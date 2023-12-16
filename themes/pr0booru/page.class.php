@@ -57,11 +57,13 @@ class Page extends BasePage
         $this->left_enabled = false;
     }
 
-    public function add_boolFromArray(string $name, array $ref, string $label = null) {
+    public function add_boolFromArray(string $name, array $ratings, string $label = null) {
         global $config;
-        $current = $this->config->get_array($ref);
+        $current = $this->config->get_array($ratings);
 
-
+        foreach($current as $c) {
+            echo $c;
+        }
         $checked = "";
         $html = "";
 
@@ -72,7 +74,7 @@ class Page extends BasePage
             $html .= "<label for='{$name}'>{$label}</label>";
         }
 
-        foreach ($ref as $optname => $optval) {
+        foreach ($ratings as $optname => $optval) {
             if (in_array($optval, $current)) {
                 echo "$optval is active";
                 $checked = " checked";
@@ -148,12 +150,11 @@ class Page extends BasePage
             $userRatings = [];
             $userRatings = Ratings::get_user_default_ratings();
 
-            if((in_array("e", $userRatings) || (in_array("?", $userRatings)))) {
+            if((in_array("e", $userRatings->search_term) || (in_array("?", $userRatings)))) {
                 echo "user allowd to see stuff...";
-                foreach($userRatings as $i => $itest) {
+                foreach($userRatings as $i) {
                     echo $i;
-                    echo $i->name;
-                    echo "itest is $itest";
+                    echo $i->search_term;
                 };
                 
             /*$ratingRadio = "
@@ -171,7 +172,7 @@ class Page extends BasePage
             ";
             */
                 $ratingCtrl = "<form action=''>";
-                $ratingCtrl .= $this->add_boolFromArray("safe", RatingsConfig::USER_DEFAULTS, "Sfw");
+                $ratingCtrl .= $this->add_boolFromArray("safe", $userRatings, "Sfw");
                 $ratingCtrl .= $this->add_boolFromArray("explicit", RatingsConfig::USER_DEFAULTS, "Nsfw");
                 $ratingCtrl .= "</form>";
                 $custom_links .= "<li>".$ratingCtrl."</li>";
