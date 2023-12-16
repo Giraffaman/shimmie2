@@ -144,7 +144,9 @@ class Page extends BasePage
         if(Extension::is_enabled(RatingsInfo::KEY)) {
             echo "Ratings is enabled!";
             global $user, $_shm_ratings;
-            $userRatings = Ratings::get_user_class_privs($user);
+            #$userRatings = Ratings::get_user_class_privs($user);
+            $userRatings = [];
+            $userRatings = Ratings::get_user_default_ratings();
 
             if(in_array("explicit", $userRatings)) {
                 echo "user allowd to see lewd stuff...";
