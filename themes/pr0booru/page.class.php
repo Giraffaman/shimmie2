@@ -57,7 +57,7 @@ class Page extends BasePage
         $this->left_enabled = false;
     }
 
-    public function add_boolFromArray(string $name, array $ratings, string $label = null) {
+    public function add_boolFromArray(string $name, array $ratings, string $refArray, string $label = null) {
         global $config;
         $current = $config->get_array($ratings);
 
@@ -154,7 +154,8 @@ class Page extends BasePage
                 echo "user allowd to see stuff...";
                 foreach($userRatings as $i) {
                     echo $i;
-                    echo $userRatings[$i]->search_term;
+                    echo $i->search_term;
+                    echo $i['search_term'];
                 };
                 
             /*$ratingRadio = "
@@ -172,8 +173,8 @@ class Page extends BasePage
             ";
             */
                 $ratingCtrl = "<form action=''>";
-                $ratingCtrl .= $this->add_boolFromArray("safe", $userRatings, "Sfw");
-                $ratingCtrl .= $this->add_boolFromArray("explicit", RatingsConfig::USER_DEFAULTS, "Nsfw");
+                $ratingCtrl .= $this->add_boolFromArray("safe", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
+                $ratingCtrl .= $this->add_boolFromArray("explicit", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
                 $ratingCtrl .= "</form>";
                 $custom_links .= "<li>".$ratingCtrl."</li>";
             } else {
