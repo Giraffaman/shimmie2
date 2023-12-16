@@ -148,6 +148,7 @@ class Page extends BasePage
 
             if(in_array("explicit", $userRatings)) {
                 echo "user allowd to see lewd stuff...";
+                echo $userRatings
             /*$ratingRadio = "
                 <form action=''>
                     <label class='ratingDispOpt'>Sfw
@@ -167,6 +168,9 @@ class Page extends BasePage
                 $ratingCtrl .= add_boolFromArray("explicit", RatingsConfig::USER_DEFAULTS, "Nsfw");
                 $ratingCtrl .= "</form>";
                 $custom_links .= "<li>".$ratingCtrl."</li>";
+            } else {
+                echo "user NOT allowed to see lewd stuff!";
+                echo $userRatings
             }
         }
 
