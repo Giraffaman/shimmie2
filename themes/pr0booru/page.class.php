@@ -150,9 +150,10 @@ class Page extends BasePage
 
             if((in_array("e", $userRatings) || (in_array("?", $userRatings)))) {
                 echo "user allowd to see stuff...";
-                foreach($userRatings as $i) {
+                foreach($userRatings as $i => $itest) {
                     echo $i;
-                    echo $i->$innerVal;
+                    echo $i->name;
+                    echo "itest is $itest";
                 };
                 
             /*$ratingRadio = "
@@ -170,8 +171,8 @@ class Page extends BasePage
             ";
             */
                 $ratingCtrl = "<form action=''>";
-                $ratingCtrl .= add_boolFromArray("safe", RatingsConfig::USER_DEFAULTS, "Sfw");
-                $ratingCtrl .= add_boolFromArray("explicit", RatingsConfig::USER_DEFAULTS, "Nsfw");
+                $ratingCtrl .= $this->add_boolFromArray("safe", RatingsConfig::USER_DEFAULTS, "Sfw");
+                $ratingCtrl .= $this->add_boolFromArray("explicit", RatingsConfig::USER_DEFAULTS, "Nsfw");
                 $ratingCtrl .= "</form>";
                 $custom_links .= "<li>".$ratingCtrl."</li>";
             } else {
