@@ -148,10 +148,11 @@ class Page extends BasePage
             $userRatings = [];
             $userRatings = Ratings::get_user_default_ratings();
 
-            if(in_array("explicit", $userRatings)) {
-                echo "user allowd to see lewd stuff...";
+            if((in_array("e", $userRatings) || (in_array("?", $userRatings)))) {
+                echo "user allowd to see stuff...";
                 foreach($userRatings as $i) {
                     echo $userRatings[$i];
+                    echo $userRatings[$i] => $innerVal;
                 };
                 
             /*$ratingRadio = "
@@ -174,10 +175,12 @@ class Page extends BasePage
                 $ratingCtrl .= "</form>";
                 $custom_links .= "<li>".$ratingCtrl."</li>";
             } else {
-                echo "user NOT allowed to see lewd stuff!";
+                echo "user NOT allowed to see stuff!";
                 foreach($userRatings as $i) {
                     echo $userRatings[$i];
-                };            }
+                    echo $userRatings[$i] => $innerVal;
+                };
+            }
         }
 
         $custom_sublinks = "";
