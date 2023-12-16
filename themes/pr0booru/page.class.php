@@ -152,7 +152,7 @@ class Page extends BasePage
                 echo "user allowd to see stuff...";
                 foreach($userRatings as $i) {
                     echo $i;
-                    echo $i => $innerVal;
+                    echo $i->$innerVal;
                 };
                 
             /*$ratingRadio = "
@@ -178,7 +178,7 @@ class Page extends BasePage
                 echo "user NOT allowed to see stuff!";
                 foreach($userRatings as $i) {
                     echo $i;
-                    echo $i => $innerVal;
+                    echo $i->$innerVal;
                 };
             }
         }
