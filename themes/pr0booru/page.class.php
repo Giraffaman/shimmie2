@@ -151,8 +151,8 @@ class Page extends BasePage
             if((in_array("e", $userRatings) || (in_array("?", $userRatings)))) {
                 echo "user allowd to see stuff...";
                 foreach($userRatings as $i) {
-                    echo $userRatings[$i];
-                    echo $userRatings[$i] => $innerVal;
+                    echo $i;
+                    echo $i => $innerVal;
                 };
                 
             /*$ratingRadio = "
@@ -177,8 +177,8 @@ class Page extends BasePage
             } else {
                 echo "user NOT allowed to see stuff!";
                 foreach($userRatings as $i) {
-                    echo $userRatings[$i];
-                    echo $userRatings[$i] => $innerVal;
+                    echo $i;
+                    echo $i => $innerVal;
                 };
             }
         }
