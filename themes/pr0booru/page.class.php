@@ -57,6 +57,34 @@ class Page extends BasePage
         $this->left_enabled = false;
     }
 
+    public function add_boolFromArray(string $name, array $ref, string $label = null) {
+        global $config
+        $current = $this->config->get_array($ref);
+
+
+        $checked = ""
+        $html = "";
+
+        if (!is_null($label)) {
+            $html .= "<label for='{$name}'>{$label}</label>";
+        }
+
+        foreach ($ref as $optname => $optval) {
+            if (in_array($optval, $current)) {
+                $checked = " checked";
+            } else {
+                $checked = "";
+            }
+            $html .= "<input type='checkbox' id='$name' name='_config_$name'$checked>\n";
+        }
+        
+        #$html .= "<input type='hidden' name='_type_$name' value='array'>\n";
+        #$html .= "<!--<br><br><br><br>-->\n"; // setup page auto-layout counts <br> tags
+
+        #$this->format_option($name, $html, $label, $table_row);
+        return $html
+    }
+
     public function render()
     {
         global $config;
@@ -107,16 +135,32 @@ class Page extends BasePage
 
         # changed 2023-12-08:
         # check if ratings extension is installed and, if yes, add ratings sfw/nsfw control at end of navbar links list
-        if(Extension::is_enabled(RatingsInfo::KEY)) {
-            $ratingRadio = "
-                <form action=''>
-                    <input type='radio' id='SFW' name='Sfw' value='sfw'>
-                    <label for='Sfw'>S F W</label>
-                    <input type='radio' id='NSFW' name='Nsfw' value='nsfw'>
-                    <label for='Nsfw'>N S F W</label>
-                </form>
-            ";
-            $custom_links .= "<li>".$ratingRadio."</li>";
+            if(Extension::is_enabled(RatingsInfo::KEY)) {
+                global $user, $_shm_ratings;
+                $userRatings = Ratings::get_user_class_privs($user)
+
+                if(in_array("explicit", $userRatings)) {
+                /*$ratingRadio = "
+                    <form action=''>
+                        <label class='ratingDispOpt'>Sfw
+                            <input type='checkbox' id='show-sfw'>
+                            <span class='ratingDispChkmark'></span>
+                        </label>
+                        <label class='ratingDispOpt'>Nsfw
+                            <input type='checkbox' id='show-nsfw'>
+                            <span class='ratingDispChkmark'></span>
+                        </label>
+                        <input type='submit' value='apply'>
+                    </form>
+                ";
+                */
+                    $ratingCtrl = "<form action=''>";
+                    $ratingCtrl .= add_boolFromArray("safe", RatingsConfig::USER_DEFAULTS, "Sfw");
+                    $ratingCtrl .= add_boolFromArray("explicit", RatingsConfig::USER_DEFAULTS, "Nsfw");
+                    $ratingCtrl .= "</form>";
+                    $custom_links .= "<li>".$ratingCtrl."</li>";
+                }
+            }
         }
 
         $custom_sublinks = "";
