@@ -152,10 +152,12 @@ class Page extends BasePage
 
             if((in_array("e", $userRatings) || (in_array("?", $userRatings)))) {
                 echo "user allowd to see stuff...";
-                foreach($userRatings as $i) {
+                foreach($userRatings as $i => $value) {
                     echo $i;
                     echo $i->search_term;
                     echo $i['search_term'];
+                    echo $userRatings[$i];
+                    echo $userRatings[$i]->search_term;
                 };
                 
             /*$ratingRadio = "
