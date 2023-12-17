@@ -57,12 +57,12 @@ class Page extends BasePage
         $this->left_enabled = false;
     }
 
-    public function debug_to_console($data) {
+    public function make_logentry($data) {
         if (is_array($data)) {
             $data = implode(',', $data);
         }
         return "<script>console.log('Debug: " . $data . "' );</script>";
-    }    
+    }
 
     public function add_boolFromArray(string $name, array $ratings, string $refArray, string $label = null) {
         global $user_config;
@@ -72,24 +72,24 @@ class Page extends BasePage
         $current = $user_config->get_array($refArray);
         foreach(array_keys($current) as $k) {
             if($deblog) { 
-                echo debug_to_console($k);
+                echo make_logentry($k);
             }
         }
         foreach(array_values($current) as $v) {
             if($deblog) { 
-                echo debug_to_console($v);
+                echo make_logentry($v);
             }
         }
         foreach($current as $c) {
             if($deblog) { 
-                echo debug_to_console($c);
+                echo make_logentry($c);
             }
         }
         $checked = "";
         $html = "";
 
         if($deblog) { 
-            echo debug_to_console("custom bool from array function called....");
+            echo make_logentry("custom bool from array function called....");
         }
 
         if (!is_null($label)) {
