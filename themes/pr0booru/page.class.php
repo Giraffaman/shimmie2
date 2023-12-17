@@ -69,8 +69,6 @@ class Page extends BasePage
         }
         foreach($current as $c) {
             echo $c;
-            echo $c->name;
-            echo $current[$c];
         }
         $checked = "";
         $html = "";
@@ -184,8 +182,8 @@ class Page extends BasePage
             ";
             */
                 $ratingCtrl = "<form action=''>";
-                $ratingCtrl .= $this->add_boolFromArray("Safe", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
-                $ratingCtrl .= $this->add_boolFromArray("Explicit", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
+                $ratingCtrl .= $this->add_boolFromArray("s", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
+                $ratingCtrl .= $this->add_boolFromArray("e", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
                 $ratingCtrl .= "</form>";
                 $custom_links .= "<li>".$ratingCtrl."</li>";
             } else {
