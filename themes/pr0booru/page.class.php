@@ -60,7 +60,7 @@ class Page extends BasePage
     public function add_boolFromArray(string $name, array $ratings, string $refArray, string $label = null) {
         global $config;
         $current = $config->get_array($refArray);
-
+        echo $current->key;
         foreach($current as $c) {
             echo $c;
         }
@@ -74,16 +74,17 @@ class Page extends BasePage
             $html .= "<label for='{$name}'>{$label}</label>";
         }
 
-        foreach ($ratings as $optname => $optval) {
-            if (in_array($optval, $current)) {
-                echo "$optval is active";
+        #foreach ($ratings as $optname => $optval) {
+            #if (in_array($optval, $current)) {
+            if (in_array($name, $current)) {
+                echo "$name is active";
                 $checked = " checked";
             } else {
-                echo "$optval is inactive";
+                echo "$name is inactive";
                 $checked = "";
             }
-            $html .= "<input type='checkbox' id='$name' name='_config_$name'$checked>\n";
-        }
+        #}
+        $html .= "<input type='checkbox' id='$name' name='_config_$name'$checked>\n";
         
         #$html .= "<input type='hidden' name='_type_$name' value='array'>\n";
         #$html .= "<!--<br><br><br><br>-->\n"; // setup page auto-layout counts <br> tags
@@ -154,10 +155,10 @@ class Page extends BasePage
                 echo "user allowd to see stuff...";
                 foreach($userRatings as $i => $value) {
                     echo $i;
-                    echo $i->search_term;
-                    echo $i['search_term'];
+                    #echo $i->search_term;
+                    #echo $i['search_term'];
                     echo $userRatings[$i];
-                    echo $userRatings[$i]->search_term;
+                    #echo $userRatings[$i]->search_term;
                 };
                 
             /*$ratingRadio = "
@@ -175,8 +176,8 @@ class Page extends BasePage
             ";
             */
                 $ratingCtrl = "<form action=''>";
-                $ratingCtrl .= $this->add_boolFromArray("safe", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
-                $ratingCtrl .= $this->add_boolFromArray("explicit", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
+                $ratingCtrl .= $this->add_boolFromArray("s", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
+                $ratingCtrl .= $this->add_boolFromArray("e", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
                 $ratingCtrl .= "</form>";
                 $custom_links .= "<li>".$ratingCtrl."</li>";
             } else {
