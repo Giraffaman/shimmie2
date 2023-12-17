@@ -63,7 +63,27 @@ class Page extends BasePage
         }
         return "<script>console.log('Debug: " . $data . "' );</script>";
     }
+/*
+    public function save_ratingCfg() {
+    } elseif ($event->get_arg(0) == "save" && $user->check_auth_token()) {
+        $input = validate_input([
+            'id' => 'user_id,exists'
+        ]);
+        $duser = User::by_id($input['id']);
 
+        if ($user->id != $duser->id && !$user->can(Permissions::CHANGE_OTHER_USER_SETTING)) {
+            $this->theme->display_permission_denied();
+            return;
+        }
+
+        $target_config = UserConfig::get_for_user($duser->id);
+        send_event(new ConfigSaveEvent($target_config));
+        $target_config->save();
+        $page->flash("Config saved");
+        $page->set_mode(PageMode::REDIRECT);
+        $page->set_redirect(make_link("user_config"));
+    }
+*/
     public function add_boolFromArray(string $name, array $ratings, string $refArray, string $label = null) {
         global $user_config;
         $deblog = true;
@@ -174,6 +194,8 @@ class Page extends BasePage
                 $ratingCtrl .= "<input type='hidden' name='id' value='".$user->id."'>";
                 $ratingCtrl .= $this->add_boolFromArray("s", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
                 $ratingCtrl .= $this->add_boolFromArray("e", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
+                $ratingCtrl .= "<input type='hidden' name='_config_ratings_default[]'>";
+                $ratingCtrl .= "<input type='hidden' name='_type_ratings_default' value='array'>";
                 $ratingCtrl .= "<input type='submit' value='apply'>";
                 $ratingCtrl .= "</form>";
                 $custom_links .= "<li>".$ratingCtrl."</li>";
