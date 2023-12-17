@@ -153,8 +153,15 @@ class Page extends BasePage
         if(Extension::is_enabled(RatingsInfo::KEY)) {
             echo "Ratings is enabled!";
             global $user, $_shm_ratings;
-            $userRatings = Ratings::get_user_class_privs($user);
             $userRatings = [];
+            $userRatings = Ratings::get_user_class_privs($user);
+            foreach(array_keys($userRatings) as $k) {
+                echo $k;
+                echo $userRatings[$k];
+            }
+            foreach(array_values($userRatings) as $v) {
+                echo $v;
+            }
             #$userRatings = Ratings::get_user_default_ratings();
 
             if((in_array("e", $userRatings) || (in_array("?", $userRatings)))) {
