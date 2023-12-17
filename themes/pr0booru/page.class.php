@@ -60,10 +60,16 @@ class Page extends BasePage
     public function add_boolFromArray(string $name, array $ratings, string $refArray, string $label = null) {
         global $config;
         $current = $config->get_array($refArray);
-        echo array_keys($current);
+        foreach(array_keys($current) as $k) {
+            echo $k;
+        }
+        foreach(array_values($current) as $v) {
+            echo $v;
+        }
         foreach($current as $c) {
             echo $c;
             echo $c->name;
+            echo $current[$c];
         }
         $checked = "";
         $html = "";
