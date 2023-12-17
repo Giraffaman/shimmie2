@@ -153,9 +153,9 @@ class Page extends BasePage
         if(Extension::is_enabled(RatingsInfo::KEY)) {
             echo "Ratings is enabled!";
             global $user, $_shm_ratings;
-            #$userRatings = Ratings::get_user_class_privs($user);
+            $userRatings = Ratings::get_user_class_privs($user);
             $userRatings = [];
-            $userRatings = Ratings::get_user_default_ratings();
+            #$userRatings = Ratings::get_user_default_ratings();
 
             if((in_array("e", $userRatings) || (in_array("?", $userRatings)))) {
                 echo "user allowd to see stuff...";
@@ -182,7 +182,8 @@ class Page extends BasePage
             ";
             */
                 #$ratingCtrl = "<form action='/admin/save_config'>";
-                $ratingCtrl = make_form(make_link("user_admin/default_ratings"));
+                $ratingCtrl = make_form(make_link("user_config/save"));
+                $ratingCtrl .= "<input type='hidden' name='id' value='".$user->id."'>";
                 $ratingCtrl .= $this->add_boolFromArray("s", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
                 $ratingCtrl .= $this->add_boolFromArray("e", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
                 $ratingCtrl .= "<input type='submit' value='apply'>";
