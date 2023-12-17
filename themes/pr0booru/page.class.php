@@ -72,28 +72,28 @@ class Page extends BasePage
         $current = $user_config->get_array($refArray);
         foreach(array_keys($current) as $k) {
             if($deblog) { 
-                $asdf = make_logentry("asdf");
+                $asdf = $this->make_logentry("asdf");
                 echo $asdf;
-                $fdsa = make_logentry($k);
+                $fdsa = $this->make_logentry($k);
                 echo $fdsa;
-                echo make_logentry($k);
+                echo $this->make_logentry($k);
             }
         }
         foreach(array_values($current) as $v) {
             if($deblog) { 
-                echo make_logentry($v);
+                echo $this->make_logentry($v);
             }
         }
         foreach($current as $c) {
             if($deblog) { 
-                echo make_logentry($c);
+                echo $this->make_logentry($c);
             }
         }
         $checked = "";
         $html = "";
 
         if($deblog) { 
-            echo make_logentry("custom bool from array function called....");
+            echo $this->make_logentry("custom bool from array function called....");
         }
 
         if (!is_null($label)) {
