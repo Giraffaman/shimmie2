@@ -60,9 +60,10 @@ class Page extends BasePage
     public function add_boolFromArray(string $name, array $ratings, string $refArray, string $label = null) {
         global $config;
         $current = $config->get_array($refArray);
-        echo $current->key;
+        echo array_keys($current);
         foreach($current as $c) {
             echo $c;
+            echo $c->name;
         }
         $checked = "";
         $html = "";
@@ -176,8 +177,8 @@ class Page extends BasePage
             ";
             */
                 $ratingCtrl = "<form action=''>";
-                $ratingCtrl .= $this->add_boolFromArray("s", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
-                $ratingCtrl .= $this->add_boolFromArray("e", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
+                $ratingCtrl .= $this->add_boolFromArray("Safe", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
+                $ratingCtrl .= $this->add_boolFromArray("Explicit", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
                 $ratingCtrl .= "</form>";
                 $custom_links .= "<li>".$ratingCtrl."</li>";
             } else {
