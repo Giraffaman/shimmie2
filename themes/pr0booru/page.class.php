@@ -68,48 +68,34 @@ class Page extends BasePage
         global $user_config;
         $deblog = true;
 
-        syslog(666, "ref array name is $refArray");
+        if($deblog) { echo $this->make_logentry("ref array name is $refArray"); }
         $current = $user_config->get_array($refArray);
         foreach(array_keys($current) as $k) {
-            if($deblog) { 
-                echo $this->make_logentry($k);
-            }
+            if($deblog) { echo $this->make_logentry($k); }
         }
         foreach(array_values($current) as $v) {
-            if($deblog) { 
-                echo $this->make_logentry($v);
-            }
+            if($deblog) { echo $this->make_logentry($v); }
         }
         foreach($current as $c) {
-            if($deblog) { 
-                echo $this->make_logentry($c);
-            }
+            if($deblog) { echo $this->make_logentry($c); }
         }
         $checked = "";
         $html = "";
 
-        if($deblog) { 
-            echo $this->make_logentry("custom bool from array function called....");
-        }
+        if($deblog) { echo $this->make_logentry("custom bool from array function called...."); }
 
         if (!is_null($label)) {
-            if($deblog) { 
-                echo $this->make_logentry("...label exists...");
-            }
+            if($deblog) { echo $this->make_logentry("...label exists..."); }
             $html .= "<label for='{$name}'>{$label}</label>";
         }
 
         #foreach ($ratings as $optname => $optval) {
             #if (in_array($optval, $current)) {
             if (in_array($name, $current)) {
-                if($deblog) { 
-                    echo $this->make_logentry("$name is active");
-                }
+                if($deblog) { echo $this->make_logentry("$name is active"); }
                 $checked = " checked";
             } else {
-                if($deblog) { 
-                    echo $this->make_logentry("$name is inactive");
-                }
+                if($deblog) { echo $this->make_logentry("$name is inactive"); }
                 $checked = "";
             }
         #}
@@ -173,36 +159,17 @@ class Page extends BasePage
 
         # changed 2023-12-08:
         # check if ratings extension is installed and, if yes, add ratings sfw/nsfw control at end of navbar links list
-        if($deblog) { 
-            echo $this->make_logentry("checking if Ratings is enabled...");
-        }
+        if($deblog) { echo $this->make_logentry("checking if Ratings is enabled..."); }
         
         if(Extension::is_enabled(RatingsInfo::KEY)) {
-            if($deblog) { 
-                echo $this->make_logentry("Ratings is enabled!");
-            }
+            if($deblog) { echo $this->make_logentry("Ratings is enabled!"); }
             global $user, $_shm_ratings;
             $userRatings = [];
             $userRatings = Ratings::get_user_class_privs($user);
-            foreach(array_keys($userRatings) as $k) {
-                echo $k;
-                echo $userRatings[$k];
-            }
-            foreach(array_values($userRatings) as $v) {
-                echo $v;
-            }
             #$userRatings = Ratings::get_user_default_ratings();
 
             if((in_array("e", $userRatings) || (in_array("?", $userRatings)))) {
-                if($deblog) { 
-                    echo $this->make_logentry("user allowd to see stuff...");
-                }
-                
-                foreach($userRatings as $i => $value) {
-                    echo $i;
-                    echo $userRatings[$i];
-                };
-                
+                if($deblog) { echo $this->make_logentry("user allowd to see stuff..."); }
                 $ratingCtrl = make_form(make_link("user_config/save"));
                 $ratingCtrl .= "<input type='hidden' name='id' value='".$user->id."'>";
                 $ratingCtrl .= $this->add_boolFromArray("s", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
@@ -211,13 +178,7 @@ class Page extends BasePage
                 $ratingCtrl .= "</form>";
                 $custom_links .= "<li>".$ratingCtrl."</li>";
             } else {
-                if($deblog) { 
-                    echo $this->make_logentry("user NOT allowd to see stuff...");
-                }
-                foreach($userRatings as $i) {
-                    echo $i;
-                    echo $i->$innerVal;
-                };
+                if($deblog) { echo $this->make_logentry("user NOT allowd to see stuff..."); }
             }
         }
 
