@@ -72,10 +72,6 @@ class Page extends BasePage
         $current = $user_config->get_array($refArray);
         foreach(array_keys($current) as $k) {
             if($deblog) { 
-                $asdf = $this->make_logentry("asdf");
-                echo $asdf;
-                $fdsa = $this->make_logentry($k);
-                echo $fdsa;
                 echo $this->make_logentry($k);
             }
         }
@@ -97,17 +93,23 @@ class Page extends BasePage
         }
 
         if (!is_null($label)) {
-            echo "...label exists...";
+            if($deblog) { 
+                echo $this->make_logentry("...label exists...");
+            }
             $html .= "<label for='{$name}'>{$label}</label>";
         }
 
         #foreach ($ratings as $optname => $optval) {
             #if (in_array($optval, $current)) {
             if (in_array($name, $current)) {
-                echo "$name is active";
+                if($deblog) { 
+                    echo $this->make_logentry("$name is active");
+                }
                 $checked = " checked";
             } else {
-                echo "$name is inactive";
+                if($deblog) { 
+                    echo $this->make_logentry("$name is inactive");
+                }
                 $checked = "";
             }
         #}
@@ -123,6 +125,7 @@ class Page extends BasePage
     public function render()
     {
         global $config;
+        $deblog = true;
 
         list($nav_links, $sub_links) = $this->get_nav_links();
 
@@ -170,9 +173,14 @@ class Page extends BasePage
 
         # changed 2023-12-08:
         # check if ratings extension is installed and, if yes, add ratings sfw/nsfw control at end of navbar links list
-        echo "checking if Ratings is enabled...";
+        if($deblog) { 
+            echo $this->make_logentry("checking if Ratings is enabled...");
+        }
+        
         if(Extension::is_enabled(RatingsInfo::KEY)) {
-            echo "Ratings is enabled!";
+            if($deblog) { 
+                echo $this->make_logentry("Ratings is enabled!");
+            }
             global $user, $_shm_ratings;
             $userRatings = [];
             $userRatings = Ratings::get_user_class_privs($user);
@@ -186,7 +194,10 @@ class Page extends BasePage
             #$userRatings = Ratings::get_user_default_ratings();
 
             if((in_array("e", $userRatings) || (in_array("?", $userRatings)))) {
-                echo "user allowd to see stuff...";
+                if($deblog) { 
+                    echo $this->make_logentry("user allowd to see stuff...");
+                }
+                
                 foreach($userRatings as $i => $value) {
                     echo $i;
                     echo $userRatings[$i];
@@ -200,7 +211,9 @@ class Page extends BasePage
                 $ratingCtrl .= "</form>";
                 $custom_links .= "<li>".$ratingCtrl."</li>";
             } else {
-                echo "user NOT allowed to see stuff!";
+                if($deblog) { 
+                    echo $this->make_logentry("user NOT allowd to see stuff...");
+                }
                 foreach($userRatings as $i) {
                     echo $i;
                     echo $i->$innerVal;
