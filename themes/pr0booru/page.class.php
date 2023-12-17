@@ -58,8 +58,9 @@ class Page extends BasePage
     }
 
     public function add_boolFromArray(string $name, array $ratings, string $refArray, string $label = null) {
-        global $config;
-        $current = $config->get_array($refArray);
+        global $user_config;
+        echo "ref array name is $refArray";
+        $current = $user_config->get_array($refArray);
         foreach(array_keys($current) as $k) {
             echo $k;
         }
