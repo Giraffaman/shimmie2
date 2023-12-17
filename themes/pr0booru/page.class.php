@@ -72,6 +72,10 @@ class Page extends BasePage
         $current = $user_config->get_array($refArray);
         foreach(array_keys($current) as $k) {
             if($deblog) { 
+                $asdf = make_logentry("asdf");
+                echo $asdf;
+                $fdsa = make_logentry($k);
+                echo $fdsa;
                 echo make_logentry($k);
             }
         }
