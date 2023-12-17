@@ -59,7 +59,7 @@ class Page extends BasePage
 
     public function add_boolFromArray(string $name, array $ratings, string $refArray, string $label = null) {
         global $user_config;
-        syslog("ref array name is $refArray");
+        syslog(666, "ref array name is $refArray");
         $current = $user_config->get_array($refArray);
         foreach(array_keys($current) as $k) {
             echo $k;
@@ -181,7 +181,8 @@ class Page extends BasePage
                 </form>
             ";
             */
-                $ratingCtrl = "<form action='/admin/save_config'>";
+                #$ratingCtrl = "<form action='/admin/save_config'>";
+                $ratingCtrl = make_form(make_link("user_admin/default_ratings"));
                 $ratingCtrl .= $this->add_boolFromArray("s", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
                 $ratingCtrl .= $this->add_boolFromArray("e", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
                 $ratingCtrl .= "<input type='submit' value='apply'>";
