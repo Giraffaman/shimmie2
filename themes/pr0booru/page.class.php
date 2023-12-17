@@ -57,23 +57,40 @@ class Page extends BasePage
         $this->left_enabled = false;
     }
 
+    public function debug_to_console($data) {
+        if (is_array($data))
+            $data = implode(',', $data);
+    
+        return "<script>console.log('Debug Objects: " . $data . "' );</script>";
+    }    
+
     public function add_boolFromArray(string $name, array $ratings, string $refArray, string $label = null) {
         global $user_config;
+        $deblog = true;
+
         syslog(666, "ref array name is $refArray");
         $current = $user_config->get_array($refArray);
         foreach(array_keys($current) as $k) {
-            echo $k;
+            if($deblog) { 
+                echo debug_to_console($k);
+            }
         }
         foreach(array_values($current) as $v) {
-            echo $v;
+            if($deblog) { 
+                echo debug_to_console($v);
+            }
         }
         foreach($current as $c) {
-            echo $c;
+            if($deblog) { 
+                echo debug_to_console($c);
+            }
         }
         $checked = "";
         $html = "";
 
-        echo "custom bool from array function called....";
+        if($deblog) { 
+            echo debug_to_console("custom bool from array function called....");
+        }
 
         if (!is_null($label)) {
             echo "...label exists...";
@@ -168,27 +185,9 @@ class Page extends BasePage
                 echo "user allowd to see stuff...";
                 foreach($userRatings as $i => $value) {
                     echo $i;
-                    #echo $i->search_term;
-                    #echo $i['search_term'];
                     echo $userRatings[$i];
-                    #echo $userRatings[$i]->search_term;
                 };
                 
-            /*$ratingRadio = "
-                <form action=''>
-                    <label class='ratingDispOpt'>Sfw
-                        <input type='checkbox' id='show-sfw'>
-                        <span class='ratingDispChkmark'></span>
-                    </label>
-                    <label class='ratingDispOpt'>Nsfw
-                        <input type='checkbox' id='show-nsfw'>
-                        <span class='ratingDispChkmark'></span>
-                    </label>
-                    <input type='submit' value='apply'>
-                </form>
-            ";
-            */
-                #$ratingCtrl = "<form action='/admin/save_config'>";
                 $ratingCtrl = make_form(make_link("user_config/save"));
                 $ratingCtrl .= "<input type='hidden' name='id' value='".$user->id."'>";
                 $ratingCtrl .= $this->add_boolFromArray("s", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
