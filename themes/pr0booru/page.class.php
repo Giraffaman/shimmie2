@@ -58,10 +58,10 @@ class Page extends BasePage
     }
 
     public function debug_to_console($data) {
-        if (is_array($data))
+        if (is_array($data)) {
             $data = implode(',', $data);
-    
-        return "<script>console.log('Debug Objects: " . $data . "' );</script>";
+        }
+        return "<script>console.log('Debug: " . $data . "' );</script>";
     }    
 
     public function add_boolFromArray(string $name, array $ratings, string $refArray, string $label = null) {
