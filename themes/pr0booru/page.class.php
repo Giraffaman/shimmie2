@@ -91,13 +91,7 @@ class Page extends BasePage
         if($deblog) { echo $this->make_logentry("ref array name is $refArray"); }
         $current = $user_config->get_array($refArray);
         foreach(array_keys($current) as $k) {
-            if($deblog) { echo $this->make_logentry($k); }
-        }
-        foreach(array_values($current) as $v) {
-            if($deblog) { echo $this->make_logentry($v); }
-        }
-        foreach($current as $c) {
-            if($deblog) { echo $this->make_logentry($c); }
+            if($deblog) { echo $this->make_logentry($k." : ".$current[$k]); }
         }
         $checked = "";
         $html = "";
@@ -107,7 +101,7 @@ class Page extends BasePage
         if (!is_null($label)) {
             if($deblog) { echo $this->make_logentry("...label exists..."); }
             #$html .= "<label for='{$name}'>{$label}</label>";
-            $html .= "<label for='{$id}'>{$label}</label>";
+            $html .= "<label for='chkbx_{$id}'>{$label}</label>";
         }
 
         #foreach ($ratings as $optname => $optval) {
@@ -121,7 +115,7 @@ class Page extends BasePage
             }
         #}
         #$html .= "<input type='checkbox' id='$name' name='_config_$name'$checked>\n";
-        $html .= "<input type='checkbox' id='$id' value='$id' name='_config_$name'$checked>\n";
+        $html .= "<input type='checkbox' id='chkbx_$id' value='$id' name='_config_$name'$checked>\n";
         
         #$html .= "<input type='hidden' name='_type_$name' value='array'>\n";
         #$html .= "<!--<br><br><br><br>-->\n"; // setup page auto-layout counts <br> tags
