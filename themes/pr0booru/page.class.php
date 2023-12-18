@@ -106,11 +106,11 @@ class Page extends BasePage
 
         #foreach ($ratings as $optname => $optval) {
             #if (in_array($optval, $current)) {
-            if (in_array($name, $current)) {
-                if($deblog) { echo $this->make_logentry("$name is active"); }
+            if (in_array($id, $current)) {
+                if($deblog) { echo $this->make_logentry("$id is active"); }
                 $checked = " checked";
             } else {
-                if($deblog) { echo $this->make_logentry("$name is inactive"); }
+                if($deblog) { echo $this->make_logentry("$id is inactive"); }
                 $checked = "";
             }
         #}
