@@ -84,7 +84,7 @@ class Page extends BasePage
         $page->set_redirect(make_link("user_config"));
     }
 */
-    public function add_boolFromArray(string $name, array $ratings, string $refArray, string $label = null) {
+    public function add_boolFromArray(string $name, string $id, array $ratings, string $refArray, string $label = null) {
         global $user_config;
         $deblog = true;
 
@@ -106,7 +106,8 @@ class Page extends BasePage
 
         if (!is_null($label)) {
             if($deblog) { echo $this->make_logentry("...label exists..."); }
-            $html .= "<label for='{$name}'>{$label}</label>";
+            #$html .= "<label for='{$name}'>{$label}</label>";
+            $html .= "<label for='{$id}'>{$label}</label>";
         }
 
         #foreach ($ratings as $optname => $optval) {
@@ -119,7 +120,8 @@ class Page extends BasePage
                 $checked = "";
             }
         #}
-        $html .= "<input type='checkbox' id='$name' name='_config_$name'$checked>\n";
+        #$html .= "<input type='checkbox' id='$name' name='_config_$name'$checked>\n";
+        $html .= "<input type='checkbox' id='$id' name='_config_$name'$checked>\n";
         
         #$html .= "<input type='hidden' name='_type_$name' value='array'>\n";
         #$html .= "<!--<br><br><br><br>-->\n"; // setup page auto-layout counts <br> tags
@@ -192,8 +194,8 @@ class Page extends BasePage
                 if($deblog) { echo $this->make_logentry("user allowd to see stuff..."); }
                 $ratingCtrl = make_form(make_link("user_config/save"));
                 $ratingCtrl .= "<input type='hidden' name='id' value='".$user->id."'>";
-                $ratingCtrl .= $this->add_boolFromArray("s", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
-                $ratingCtrl .= $this->add_boolFromArray("e", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
+                $ratingCtrl .= $this->add_boolFromArray("ratings_default[]", "s", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
+                $ratingCtrl .= $this->add_boolFromArray("ratings_default[]", "e", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
                 $ratingCtrl .= "<input type='hidden' name='_config_ratings_default[]'>";
                 $ratingCtrl .= "<input type='hidden' name='_type_ratings_default' value='array'>";
                 $ratingCtrl .= "<input type='submit' value='apply'>";
