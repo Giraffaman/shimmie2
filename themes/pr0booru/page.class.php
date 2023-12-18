@@ -63,8 +63,13 @@ class Page extends BasePage
         }
         return "<script>console.log('Debug: " . $data . "' );</script>";
     }
-/*
+
     public function save_ratingCfg() {
+        $deblog = $true;
+        if($deblog) {
+            $this->make_logentry("save_ratingCfg");
+        }
+    /*
     } elseif ($event->get_arg(0) == "save" && $user->check_auth_token()) {
         $input = validate_input([
             'id' => 'user_id,exists'
@@ -82,8 +87,9 @@ class Page extends BasePage
         $page->flash("Config saved");
         $page->set_mode(PageMode::REDIRECT);
         $page->set_redirect(make_link("user_config"));
+    */
     }
-*/
+
     public function add_boolFromArray(string $name, string $id, array $ratings, string $refArray, string $label = null) {
         global $user_config;
         $deblog = true;
