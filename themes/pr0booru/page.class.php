@@ -121,7 +121,7 @@ class Page extends BasePage
             }
         #}
         #$html .= "<input type='checkbox' id='$name' name='_config_$name'$checked>\n";
-        $html .= "<input type='checkbox' id='$id' name='_config_$name'$checked>\n";
+        $html .= "<input type='checkbox' id='$id' value='$id' name='_config_$name'$checked>\n";
         
         #$html .= "<input type='hidden' name='_type_$name' value='array'>\n";
         #$html .= "<!--<br><br><br><br>-->\n"; // setup page auto-layout counts <br> tags
