@@ -404,7 +404,6 @@ class Ratings extends Extension
         global $user, $page;
 
         # added to process default rating chages from form added in pr0rooru theme
-        echo $this->make_logentry($page->mode);
         if($event->count_args() > 0) {
             echo $this->make_logentry("arg count: ".$event->count_args());
         } else {
