@@ -374,10 +374,7 @@ class Ratings extends Extension
     }
 
     public function save_ratingCfg() {
-        $deblog = $true;
-        if($deblog) {
-            echo $this->make_logentry("save_ratingCfg");
-        }
+        echo $this->make_logentry("save_ratingCfg");
     /*
     } elseif ($event->get_arg(0) == "save" && $user->check_auth_token()) {
         $input = validate_input([
@@ -404,7 +401,7 @@ class Ratings extends Extension
         global $user, $page;
 
         # added to process default rating chages from form added in pr0rooru theme
-        if($event->page_matches("rating/save_ratingView")) {
+        if(($event->page_matches("rating/save_ratingView")) || ($event->page_matches("save_ratingView"))) {
             if($event->count_args() > 0) {
                 echo $this->make_logentry("arg count: ".$event->count_args());
                 foreach($event->args as $a) {
@@ -413,14 +410,14 @@ class Ratings extends Extension
             } else {
                 echo $this->make_logentry("no args?");
             }
-            echo $this->make_logentry("extension - page requested: ".$event);
+            #echo $this->make_logentry("extension - page requested: ".$event);
             if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
                 throw new PermissionDeniedException("Permission denied");
             } else {
                 echo $this->make_logentry("can save rating...");
                 $this->save_ratingCfg();
-                #$page->set_mode(PageMode::REDIRECT);
-                #$page->set_redirect(make_link());
+                $page->set_mode(PageMode::REDIRECT);
+                $page->set_redirect(make_link());
             }
         }
 
