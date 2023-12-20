@@ -371,9 +371,7 @@ class Ratings extends Extension
         global $user, $page;
 
         # added to process default rating chages from form added in pr0rooru theme
-        if($deblog) {
-            echo "extension - page requested: ".$event->args;
-        }
+        echo "extension - page requested: ".$event->args;
         if ($event->get_arg(0) == "ratingview_save") {
             if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
                 throw new PermissionDeniedException("Permission denied");
