@@ -370,6 +370,17 @@ class Ratings extends Extension
     {
         global $user, $page;
 
+        # added to process default rating chages from form added in pr0rooru theme
+        if ($event->page_matches("/ratingview_save")) {
+            if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
+                throw new PermissionDeniedException("Permission denied");
+            } else {
+                save_ratingCfg();
+                #$page->set_mode(PageMode::REDIRECT);
+                #$page->set_redirect(make_link());
+            }
+        }
+        
         if ($event->page_matches("admin/bulk_rate")) {
             if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
                 throw new PermissionDeniedException("Permission denied");
