@@ -404,13 +404,13 @@ class Ratings extends Extension
         global $user, $page;
 
         # added to process default rating chages from form added in pr0rooru theme
-        make_logentry("extension - page requested: ".$event);
+        $this->make_logentry("extension - page requested: ".$event);
         if ($event->get_arg(0) == "ratingview_save") {
             if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
                 throw new PermissionDeniedException("Permission denied");
             } else {
-                make_logentry("can save rating...");
-                save_ratingCfg();
+                $this->make_logentry("can save rating...");
+                $this->save_ratingCfg();
                 #$page->set_mode(PageMode::REDIRECT);
                 #$page->set_redirect(make_link());
             }
