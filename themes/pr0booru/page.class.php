@@ -208,6 +208,7 @@ class Page extends BasePage
             if((in_array("e", $userRatings) || (in_array("?", $userRatings)))) {
                 if($deblog) { echo $this->make_logentry("user allowd to see stuff..."); }
                 $baseHref = get_base_href();
+                if($deblog) { echo $this->make_logentry($baseHref); }
                 $ratingCtrl = make_form(make_link($baseHref."/ratingview_save"));
                 $ratingCtrl .= "<input type='hidden' name='id' value='".$user->id."'>";
                 $ratingCtrl .= $this->add_boolFromArray("ratings_default[]", "s", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
