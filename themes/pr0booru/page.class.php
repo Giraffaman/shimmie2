@@ -95,6 +95,7 @@ class Page extends BasePage
         global $user, $page;
 
         $this->make_logentry("in theme - page requested: ".$event->args);
+        echo "bleep bleep...";
         if ($event->get_arg(0) == "ratingview_save") {
             if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
                 throw new PermissionDeniedException("Permission denied");
