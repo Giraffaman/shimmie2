@@ -371,7 +371,10 @@ class Ratings extends Extension
         global $user, $page;
 
         # added to process default rating chages from form added in pr0rooru theme
-        if ($event->page_matches("/ratingview_save")) {
+        if($deblog) {
+            echo "extension - page requested: ".$event->args;
+        }
+        if ($event->get_arg(0) == "ratingview_save") {
             if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
                 throw new PermissionDeniedException("Permission denied");
             } else {
@@ -380,7 +383,7 @@ class Ratings extends Extension
                 #$page->set_redirect(make_link());
             }
         }
-        
+
         if ($event->page_matches("admin/bulk_rate")) {
             if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
                 throw new PermissionDeniedException("Permission denied");
