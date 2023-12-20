@@ -366,6 +366,39 @@ class Ratings extends Extension
         }
     }
 
+    public function make_logentry($data) {
+        if (is_array($data)) {
+            $data = implode(',', $data);
+        }
+        return "<script>console.log('Debug: " . $data . "' );</script>";
+    }
+
+    public function save_ratingCfg() {
+        $deblog = $true;
+        if($deblog) {
+            $this->make_logentry("save_ratingCfg");
+        }
+    /*
+    } elseif ($event->get_arg(0) == "save" && $user->check_auth_token()) {
+        $input = validate_input([
+            'id' => 'user_id,exists'
+        ]);
+        $duser = User::by_id($input['id']);
+
+        if ($user->id != $duser->id && !$user->can(Permissions::CHANGE_OTHER_USER_SETTING)) {
+            $this->theme->display_permission_denied();
+            return;
+        }
+
+        $target_config = UserConfig::get_for_user($duser->id);
+        send_event(new ConfigSaveEvent($target_config));
+        $target_config->save();
+        $page->flash("Config saved");
+        $page->set_mode(PageMode::REDIRECT);
+        $page->set_redirect(make_link("user_config"));
+    */
+    }
+
     public function onPageRequest(PageRequestEvent $event)
     {
         global $user, $page;
@@ -410,39 +443,6 @@ class Ratings extends Extension
                 $page->set_redirect(make_link());
             }
         }
-    }
-
-    public function make_logentry($data) {
-        if (is_array($data)) {
-            $data = implode(',', $data);
-        }
-        return "<script>console.log('Debug: " . $data . "' );</script>";
-    }
-
-    public function save_ratingCfg() {
-        $deblog = $true;
-        if($deblog) {
-            $this->make_logentry("save_ratingCfg");
-        }
-    /*
-    } elseif ($event->get_arg(0) == "save" && $user->check_auth_token()) {
-        $input = validate_input([
-            'id' => 'user_id,exists'
-        ]);
-        $duser = User::by_id($input['id']);
-
-        if ($user->id != $duser->id && !$user->can(Permissions::CHANGE_OTHER_USER_SETTING)) {
-            $this->theme->display_permission_denied();
-            return;
-        }
-
-        $target_config = UserConfig::get_for_user($duser->id);
-        send_event(new ConfigSaveEvent($target_config));
-        $target_config->save();
-        $page->flash("Config saved");
-        $page->set_mode(PageMode::REDIRECT);
-        $page->set_redirect(make_link("user_config"));
-    */
     }
 
     public static function get_sorted_ratings(): array
