@@ -220,7 +220,7 @@ class Page extends BasePage
                 $ratingCtrl .= "<input type='submit' value='apply'>";
                 $ratingCtrl .= "</form>";
                 $custom_links .= "<li>".$ratingCtrl."</li>";
-                $page->set_redirect(referer_or(make_link(), ["post/"]));
+                set_redirect(referer_or(make_link(), ["post/"]));
             } else {
                 if($deblog) { echo $this->make_logentry("user NOT allowd to see stuff..."); }
             }
