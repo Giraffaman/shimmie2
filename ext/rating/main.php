@@ -407,19 +407,20 @@ class Ratings extends Extension
         if($event->page_matches("rating/save_ratingView")) {
             if($event->count_args() > 0) {
                 echo $this->make_logentry("arg count: ".$event->count_args());
+                foreach($event->args as $a) {
+                    echo $this->make_logentry($a);
+                } 
             } else {
                 echo $this->make_logentry("no args?");
             }
             echo $this->make_logentry("extension - page requested: ".$event);
-            if ($event->get_arg(0) == "save_ratingView") {
-                if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
-                    throw new PermissionDeniedException("Permission denied");
-                } else {
-                    echo $this->make_logentry("can save rating...");
-                    $this->save_ratingCfg();
-                    #$page->set_mode(PageMode::REDIRECT);
-                    #$page->set_redirect(make_link());
-                }
+            if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
+                throw new PermissionDeniedException("Permission denied");
+            } else {
+                echo $this->make_logentry("can save rating...");
+                $this->save_ratingCfg();
+                #$page->set_mode(PageMode::REDIRECT);
+                #$page->set_redirect(make_link());
             }
         }
 
