@@ -90,6 +90,21 @@ class Page extends BasePage
     */
     }
 
+    public function onPageRequest(PageRequestEvent $event)
+    {
+        global $user, $page;
+
+        if ($event->page_matches("ratingview_save")) {
+            if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
+                throw new PermissionDeniedException("Permission denied");
+            } else {
+                save_ratingCfg();
+                #$page->set_mode(PageMode::REDIRECT);
+                #$page->set_redirect(make_link());
+            }
+        }
+    }
+
     public function add_boolFromArray(string $name, string $id, array $ratings, string $refArray, string $label = null) {
         global $user_config;
         $deblog = true;
