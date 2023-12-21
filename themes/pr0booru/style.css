@@ -22,6 +22,13 @@ background-color:#F7F7FF;
 HEADER ul#navbar li.current-page a {
 font-weight:bold;
 }
+
+/* rating view switcher checkbox in navbar */
+HEADER ul#navbar li input[type="checkbox"] {
+	margin-left: 4px;
+	margin-right: 8px;
+}
+
 HEADER ul#subnavbar {
 background-color:#212121;
 color: #f2f5f4;
@@ -416,8 +423,9 @@ div#dlimg {
 	font-size: 1.25em;
  }
  
- div#dlimg:hover {
+div#dlimg:hover {
 	background-image: url('/themes/pr0booru/save-white.png');
 	color: white;
- }
- 
+}
+
+

@@ -383,8 +383,10 @@ class Ratings extends Extension
     {
         global $user, $page;
 
-        # added to process default rating chages from form added in pr0rooru theme
+        # 2023-12-21: added to process default rating chages from form added in pr0rooru theme
+        # TODO: put this into its own extension so we don't touch Ratings
         if(($event->page_matches("rating/save_ratingView")) || ($event->page_matches("save_ratingView"))) {
+            # this part is obsolete
             if($event->count_args() > 0) {
                 echo $this->make_logentry("arg count: ".$event->count_args());
                 foreach($event->args as $a) {
@@ -398,31 +400,29 @@ class Ratings extends Extension
                 throw new PermissionDeniedException("Permission denied");
             } else {
                 echo $this->make_logentry("can save rating...");
-
-
-                echo $this->make_logentry("save_ratingCfg");
     
+                # this is obsolete
                 #    } elseif ($event->get_arg(0) == "save" && $user->check_auth_token()) {
                 $input = validate_input([
                     'id' => 'user_id,exists'
                 ]);
                 $duser = User::by_id($input['id']);
         
+                # most likely don't need this either, but doesn't hurt
+                # even if someone would manage to somehow change settings for another user, e.g. anonymous
+                # then that user must still be allowed to actually see ratings (e.g. anon would still only see public)
                 if ($user->id != $duser->id && !$user->can(Permissions::CHANGE_OTHER_USER_SETTING)) {
                     $this->theme->display_permission_denied();
                     return;
                 }
-        
 
                 $target_config = UserConfig::get_for_user($duser->id);
                 send_event(new ConfigSaveEvent($target_config));
                 $target_config->save();
-                #$page->flash("Config saved");
-                #$page->set_mode(PageMode::REDIRECT);
-                #$page->set_redirect(make_link("user_config"));
-
 
                 $page->set_mode(PageMode::REDIRECT);
+                # trying to send user back to last page, or to index
+                # might be worth trying to just not redirect the user at all if possible
                 #$page->set_redirect(make_link());
                 $page->set_redirect(referer_or(make_link(), ["post/"]));
             }

@@ -64,49 +64,6 @@ class Page extends BasePage
         return "<script>console.log('Debug: " . $data . "' );</script>";
     }
 
-    public function save_ratingCfg() {
-        $deblog = $true;
-        if($deblog) {
-            $this->make_logentry("save_ratingCfg");
-        }
-    /*
-    } elseif ($event->get_arg(0) == "save" && $user->check_auth_token()) {
-        $input = validate_input([
-            'id' => 'user_id,exists'
-        ]);
-        $duser = User::by_id($input['id']);
-
-        if ($user->id != $duser->id && !$user->can(Permissions::CHANGE_OTHER_USER_SETTING)) {
-            $this->theme->display_permission_denied();
-            return;
-        }
-
-        $target_config = UserConfig::get_for_user($duser->id);
-        send_event(new ConfigSaveEvent($target_config));
-        $target_config->save();
-        $page->flash("Config saved");
-        $page->set_mode(PageMode::REDIRECT);
-        $page->set_redirect(make_link("user_config"));
-    */
-    }
-
-    public function onPageRequest(PageRequestEvent $event)
-    {
-        global $user, $page;
-
-        $this->make_logentry("in theme - page requested: ".$event->args);
-        echo "bleep bleep...";
-        if ($event->get_arg(0) == "ratingview_save") {
-            if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
-                throw new PermissionDeniedException("Permission denied");
-            } else {
-                save_ratingCfg();
-                #$page->set_mode(PageMode::REDIRECT);
-                #$page->set_redirect(make_link());
-            }
-        }
-    }
-
     public function add_boolFromArray(string $name, string $id, array $ratings, string $refArray, string $label = null) {
         global $user_config;
         $deblog = true;
@@ -127,23 +84,15 @@ class Page extends BasePage
             $html .= "<label for='chkbx_{$id}'>{$label}</label>";
         }
 
-        #foreach ($ratings as $optname => $optval) {
-            #if (in_array($optval, $current)) {
-            if (in_array($id, $current)) {
-                if($deblog) { echo $this->make_logentry("$id is active"); }
-                $checked = " checked";
-            } else {
-                if($deblog) { echo $this->make_logentry("$id is inactive"); }
-                $checked = "";
-            }
-        #}
-        #$html .= "<input type='checkbox' id='$name' name='_config_$name'$checked>\n";
+        if (in_array($id, $current)) {
+            if($deblog) { echo $this->make_logentry("$id is active"); }
+            $checked = " checked";
+        } else {
+            if($deblog) { echo $this->make_logentry("$id is inactive"); }
+            $checked = "";
+        }
         $html .= "<input type='checkbox' id='chkbx_$id' value='$id' name='_config_$name'$checked>\n";
         
-        #$html .= "<input type='hidden' name='_type_$name' value='array'>\n";
-        #$html .= "<!--<br><br><br><br>-->\n"; // setup page auto-layout counts <br> tags
-
-        #$this->format_option($name, $html, $label, $table_row);
         return $html;
     }
 
@@ -199,7 +148,6 @@ class Page extends BasePage
         # changed 2023-12-08:
         # check if ratings extension is installed and, if yes, add ratings sfw/nsfw control at end of navbar links list
         if($deblog) { echo $this->make_logentry("checking if Ratings is enabled..."); }
-        
         if(Extension::is_enabled(RatingsInfo::KEY)) {
             if($deblog) { echo $this->make_logentry("Ratings is enabled!"); }
             global $user, $_shm_ratings;
@@ -217,9 +165,14 @@ class Page extends BasePage
                 $ratingCtrl .= $this->add_boolFromArray("ratings_default[]", "e", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
                 $ratingCtrl .= "<input type='hidden' name='_config_ratings_default[]'>";
                 $ratingCtrl .= "<input type='hidden' name='_type_ratings_default' value='array'>";
+                # if neither checkbox is checked --> s, p
+                # if both are checked --> s, e, q, p
+                # could do this with hidden inputs maybe
+                # or find a way to make at least one required
                 $ratingCtrl .= "<input type='submit' value='apply'>";
                 $ratingCtrl .= "</form>";
                 $custom_links .= "<li>".$ratingCtrl."</li>";
+                # this and the rest of processing is done in /ext/rating/main.php -> onPageRequest()
                 #$this->set_redirect(referer_or(make_link(), ["post/"]));
             } else {
                 if($deblog) { echo $this->make_logentry("user NOT allowd to see stuff..."); }
