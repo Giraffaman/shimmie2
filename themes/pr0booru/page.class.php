@@ -159,17 +159,26 @@ class Page extends BasePage
                 if($deblog) { echo $this->make_logentry("user allowd to see stuff..."); }
                 $baseHref = get_base_href();
                 if($deblog) { echo $this->make_logentry($baseHref); }
-                $ratingCtrl = make_form(make_link($baseHref."rating/save_ratingView"));
+                $ratingCtrl = make_form(make_link($baseHref."rating/save_ratingView", "POST", false, "rtngViewForm"));
                 $ratingCtrl .= "<input type='hidden' name='id' value='".$user->id."'>";
-                $ratingCtrl .= $this->add_boolFromArray("ratings_default[]", "s", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
-                $ratingCtrl .= $this->add_boolFromArray("ratings_default[]", "e", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
+                $checkbox = "";
+                $checkbox = $this->add_boolFromArray("ratings_default[]", "s", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
+                $ratingCtrl .= $checkbox;
+                if(str_contains(" checked", $checkbox)) {
+                    $ratingCtrl .= "<input type='hidden' name='_config_ratings_default[]' value='p'>";
+                }
+                $checkbox = $this->add_boolFromArray("ratings_default[]", "e", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
+                if(str_contains(" checked", $checkbox)) {
+                    $ratingCtrl .= "<input type='hidden' name='_config_ratings_default[]' value='q'>";
+                    $ratingCtrl .= "<input type='hidden' name='_config_ratings_default[]' value='?'>";
+                }
                 $ratingCtrl .= "<input type='hidden' name='_config_ratings_default[]'>";
                 $ratingCtrl .= "<input type='hidden' name='_type_ratings_default' value='array'>";
                 # if neither checkbox is checked --> s, p
                 # if both are checked --> s, e, q, p
                 # could do this with hidden inputs maybe
                 # or find a way to make at least one required
-                $ratingCtrl .= "<input type='submit' value='apply'>";
+                $ratingCtrl .= "<input type='submit' id='rtingFrmSubmit' value='apply'>";
                 $ratingCtrl .= "</form>";
                 $custom_links .= "<li>".$ratingCtrl."</li>";
                 # this and the rest of processing is done in /ext/rating/main.php -> onPageRequest()
