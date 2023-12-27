@@ -164,12 +164,12 @@ class Page extends BasePage
                 $checkbox = "";
                 $checkbox = $this->add_boolFromArray("ratings_default[]", "s", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
                 $ratingCtrl .= $checkbox;
-                if(str_contains(" checked", $checkbox)) {
+                if(str_contains("checked", $checkbox)) {
                     $ratingCtrl .= "<input type='hidden' name='_config_ratings_default[]' value='p'>";
                 }
                 $checkbox = $this->add_boolFromArray("ratings_default[]", "e", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
                 $ratingCtrl .= $checkbox;
-                if(str_contains(" checked", $checkbox)) {
+                if(str_contains("checked", $checkbox)) {
                     $ratingCtrl .= "<input type='hidden' name='_config_ratings_default[]' value='q'>";
                     $ratingCtrl .= "<input type='hidden' name='_config_ratings_default[]' value='?'>";
                 }
