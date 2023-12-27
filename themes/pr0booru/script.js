@@ -119,6 +119,6 @@ window.addEventListener('load', function () {
 document.querySelector("form#rtngViewForm").addEventListener('submit', function (event) {
     if($("input[name='_config_ratings_default[]']:checked").length < 1) {
         event.preventDefault(); 
-        document.querySelector("form#rtngViewForm").color = "red";
+        document.querySelector("form#rtngViewForm").style.color = "red";
     }
 });
