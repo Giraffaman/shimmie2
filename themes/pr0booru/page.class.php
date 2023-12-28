@@ -165,12 +165,6 @@ class Page extends BasePage
                 $ratingCtrl .= $this->add_boolFromArray("ratings_default[]", "e", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
                 $ratingCtrl .= "<input type='hidden' name='_config_ratings_default[]'>";
                 $ratingCtrl .= "<input type='hidden' name='_type_ratings_default' value='array'>";
-                # need to do this in JS, e.g. by appending a hidden input onCheck...
-                # OR maybe using a custom data field on each checkbox?
-                # if neither checkbox is checked --> s, p
-                # if both are checked --> s, e, q, p
-                # could do this with hidden inputs maybe
-                # or find a way to make at least one required
                 $ratingCtrl .= "<input type='submit' id='rtingFrmSubmit' value='apply'>";
                 $ratingCtrl .= "</form>";
                 $custom_links .= "<li>".$ratingCtrl."</li>";

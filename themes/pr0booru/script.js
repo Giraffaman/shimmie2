@@ -123,6 +123,23 @@ document.querySelector("form#rtngViewForm").addEventListener('submit', function 
     }
 });
 
+/*
+handles state changes in rating view form checkboxes:
+- if SFW is checked, add hidden input to also enable rating PUBLIC
+- if SFW is unchecked, remove hidden input
+- if NSFW is checked, add hidden input to also enabled questionable and unrated (?)
+- if NSFW unchecked, remove hidden inputs for Q and ?
+
+ISSUES:
+- the add/remove parts do work, but the event, no matter if using click, change or else,
+only fires once. So if a user checks, then unchecks e.g. SFW for some reason, the hidden input 
+for PUBLIC is added, but not removed. Also, if a user checks e.g. NSFW and then SFW, hidden inputs
+for Q and ? are added, but not for PUBLIC.
+
+TODO:
+- figure out a better way to evaluate and add/remove hidden inputs, rather than reacting to checkbox
+changes. Maybe better to get called by the submit button, do our thing and then "pass along" the submit event?
+*/
 [...document.querySelectorAll("form#rtngViewForm input[type='checkbox']")].forEach(function(cb) {
     cb.addEventListener('change', function(e) {
         form = document.getElementById("rtngViewForm");
