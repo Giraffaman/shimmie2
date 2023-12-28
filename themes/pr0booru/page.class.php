@@ -161,20 +161,12 @@ class Page extends BasePage
                 if($deblog) { echo $this->make_logentry($baseHref); }
                 $ratingCtrl = make_form(make_link($baseHref."rating/save_ratingView"), "POST", false, "rtngViewForm");
                 $ratingCtrl .= "<input type='hidden' name='id' value='".$user->id."'>";
-                $checkbox = "";
-                $checkbox = $this->add_boolFromArray("ratings_default[]", "s", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
-                $ratingCtrl .= $checkbox;
-                if(str_contains("checked", $checkbox)) {
-                    $ratingCtrl .= "<input type='hidden' name='_config_ratings_default[]' value='p'>";
-                }
-                $checkbox = $this->add_boolFromArray("ratings_default[]", "e", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
-                $ratingCtrl .= $checkbox;
-                if(str_contains("checked", $checkbox)) {
-                    $ratingCtrl .= "<input type='hidden' name='_config_ratings_default[]' value='q'>";
-                    $ratingCtrl .= "<input type='hidden' name='_config_ratings_default[]' value='?'>";
-                }
+                $ratingCtrl .= $this->add_boolFromArray("ratings_default[]", "s", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
+                $ratingCtrl .= $this->add_boolFromArray("ratings_default[]", "e", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
                 $ratingCtrl .= "<input type='hidden' name='_config_ratings_default[]'>";
                 $ratingCtrl .= "<input type='hidden' name='_type_ratings_default' value='array'>";
+                # need to do this in JS, e.g. by appending a hidden input onCheck...
+                # OR maybe using a custom data field on each checkbox?
                 # if neither checkbox is checked --> s, p
                 # if both are checked --> s, e, q, p
                 # could do this with hidden inputs maybe
