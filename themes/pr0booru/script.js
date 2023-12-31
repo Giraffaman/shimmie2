@@ -182,7 +182,8 @@ function validateRatingViewForm() {
 //                });
             });    
         console.log("validation passed!");
-        return true;
+        //return true;
+        form.submit();
         } else {
 //            event.preventDefault(); 
             document.querySelector("form#rtngViewForm").style.color = "red";
