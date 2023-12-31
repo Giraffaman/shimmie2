@@ -400,7 +400,15 @@ class Ratings extends Extension
                 throw new PermissionDeniedException("Permission denied");
             } else {
                 echo $this->make_logentry("can save rating...");
-    
+                if(isset($_POST["_config_ratings_default[]"])) {
+                    echo $this->make_logentry("_config_ratings_default[] is present...");
+                    foreach($_POST["_config_ratings_default[]"] as $crd) {
+                        echo $this->make_logentry("_config_ratings_default[] contains ".$crd);
+                    }
+                } else {
+                    echo $this->make_logentry("_config_ratings_default[] not found!");
+                }
+
                 # this is obsolete
                 #    } elseif ($event->get_arg(0) == "save" && $user->check_auth_token()) {
                 $input = validate_input([
