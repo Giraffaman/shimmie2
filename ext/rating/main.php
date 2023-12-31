@@ -412,15 +412,17 @@ class Ratings extends Extension
                         switch($crd) {
                             case "s": 
                                 $add = ["p"];
+                                error_log("have S, adding P");
                                 break;
                             case "e":
                                 $add = ["q", "?"];
+                                error_log("have E, adding Q and ?");
                                 break;
                             default:
                                 error_log("nothing set in here!");
                         }
                     }
-                    array_merge($_POST["_config_ratings_default"], $add);
+                    $_POST["_config_ratings_default"] = array_merge($_POST["_config_ratings_default"], $add);
                     error_log("_config_ratings_default is now: ");
                     foreach($_POST["_config_ratings_default"] as $crd) {
                         error_log("_config_ratings_default[] contains ".$crd);
