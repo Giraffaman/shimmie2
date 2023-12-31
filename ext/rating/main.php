@@ -110,6 +110,17 @@ class Ratings extends Extension
         return true;
     }
 
+    /*
+        need to also check user's default ratings when navigating to another image in /view
+    */
+    public function check_user_ratings(Image $image): bool {
+        $user_ratings = Ratings::get_user_default_ratings();
+        if (!in_array($image->rating, $user_ratings)) {
+            return false;
+        }
+        return true;
+    }
+
     public function onInitUserConfig(InitUserConfigEvent $event)
     {
         $event->user_config->set_default_array(RatingsConfig::USER_DEFAULTS, self::get_user_class_privs($event->user));
@@ -173,6 +184,12 @@ class Ratings extends Extension
         if (!$this->check_permissions($event->image)) {
             $page->set_mode(PageMode::REDIRECT);
             $page->set_redirect(make_link());
+        }
+        if(!$this->check_user_ratings($event->image)) {
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link());
+            error_log("don't want to see this!");
+            echo "NO!";
         }
     }
 
@@ -371,12 +388,6 @@ class Ratings extends Extension
             $data = implode(',', $data);
         }
         return "<script>console.log('Debug: " . $data . "' );</script>";
-    }
-
-    public function save_ratingCfg() {
-        global $user, $page;
-        
-
     }
 
     public function onPageRequest(PageRequestEvent $event)
