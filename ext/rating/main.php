@@ -409,6 +409,21 @@ class Ratings extends Extension
                     error_log("_config_ratings_default[] is present...");
                     foreach($_POST["_config_ratings_default"] as $crd) {
                         error_log("_config_ratings_default[] contains ".$crd);
+                        switch($crd) {
+                            case "s": 
+                                $add = ["p"];
+                                break;
+                            case "e":
+                                $add = ["q", "?"];
+                                break;
+                            default:
+                                error_log("nothing set in here!");
+                        }
+                    }
+                    array_merge($_POST["_config_ratings_default"], $add);
+                    error_log("_config_ratings_default is now: ");
+                    foreach($_POST["_config_ratings_default"] as $crd) {
+                        error_log("_config_ratings_default[] contains ".$crd);
                     }
                 } else {
                     error_log("_config_ratings_default[] not found!");
