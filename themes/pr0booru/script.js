@@ -135,7 +135,8 @@ changes. Maybe better to get called by the submit button, do our thing and then 
 */
 function validateRatingViewForm() {
 //    document.querySelector("form#rtngViewForm").addEventListener('submit', function (event) {
-        if($("input[name='_config_ratings_default[]']:checked").length > 0) {
+    console.log("validateRatingViewForm() called...");    
+    if($("input[name='_config_ratings_default[]']:checked").length > 0) {
             [...document.querySelectorAll("form#rtngViewForm input[type='checkbox']")].forEach(function(cb) {
                 cb.addEventListener('change', function(e) {
                     form = document.getElementById("rtngViewForm");
