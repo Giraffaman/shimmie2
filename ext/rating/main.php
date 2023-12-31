@@ -401,9 +401,9 @@ class Ratings extends Extension
                 throw new PermissionDeniedException("Permission denied");
             } else {
                 syslog(LOG_INFO, $this->make_logentry("can save rating..."));
-                foreach($_POST as $p) {
-                    error_log($p);
-                    syslog(LOG_INFO, "log: ".$p);
+                foreach($_POST as $p => $v) {
+                    error_log("p: ".$p." - v: ");
+                    syslog(LOG_INFO, "log: p - ".$p." - v ".$v);
                 }
 
                 if(isset($_POST["_config_ratings_default[]"])) {
