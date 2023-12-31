@@ -403,16 +403,15 @@ class Ratings extends Extension
                 syslog(LOG_INFO, $this->make_logentry("can save rating..."));
                 foreach($_POST as $p => $v) {
                     error_log("p: ".$p." - v: ".$v);
-                    syslog(LOG_INFO, "log: p - ".$p." - v ".$v);
                 }
 
                 if(isset($_POST["_config_ratings_default"])) {
-                    echo $this->make_logentry("_config_ratings_default[] is present...");
+                    error_log("_config_ratings_default[] is present...");
                     foreach($_POST["_config_ratings_default"] as $crd) {
-                        echo $this->make_logentry("_config_ratings_default[] contains ".$crd);
+                        error_log("_config_ratings_default[] contains ".$crd);
                     }
                 } else {
-                    echo $this->make_logentry("_config_ratings_default[] not found!");
+                    error_log("_config_ratings_default[] not found!");
                 }
 
                 # this is obsolete
