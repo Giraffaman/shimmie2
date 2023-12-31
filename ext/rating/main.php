@@ -387,6 +387,7 @@ class Ratings extends Extension
         # TODO: put this into its own extension so we don't touch Ratings
         if(($event->page_matches("rating/save_ratingView")) || ($event->page_matches("save_ratingView"))) {
             # this part is obsolete
+            echo "hellooooooooo!!";
             if($event->count_args() > 0) {
                 echo $this->make_logentry("arg count: ".$event->count_args());
                 foreach($event->args as $a) {
@@ -399,9 +400,10 @@ class Ratings extends Extension
             if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
                 throw new PermissionDeniedException("Permission denied");
             } else {
-                echo $this->make_logentry("can save rating...");
-                echo $_POST;
-                echo "dadadadadaada!!!";
+                error_log($this->make_logentry("can save rating..."));
+                error_log($_POST);
+                error_log("dadadadadaada!!!");
+
                 if(isset($_POST["_config_ratings_default[]"])) {
                     echo $this->make_logentry("_config_ratings_default[] is present...");
                     foreach($_POST["_config_ratings_default[]"] as $crd) {
