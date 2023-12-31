@@ -190,4 +190,5 @@ function validateRatingViewForm() {
             return false;
         }
 //    });    
+    return true;
 }
