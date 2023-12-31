@@ -166,8 +166,8 @@ class Page extends BasePage
                 $ratingCtrl .= $this->add_boolFromArray("ratings_default[]", "e", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");
                 $ratingCtrl .= "<input type='hidden' name='_config_ratings_default[]'>";
                 $ratingCtrl .= "<input type='hidden' name='_type_ratings_default' value='array'>";
-#                $ratingCtrl .= "<input type='submit' id='rtingFrmSubmit' value='apply' onclick='return validateRatingViewForm();'>";
-                $ratingCtrl .= "<input type='submit' id='rtingFrmSubmit' value='apply'>";
+                $ratingCtrl .= "<input type='submit' id='rtingFrmSubmit' value='apply' onclick='validateRatingViewForm();'>";
+#                $ratingCtrl .= "<input type='submit' id='rtingFrmSubmit' value='apply'>";
                 $ratingCtrl .= "</form>";
                 $custom_links .= "<li>".$ratingCtrl."</li>";
                 # this and the rest of processing is done in /ext/rating/main.php -> onPageRequest()

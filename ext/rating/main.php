@@ -387,7 +387,6 @@ class Ratings extends Extension
         # TODO: put this into its own extension so we don't touch Ratings
         if(($event->page_matches("rating/save_ratingView")) || ($event->page_matches("save_ratingView"))) {
             # this part is obsolete
-            echo "hellooooooooo!!";
             if($event->count_args() > 0) {
                 echo $this->make_logentry("arg count: ".$event->count_args());
                 foreach($event->args as $a) {
@@ -422,7 +421,9 @@ class Ratings extends Extension
                                 error_log("nothing set in here!");
                         }
                     }
-                    $_POST["_config_ratings_default"] = array_merge($_POST["_config_ratings_default"], $add);
+                    if($add) {
+                        $_POST["_config_ratings_default"] = array_merge($_POST["_config_ratings_default"], $add);
+                    }
                     error_log("_config_ratings_default is now: ");
                     foreach($_POST["_config_ratings_default"] as $crd) {
                         error_log("_config_ratings_default[] contains ".$crd);
