@@ -138,7 +138,7 @@ function validateRatingViewForm(e) {
     console.log("validateRatingViewForm() called...");    
     if($("input[name='_config_ratings_default[]']:checked").length > 0) {
         console.log("at least one option checked...");
-        e.preventDefault();
+        //e.preventDefault();
             [...document.querySelectorAll("form#rtngViewForm input[type='checkbox']")].forEach(function(cb) {
 //                cb.addEventListener('change', function(e) {
                     form = document.getElementById("rtngViewForm");
@@ -150,13 +150,13 @@ function validateRatingViewForm(e) {
                                 the form's checkboxes are immediately reset, so only e.g. here ? and q are added, but not e.
                                 Working around this by adding hidden inputs for e and (below) s, but this should not be necessary.
                                 */
-//                                form.innerHTML+="<input type='hidden' id='hee' name='_config_ratings_default[]' value='e'>";
+                                form.innerHTML+="<input type='hidden' id='hee' name='_config_ratings_default[]' value='e'>";
                                 form.innerHTML+="<input type='hidden' id='heu' name='_config_ratings_default[]' value='?'>";
                                 form.innerHTML+="<input type='hidden' id='heq' name='_config_ratings_default[]' value='q'>";
                                 console.log("heu and heq added");
                                 break;
                             case "chkbx_s":
-//                                form.innerHTML+="<input type='hidden' id='hss' name='_config_ratings_default[]' value='s'>";
+                                form.innerHTML+="<input type='hidden' id='hss' name='_config_ratings_default[]' value='s'>";
                                 form.innerHTML+="<input type='hidden' id='hsp' name='_config_ratings_default[]' value='p'>";
                                 console.log("hsp added");
                                 break;
@@ -189,8 +189,8 @@ function validateRatingViewForm(e) {
 //                });
             });    
         console.log("validation passed!");
-        //return true;
-        form.submit();
+        return true;
+        //form.submit();
         } else {
 //            event.preventDefault(); 
             document.querySelector("form#rtngViewForm").style.color = "red";
