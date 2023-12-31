@@ -133,11 +133,12 @@ TODO:
 - figure out a better way to evaluate and add/remove hidden inputs, rather than reacting to checkbox
 changes. Maybe better to get called by the submit button, do our thing and then "pass along" the submit event?
 */
-function validateRatingViewForm() {
+function validateRatingViewForm(e) {
 //    document.querySelector("form#rtngViewForm").addEventListener('submit', function (event) {
     console.log("validateRatingViewForm() called...");    
     if($("input[name='_config_ratings_default[]']:checked").length > 0) {
         console.log("at least one option checked...");
+        e.preventDefault();
             [...document.querySelectorAll("form#rtngViewForm input[type='checkbox']")].forEach(function(cb) {
 //                cb.addEventListener('change', function(e) {
                     form = document.getElementById("rtngViewForm");
@@ -188,8 +189,8 @@ function validateRatingViewForm() {
 //                });
             });    
         console.log("validation passed!");
-        return true;
-        //form.submit();
+        //return true;
+        form.submit();
         } else {
 //            event.preventDefault(); 
             document.querySelector("form#rtngViewForm").style.color = "red";
