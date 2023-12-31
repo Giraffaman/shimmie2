@@ -180,11 +180,13 @@ function validateRatingViewForm() {
                         }        
                     }
 //                });
-                return true;
             });    
+        console.log("validation passed!");
+        return true;
         } else {
-            event.preventDefault(); 
+//            event.preventDefault(); 
             document.querySelector("form#rtngViewForm").style.color = "red";
+            console.log("validation failed!");
             return false;
         }
 //    });    
