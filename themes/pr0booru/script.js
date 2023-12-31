@@ -116,13 +116,6 @@ window.addEventListener('load', function () {
     }
 });
 
-document.querySelector("form#rtngViewForm").addEventListener('submit', function (event) {
-    if($("input[name='_config_ratings_default[]']:checked").length < 1) {
-        event.preventDefault(); 
-        document.querySelector("form#rtngViewForm").style.color = "red";
-    }
-});
-
 /*
 handles state changes in rating view form checkboxes:
 - if SFW is checked, add hidden input to also enable rating PUBLIC
@@ -140,46 +133,57 @@ TODO:
 - figure out a better way to evaluate and add/remove hidden inputs, rather than reacting to checkbox
 changes. Maybe better to get called by the submit button, do our thing and then "pass along" the submit event?
 */
-[...document.querySelectorAll("form#rtngViewForm input[type='checkbox']")].forEach(function(cb) {
-    cb.addEventListener('change', function(e) {
-        form = document.getElementById("rtngViewForm");
-        if(cb.checked) {
-            console.log(cb.id+" checked");
-            switch(cb.id) {
-                case "chkbx_e":
-                    form.innerHTML+="<input type='hidden' id='heu' name='_config_ratings_default[]' value='?'>";
-                    form.innerHTML+="<input type='hidden' id='heq' name='_config_ratings_default[]' value='q'>";
-                    console.log("heu and heq added");
-                    break;
-                case "chkbx_s":
-                    form.innerHTML+="<input type='hidden' id='hsp' name='_config_ratings_default[]' value='p'>";
-                    console.log("hsp added");
-                    break;
-                default:
-                    console.log("????");
-            }
+function validateRatingViewForm() {
+//    document.querySelector("form#rtngViewForm").addEventListener('submit', function (event) {
+        if($("input[name='_config_ratings_default[]']:checked").length > 0) {
+            [...document.querySelectorAll("form#rtngViewForm input[type='checkbox']")].forEach(function(cb) {
+                cb.addEventListener('change', function(e) {
+                    form = document.getElementById("rtngViewForm");
+                    if(cb.checked) {
+                        console.log(cb.id+" checked");
+                        switch(cb.id) {
+                            case "chkbx_e":
+                                form.innerHTML+="<input type='hidden' id='heu' name='_config_ratings_default[]' value='?'>";
+                                form.innerHTML+="<input type='hidden' id='heq' name='_config_ratings_default[]' value='q'>";
+                                console.log("heu and heq added");
+                                break;
+                            case "chkbx_s":
+                                form.innerHTML+="<input type='hidden' id='hsp' name='_config_ratings_default[]' value='p'>";
+                                console.log("hsp added");
+                                break;
+                            default:
+                                console.log("????");
+                        }
+                    } else {
+                        console.log(cb.id+" unchecked");
+                        switch(cb.id) {
+                            case "chkbx_e":
+                                if(document.contains(document.getElementById("heu"))) {
+                                    document.getElementById("heu").remove();
+                                    console.log("heu removed");
+                                }
+                                if(document.contains(document.getElementById("heq"))) {
+                                    document.getElementById("heq").remove();
+                                    console.log("heq removed");
+                                }
+                                break;
+                            case "chkbx_s":
+                                if(document.contains(document.getElementById("hsp"))) {
+                                    document.getElementById("hsp").remove();
+                                    console.log("hsp removed");
+                                }
+                                break;
+                            default:
+                                console.log("!!!");                
+                        }        
+                    }
+                });
+                return true;
+            });    
         } else {
-            console.log(cb.id+" unchecked");
-            switch(cb.id) {
-                case "chkbx_e":
-                    if(document.contains(document.getElementById("heu"))) {
-                        document.getElementById("heu").remove();
-                        console.log("heu removed");
-                    }
-                    if(document.contains(document.getElementById("heq"))) {
-                        document.getElementById("heq").remove();
-                        console.log("heq removed");
-                    }
-                    break;
-                case "chkbx_s":
-                    if(document.contains(document.getElementById("hsp"))) {
-                        document.getElementById("hsp").remove();
-                        console.log("hsp removed");
-                    }
-                    break;
-                default:
-                    console.log("!!!");                
-            }        
+            event.preventDefault(); 
+            document.querySelector("form#rtngViewForm").style.color = "red";
+            return false;
         }
-      });
-  });
+//    });    
+}
