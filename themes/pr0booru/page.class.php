@@ -159,8 +159,8 @@ class Page extends BasePage
                 if($deblog) { echo $this->make_logentry("user allowd to see stuff..."); }
                 $baseHref = get_base_href();
                 if($deblog) { echo $this->make_logentry($baseHref); }
-#                $ratingCtrl = make_form(make_link($baseHref."rating/save_ratingView"), "POST", false, "rtngViewForm");
-                $ratingCtrl = make_form(make_link($baseHref."rating/save_ratingView"), "POST", false, "rtngViewForm", "return validateRatingViewForm();");
+                $ratingCtrl = make_form(make_link($baseHref."rating/save_ratingView"), "POST", false, "rtngViewForm");
+#                $ratingCtrl = make_form(make_link($baseHref."rating/save_ratingView"), "POST", false, "rtngViewForm", "return validateRatingViewForm();");
                 $ratingCtrl .= "<input type='hidden' name='id' value='".$user->id."'>";
                 $ratingCtrl .= $this->add_boolFromArray("ratings_default[]", "s", $userRatings, RatingsConfig::USER_DEFAULTS, "Sfw");
                 $ratingCtrl .= $this->add_boolFromArray("ratings_default[]", "e", $userRatings, RatingsConfig::USER_DEFAULTS, "Nsfw");

@@ -400,7 +400,7 @@ class Ratings extends Extension
             if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
                 throw new PermissionDeniedException("Permission denied");
             } else {
-                syslog(LOG_INFO, $this->make_logentry("can save rating..."));
+                error_log("can save rating...");
                 foreach($_POST as $p => $v) {
                     error_log("p: ".$p." - v: ".$v);
                 }
