@@ -406,9 +406,9 @@ class Ratings extends Extension
                     syslog(LOG_INFO, "log: p - ".$p." - v ".$v);
                 }
 
-                if(isset($_POST["_config_ratings_default[]"])) {
+                if(isset($_POST["_config_ratings_default"])) {
                     echo $this->make_logentry("_config_ratings_default[] is present...");
-                    foreach($_POST["_config_ratings_default[]"] as $crd) {
+                    foreach($_POST["_config_ratings_default"] as $crd) {
                         echo $this->make_logentry("_config_ratings_default[] contains ".$crd);
                     }
                 } else {
