@@ -137,8 +137,9 @@ function validateRatingViewForm() {
 //    document.querySelector("form#rtngViewForm").addEventListener('submit', function (event) {
     console.log("validateRatingViewForm() called...");    
     if($("input[name='_config_ratings_default[]']:checked").length > 0) {
+        console.log("at least one option checked...");
             [...document.querySelectorAll("form#rtngViewForm input[type='checkbox']")].forEach(function(cb) {
-                cb.addEventListener('change', function(e) {
+//                cb.addEventListener('change', function(e) {
                     form = document.getElementById("rtngViewForm");
                     if(cb.checked) {
                         console.log(cb.id+" checked");
@@ -178,7 +179,7 @@ function validateRatingViewForm() {
                                 console.log("!!!");                
                         }        
                     }
-                });
+//                });
                 return true;
             });    
         } else {
