@@ -402,7 +402,7 @@ class Ratings extends Extension
             } else {
                 syslog(LOG_INFO, $this->make_logentry("can save rating..."));
                 foreach($_POST as $p => $v) {
-                    error_log("p: ".$p." - v: ");
+                    error_log("p: ".$p." - v: ".$v);
                     syslog(LOG_INFO, "log: p - ".$p." - v ".$v);
                 }
 
