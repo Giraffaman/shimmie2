@@ -185,11 +185,16 @@ class Ratings extends Extension
             $page->set_mode(PageMode::REDIRECT);
             $page->set_redirect(make_link());
         }
+
+        /*
+            cannot dynamically set prev/next links to the next good image with matching rating.
+            Maybe a solution could be to auto-navigate to the prev/next image and, 
+            while image->rating != what we want, keep "clicking" the prev/next link
+        */
         if(!$this->check_user_ratings($event->image)) {
             $page->set_mode(PageMode::REDIRECT);
             $page->set_redirect(make_link());
             error_log("don't want to see this!");
-            echo "NO!";
         }
     }
 
