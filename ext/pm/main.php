@@ -212,7 +212,7 @@ class PrivMsg extends Extension
             if (!is_null($pms)) {
                 $this->theme->display_pms($page, $pms);
             }
-            if ($user->id != $duser->id) {
+            if ($user->can(Permissions::SEND_PM) && $user->id != $duser->id) {
                 $this->theme->display_composer($page, $user, $duser);
             }
         }
@@ -235,7 +235,11 @@ class PrivMsg extends Extension
                                 $database->execute("UPDATE private_message SET is_read=true WHERE id = :id", ["id" => $pm_id]);
                                 $cache->delete("pm-count-{$user->id}");
                             }
-                            $this->theme->display_message($page, $from_user, $user, PM::from_row($pm));
+                            $pmo = PM::from_row($pm);
+                            $this->theme->display_message($page, $from_user, $user, $pmo);
+                            if($user->can(Permissions::SEND_PM)) {
+                                $this->theme->display_composer($page, $user, $from_user, "Re: ".$pmo->subject);
+                            }
                         } else {
                             $this->theme->display_permission_denied();
                         }
@@ -297,18 +301,17 @@ class PrivMsg extends Extension
 
     private function count_pms(User $user)
     {
-        global $cache, $database;
+        global $database;
 
-        $count = $cache->get("pm-count:{$user->id}");
-        if (is_null($count)) {
-            $count = $database->get_one("
-					SELECT count(*)
-					FROM private_message
-					WHERE to_id = :to_id
-					AND is_read = :is_read
-			", ["to_id" => $user->id, "is_read" => false]);
-            $cache->set("pm-count:{$user->id}", $count, 600);
-        }
-        return $count;
+        return cache_get_or_set(
+            "pm-count:{$user->id}",
+            fn () => $database->get_one("
+                SELECT count(*)
+                FROM private_message
+                WHERE to_id = :to_id
+                AND is_read = :is_read
+            ", ["to_id" => $user->id, "is_read" => false]),
+            600
+        );
     }
 }

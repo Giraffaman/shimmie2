@@ -6,6 +6,10 @@ namespace Shimmie2;
 
 class CustomIndexTheme extends IndexTheme
 {
+    public static array $_search_query = [];
+
+    // override to add the can-del class, so that thumbnail HTML can be cached
+    // with admin-controls included, and CSS is used to show or hide the controls
     protected function build_table(array $images, ?string $query): string
     {
         global $user;
@@ -21,13 +25,14 @@ class CustomIndexTheme extends IndexTheme
         return $table;
     }
 
+    // Override to add a custom error message
     public function display_page(Page $page, $images)
     {
         $this->display_page_header($page, $images);
 
         $nav = $this->build_navigation($this->page_number, $this->total_pages, $this->search_terms);
         if (!empty($this->search_terms)) {
-            $page->_search_query = $this->search_terms;
+            static::$_search_query = $this->search_terms;
         }
         $page->add_block(new Block("Navigation", $nav, "left", 0));
 

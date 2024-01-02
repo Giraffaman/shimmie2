@@ -58,6 +58,34 @@ class UploadException extends SCoreException
 {
 }
 
+abstract class UploadResult
+{
+    public function __construct(
+        public string $name
+    ) {
+    }
+}
+
+class UploadError extends UploadResult
+{
+    public function __construct(
+        string $name,
+        public string $error
+    ) {
+        parent::__construct($name);
+    }
+}
+
+class UploadSuccess extends UploadResult
+{
+    public function __construct(
+        string $name,
+        public int $image_id
+    ) {
+        parent::__construct($name);
+    }
+}
+
 /**
  * Main upload class.
  * All files that are uploaded to the site are handled through this class.
@@ -183,7 +211,7 @@ class Upload extends Extension
             }
         }
 
-        if ($event->page_matches("upload/replace")) {
+        if ($event->page_matches("replace")) {
             if (!$user->can(Permissions::REPLACE_IMAGE)) {
                 $this->theme->display_error(403, "Error", "{$user->name} doesn't have permission to replace images");
                 return;
@@ -193,35 +221,23 @@ class Upload extends Extension
                 return;
             }
 
-            // Try to get the image ID
-            if ($event->count_args() >= 1) {
-                $image_id = int_escape($event->get_arg(0));
-            } elseif (isset($_POST['image_id'])) {
-                $image_id = int_escape($_POST['image_id']);
-            } else {
-                throw new UploadException("Can not replace Post: No valid Post ID given.");
-            }
+            $image_id = int_escape($event->get_arg(0));
             $image_old = Image::by_id($image_id);
             if (is_null($image_old)) {
                 throw new UploadException("Can not replace Post: No post with ID $image_id");
             }
 
-            $source = $_POST['source'] ?? null;
-
-            if (!empty($_POST["url"])) {
-                $image_ids = $this->try_transload($_POST["url"], [], $source, $image_id);
-                $cache->delete("thumb-block:{$image_id}");
-                $this->theme->display_upload_status($page, $image_ids);
-            } elseif (count($_FILES) > 0) {
-                $image_ids = $this->try_upload($_FILES["data"], [], $source, $image_id);
-                $cache->delete("thumb-block:{$image_id}");
-                $this->theme->display_upload_status($page, $image_ids);
-            } elseif (!empty($_GET['url'])) {
-                $image_ids = $this->try_transload($_GET['url'], [], $source, $image_id);
-                $cache->delete("thumb-block:{$image_id}");
-                $this->theme->display_upload_status($page, $image_ids);
-            } else {
+            if($event->method == "GET") {
                 $this->theme->display_replace_page($page, $image_id);
+            } elseif($event->method == "POST") {
+                $results = [];
+                if (!empty($_POST["url"])) {
+                    $results = $this->try_transload($_POST["url"], [], $_POST['source'] ?? null, $image_id);
+                } elseif (count($_FILES) > 0) {
+                    $results = $this->try_upload($_FILES["data"], [], $_POST['source'] ?? null, $image_id);
+                }
+                $cache->delete("thumb-block:{$image_id}");
+                $this->theme->display_upload_status($page, $results);
             }
         } elseif ($event->page_matches("upload")) {
             if (!$user->can(Permissions::CREATE_IMAGE)) {
@@ -233,36 +249,32 @@ class Upload extends Extension
                 return;
             }
 
-            /* Regular Upload Image */
-            if (count($_FILES) > 0 || count($_POST) > 0) {
-                $image_ids = [];
-
-                foreach ($_FILES as $name => $file) {
-                    $tags = $this->tags_for_upload_slot(int_escape(substr($name, 4)));
-                    $source = $_POST['source'] ?? null;
-                    $image_ids += $this->try_upload($file, $tags, $source);
-                }
-                foreach ($_POST as $name => $value) {
-                    if (str_starts_with($name, "url") && strlen($value) > 0) {
-                        $tags = $this->tags_for_upload_slot(int_escape(substr($name, 3)));
-                        $source = $_POST['source'] ?? $value;
-                        $image_ids += $this->try_transload($value, $tags, $source);
-                    }
-                }
-
-                $this->theme->display_upload_status($page, $image_ids);
-            } elseif (!empty($_GET['url'])) {
-                $url = $_GET['url'];
-                $source = $_GET['source'] ?? $url;
-                $tags = ['tagme'];
-                if (!empty($_GET['tags']) && $_GET['tags'] != "null") {
-                    $tags = Tag::explode($_GET['tags']);
-                }
-
-                $image_ids = $this->try_transload($url, $tags, $source);
-                $this->theme->display_upload_status($page, $image_ids);
-            } else {
+            if($event->method == "GET") {
                 $this->theme->display_page($page);
+            } elseif($event->method == "POST") {
+                $results = [];
+
+                $files = array_filter($_FILES, function ($file) {
+                    return !empty($file['name']);
+                });
+                foreach ($files as $name => $file) {
+                    $slot = int_escape(substr($name, 4));
+                    $tags = $this->tags_for_upload_slot($slot);
+                    $source = $this->source_for_upload_slot($slot);
+                    $results = array_merge($results, $this->try_upload($file, $tags, $source));
+                }
+
+                $urls = array_filter($_POST, function ($value, $key) {
+                    return str_starts_with($key, "url") && strlen($value) > 0;
+                }, ARRAY_FILTER_USE_BOTH);
+                foreach ($urls as $name => $value) {
+                    $slot = int_escape(substr($name, 3));
+                    $tags = $this->tags_for_upload_slot($slot);
+                    $source = $this->source_for_upload_slot($slot);
+                    $results = array_merge($results, $this->try_transload($value, $tags, $source));
+                }
+
+                $this->theme->display_upload_status($page, $results);
             }
         }
     }
@@ -276,6 +288,11 @@ class Upload extends Extension
             " " .
             ($_POST["tags$id"] ?? "")
         );
+    }
+
+    private function source_for_upload_slot(int $id): ?string
+    {
+        return $_POST["source$id"] ?? $_POST['source'] ?? null;
     }
 
     /**
@@ -310,8 +327,9 @@ class Upload extends Extension
 
     /**
      * Handle an upload.
-     * #param string[] $file
-     * #param string[] $tags
+     * @param mixed[] $file
+     * @param string[] $tags
+     * @return UploadResult[]
      */
     private function try_upload(array $file, array $tags, ?string $source = null, ?int $replace_id = null): array
     {
@@ -326,61 +344,50 @@ class Upload extends Extension
             $source = null;
         }
 
-        $image_ids = [];
+        $results = [];
 
-        $num_files = count($file['name']);
-        $limit = $config->get_int(UploadConfig::COUNT);
-        try {
-            if ($num_files > $limit) {
-                throw new UploadException("Upload limited to $limit");
+        for ($i = 0; $i < count($file['name']); $i++) {
+            $name = $file['name'][$i];
+            $error = $file['error'][$i];
+            $tmp_name = $file['tmp_name'][$i];
+
+            if (empty($name)) {
+                continue;
             }
-
-            for ($i = 0; $i < $num_files; $i++) {
-                if (empty($file['name'][$i])) {
-                    continue;
+            try {
+                // check if the upload was successful
+                if ($error !== UPLOAD_ERR_OK) {
+                    throw new UploadException($this->upload_error_message($error));
                 }
-                try {
-                    // check if the upload was successful
-                    if ($file['error'][$i] !== UPLOAD_ERR_OK) {
-                        throw new UploadException($this->upload_error_message($file['error'][$i]));
-                    }
 
-                    $metadata = [];
-                    $metadata['filename'] = pathinfo($file['name'][$i], PATHINFO_BASENAME);
-                    $metadata['tags'] = $tags;
-                    $metadata['source'] = $source;
+                $metadata = [];
+                $metadata['filename'] = pathinfo($name, PATHINFO_BASENAME);
+                $metadata['tags'] = $tags;
+                $metadata['source'] = $source;
 
-                    $event = new DataUploadEvent($file['tmp_name'][$i], $metadata, $replace_id);
-                    send_event($event);
-                    if ($event->image_id == -1) {
-                        throw new UploadException("MIME type not supported: " . $event->mime);
-                    }
-                    $image_ids[] = $event->image_id;
-                    $page->add_http_header("X-Shimmie-Post-ID: " . $event->image_id);
-                } catch (UploadException $ex) {
-                    $this->theme->display_upload_error(
-                        $page,
-                        "Error with " . html_escape($file['name'][$i]),
-                        $ex->getMessage()
-                    );
+                $event = new DataUploadEvent($tmp_name, $metadata, $replace_id);
+                send_event($event);
+                if ($event->image_id == -1) {
+                    throw new UploadException("MIME type not supported: " . $event->mime);
                 }
+                $results[] = new UploadSuccess($name, $event->image_id);
+                $page->add_http_header("X-Shimmie-Post-ID: " . $event->image_id);
+            } catch (UploadException $ex) {
+                $results[] = new UploadError($name, $ex->getMessage());
             }
-        } catch (UploadException $ex) {
-            $this->theme->display_upload_error(
-                $page,
-                "Error with upload",
-                $ex->getMessage()
-            );
         }
 
-        return $image_ids;
+        return $results;
     }
 
+    /**
+     * @return UploadResult[]
+     */
     private function try_transload(string $url, array $tags, string $source = null, ?int $replace_id = null): array
     {
         global $page, $config, $user;
 
-        $image_ids = [];
+        $results = [];
         $tmp_filename = tempnam(ini_get('upload_tmp_dir'), "shimmie_transload");
 
         try {
@@ -417,19 +424,15 @@ class Upload extends Extension
             if ($event->image_id == -1) {
                 throw new UploadException("File type not supported: " . $event->mime);
             }
-            $image_ids[] = $event->image_id;
+            $results[] = new UploadSuccess($url, $event->image_id);
         } catch (UploadException $ex) {
-            $this->theme->display_upload_error(
-                $page,
-                "Error with " . html_escape($url),
-                $ex->getMessage()
-            );
+            $results[] = new UploadError($url, $ex->getMessage());
         } finally {
             if (file_exists($tmp_filename)) {
                 unlink($tmp_filename);
             }
         }
 
-        return $image_ids;
+        return $results;
     }
 }

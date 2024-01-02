@@ -8,7 +8,7 @@
 	<tr>
 		<form action='/post/list' method='GET' id="barbot">
 			<td id="nav-toggle">
-				<a style="font-size: 2em;" onclick="toggleNav();">&nbsp;Sidebar&nbsp;</a>
+				<a style="font-size: 2rem;" onclick="toggleNav();">&nbsp;Sidebar&nbsp;</a>
 			</td>
 			<td id="mini-logo">
 				<a class="vis-mobile" href="//rule34.paheal.net/post/list"><img alt="logo" src="//rule34.paheal.net/themes/rule34v2/rule34_logo_top.png" style="height: 34px;"/></a>
@@ -17,7 +17,7 @@
 				<input name='search' size="45" type='text' placeholder='Search' autocomplete='off' class='autocomplete_tags' value="<?=$query;?>"/>
 			</td>
 			<td width="100">
-				<input type='submit' value='Find' id="submit" style="border: 1px solid #888; height: 34px; border-radius: 2px; background: #EEE;"/>
+				<input type='submit' value='Find' id="submit" style="border: 1px solid #888; height: 22px; border-radius: 2px; background: #EEE;"/>
 			</td>
 		</form>
 	</tr>
@@ -68,26 +68,28 @@
 	<ul>
 		<li><a href="//rule34.paheal.net/post/list" class="top_parent">Help &#9660;</a>
 		<ul>
+			<li><a href="mailto:dmca@paheal.net" class="sub_option">DMCA</a></li>
 			<li><a href="//rule34.paheal.net/wiki/rules" class="sub_option">Site rules</a></li>
-            <li><a href="//rule34.paheal.net/wiki/faq" class="sub_option">F.A.Q.</a></li>
+            		<li><a href="//rule34.paheal.net/wiki/faq" class="sub_option">F.A.Q.</a></li>
 			<li><a href="//rule34.paheal.net/wiki/tagging" class="sub_option">Tagging Guide</a></li>
 			<li><a href="//rule34.paheal.net/wiki/staff" class="sub_option">Staff</a></li>
 			<li><a href="#" class="parent">Contact</a>
 			<ul>
 				<li><a href="mailto:staff@paheal.net" class="sub_option">Staff</a></li>
 				<li><a href="mailto:webmaster@shishnet.org" class="sub_option">Programmer</a></li>
+				<li><a href="mailto:dmca@paheal.net" class="sub_option">DMCA</a></li>
 			</ul>
 			</li>
 		</ul>
 		</li>
 	</ul>
 	
-	<ul>
+	<!--<ul>
 		<li><a class="menu top_parent" href="//rule34.paheal.net/wiki/Notes">ANNOUNCEMENTS</a></li>
-	</ul>
+	</ul>-->
 
 	<ul>
-		<li><a href="https://s.zlinkd.com/d.php?z=3832265" target="_blank">Adult games! &#127918;</a></li>
+		<li><a href="https://s.zlink3.com/d.php?z=3832265" target="_blank" sub="0002">Adult games! &#127918;</a></li>
 	</ul>
 	
 </div>

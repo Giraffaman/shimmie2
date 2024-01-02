@@ -55,9 +55,9 @@ class TagUsage
             $cache_key .= "-" . $limit;
         }
 
-        $res = $cache->get($cache_key);
-        if (is_null($res)) {
-            $res = $database->get_pairs(
+        $res = cache_get_or_set(
+            $cache_key,
+            fn () => $database->get_pairs(
                 "
                 SELECT tag, count
                 FROM tags
@@ -68,9 +68,9 @@ class TagUsage
                 $limitSQL
                 ",
                 $SQLarr
-            );
-            $cache->set($cache_key, $res, 600);
-        }
+            ),
+            600
+        );
 
         $counts = [];
         foreach ($res as $k => $v) {
@@ -272,54 +272,5 @@ class Tag
         $term = str_replace('*', '%', $term);
         // $term = str_replace("?", "_", $term);
         return $term;
-    }
-
-    /**
-     * Kind of like urlencode, but using a custom scheme so that
-     * tags always fit neatly between slashes in a URL. Use this
-     * when you want to put an arbitrary tag into a URL.
-     */
-    public static function caret(string $input): string
-    {
-        $to_caret = [
-            "^" => "^",
-            "/" => "s",
-            "\\" => "b",
-            "?" => "q",
-            "&" => "a",
-            "." => "d",
-        ];
-
-        foreach ($to_caret as $from => $to) {
-            $input = str_replace($from, '^' . $to, $input);
-        }
-        return $input;
-    }
-
-    /**
-     * Use this when you want to get a tag out of a URL
-     */
-    public static function decaret(string $str): string
-    {
-        $from_caret = [
-            "^" => "^",
-            "s" => "/",
-            "b" => "\\",
-            "q" => "?",
-            "a" => "&",
-            "d" => ".",
-        ];
-
-        $out = "";
-        $length = strlen($str);
-        for ($i = 0; $i < $length; $i++) {
-            if ($str[$i] == "^") {
-                $i++;
-                $out .= $from_caret[$str[$i]] ?? '';
-            } else {
-                $out .= $str[$i];
-            }
-        }
-        return $out;
     }
 }

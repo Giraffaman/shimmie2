@@ -532,7 +532,7 @@ class TagList extends Extension
     }
 
     /**
-     * #param string[] $search
+     * @param string[] $search
      */
     private function add_refine_block(Page $page, array $search)
     {
@@ -554,7 +554,6 @@ class TagList extends Extension
     public static function get_related_tags(array $search, int $limit): array
     {
         global $cache, $database;
-
 
         $wild_tags = $search;
         $cache_key = "related_tags:" . md5(Tag::implode($search));

@@ -13,20 +13,20 @@ use function MicroHTML\TR;
 use function MicroHTML\TH;
 use function MicroHTML\TD;
 
-class ViewImage extends Extension
+class ViewPost extends Extension
 {
-    /** @var ViewImageTheme */
+    /** @var ViewPostTheme */
     protected Themelet $theme;
 
     public function onPageRequest(PageRequestEvent $event)
     {
         global $page, $user;
 
-        if ($event->page_matches("post/prev") ||	$event->page_matches("post/next")) {
+        if ($event->page_matches("post/prev") || $event->page_matches("post/next")) {
             $image_id = int_escape($event->get_arg(0));
 
             if (isset($_GET['search'])) {
-                $search_terms = Tag::explode(Tag::decaret($_GET['search']));
+                $search_terms = Tag::explode($_GET['search']);
                 $query = "#search=".url_escape($_GET['search']);
             } else {
                 $search_terms = [];
@@ -123,7 +123,7 @@ class ViewImage extends Extension
         global $config;
         $image_info = $config->get_string(ImageConfig::INFO);
         if ($image_info) {
-            $event->add_part(SHM_POST_INFO("Info", false, $event->image->get_info()), 85);
+            $event->add_part(SHM_POST_INFO("Info", $event->image->get_info()), 85);
         }
     }
 }

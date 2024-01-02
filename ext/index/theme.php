@@ -42,7 +42,7 @@ and of course start organising your images :-)
     }
 
     /**
-     * #param Image[] $images
+     * @param Image[] $images
      */
     public function display_page(Page $page, array $images)
     {
@@ -61,7 +61,7 @@ and of course start organising your images :-)
     }
 
     /**
-     * #param string[] $parts
+     * @param string[] $parts
      */
     public function display_admin_block(array $parts)
     {
@@ -71,14 +71,12 @@ and of course start organising your images :-)
 
 
     /**
-     * #param string[] $search_terms
+     * @param string[] $search_terms
      */
     protected function build_navigation(int $page_number, int $total_pages, array $search_terms): string
     {
         $prev = $page_number - 1;
         $next = $page_number + 1;
-
-        $u_tags = url_escape(Tag::implode($search_terms));
 
         $h_prev = ($page_number <= 1) ? "Prev" : '<a href="'.search_link($search_terms, $prev).'">Prev</a>';
         $h_index = "<a href='".make_link()."'>Index</a>";
@@ -88,7 +86,7 @@ and of course start organising your images :-)
         $h_search_link = search_link();
         $h_search = "
 			<p><form action='$h_search_link' method='GET'>
-				<input type='search' name='search' value='$h_search_string' placeholder='Search' class='autocomplete_tags' autocomplete='off' />
+				<input type='search' name='search' value='$h_search_string' placeholder='Search' class='autocomplete_tags' />
 				<input type='hidden' name='q' value='/post/list'>
 				<input type='submit' value='Find' style='display: none;' />
 			</form>
@@ -98,7 +96,7 @@ and of course start organising your images :-)
     }
 
     /**
-     * #param Image[] $images
+     * @param Image[] $images
      */
     protected function build_table(array $images, ?string $query): string
     {
@@ -141,7 +139,7 @@ and of course start organising your images :-)
     }
 
     /**
-     * #param Image[] $images
+     * @param Image[] $images
      */
     protected function display_page_header(Page $page, array $images)
     {
@@ -167,7 +165,7 @@ and of course start organising your images :-)
     }
 
     /**
-     * #param Image[] $images
+     * @param Image[] $images
      */
     protected function display_page_images(Page $page, array $images)
     {
@@ -176,7 +174,7 @@ and of course start organising your images :-)
                 // only index the first pages of each term
                 $page->add_html_header('<meta name="robots" content="noindex, nofollow">');
             }
-            $query = url_escape(Tag::caret(Tag::implode($this->search_terms)));
+            $query = url_escape(Tag::implode($this->search_terms));
             $page->add_block(new Block("Posts", $this->build_table($images, "#search=$query"), "main", 10, "image-list"));
             $this->display_paginator($page, "post/list/$query", null, $this->page_number, $this->total_pages, true);
         } else {

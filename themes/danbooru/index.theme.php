@@ -7,7 +7,7 @@ namespace Shimmie2;
 class CustomIndexTheme extends IndexTheme
 {
     /**
-     * #param Image[] $images
+     * @param Image[] $images
      */
     public function display_page(Page $page, array $images)
     {
@@ -20,7 +20,7 @@ class CustomIndexTheme extends IndexTheme
             $page_title = $config->get_string(SetupConfig::TITLE);
         } else {
             $search_string = Tag::implode($this->search_terms);
-            $query = url_escape(Tag::caret($search_string));
+            $query = url_escape($search_string);
             $page_title = html_escape($search_string);
         }
 
@@ -42,7 +42,7 @@ class CustomIndexTheme extends IndexTheme
     }
 
     /**
-     * #param string[] $search_terms
+     * @param string[] $search_terms
      */
     protected function build_navigation(int $page_number, int $total_pages, array $search_terms): string
     {

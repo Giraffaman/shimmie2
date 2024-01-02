@@ -415,12 +415,12 @@ class OuroborosAPI extends Extension
 
     /**
      * Wrapper for getting a list of posts
-     * #param string[] $tags
+     * @param string[] $tags
      */
     protected function postIndex(int $limit, int $page, array $tags)
     {
         $start = ($page - 1) * $limit;
-        $results = Image::find_images(max($start, 0), min($limit, 100), $tags);
+        $results = Search::find_images(max($start, 0), min($limit, 100), $tags);
         $posts = [];
         foreach ($results as $img) {
             if (!is_object($img)) {

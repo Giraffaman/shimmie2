@@ -247,7 +247,9 @@ class Ratings extends Extension
 
     public function onParseLinkTemplate(ParseLinkTemplateEvent $event)
     {
-        $event->replace('$rating', $this->rating_to_human($event->image->rating));
+        if(!is_null($event->image->rating)) {
+            $event->replace('$rating', $this->rating_to_human($event->image->rating));
+        }
     }
 
     public function onHelpPageBuilding(HelpPageBuildingEvent $event)
@@ -481,7 +483,7 @@ class Ratings extends Extension
             } else {
                 $n = 0;
                 while (true) {
-                    $images = Image::find_images($n, 100, Tag::explode($_POST["query"]));
+                    $images = Search::find_images($n, 100, Tag::explode($_POST["query"]));
                     if (count($images) == 0) {
                         break;
                     }
@@ -530,6 +532,11 @@ class Ratings extends Extension
         );
     }
 
+    /**
+     * Figure out which ratings a user is allowed to see
+     *
+     * @return string[]
+     */
     public static function get_user_class_privs(User $user): array
     {
         global $config;
@@ -537,6 +544,12 @@ class Ratings extends Extension
         return $config->get_array("ext_rating_".$user->class->name."_privs");
     }
 
+    /**
+     * Figure out which ratings a user would like to see by default
+     * (Which will be a subset of what they are allowed to see)
+     *
+     * @return string[]
+     */
     public static function get_user_default_ratings(): array
     {
         global $user_config, $user;
@@ -577,7 +590,7 @@ class Ratings extends Extension
     }
 
     /**
-     * #param string[] $context
+     * @param string[] $context
      */
     private function no_rating_query(array $context): bool
     {

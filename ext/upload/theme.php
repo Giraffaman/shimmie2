@@ -17,13 +17,12 @@ use function MicroHTML\NOSCRIPT;
 use function MicroHTML\DIV;
 use function MicroHTML\BR;
 use function MicroHTML\A;
+use function MicroHTML\SPAN;
 
 use function MicroHTML\P;
 
 class UploadTheme extends Themelet
 {
-    protected bool $has_errors = false;
-
     public function display_block(Page $page): void
     {
         $b = new Block("Upload", (string)$this->build_upload_block(), "left", 20);
@@ -43,89 +42,41 @@ class UploadTheme extends Themelet
         $tl_enabled = ($config->get_string(UploadConfig::TRANSLOAD_ENGINE, "none") != "none");
         $max_size = $config->get_int(UploadConfig::SIZE);
         $max_kb = to_shorthand_int($max_size);
-        $max_total_size = parse_shorthand_int(ini_get('post_max_size')) - 102400; //leave room for http request data
+        $max_total_size = parse_shorthand_int(ini_get('post_max_size'));
         $max_total_kb = to_shorthand_int($max_total_size);
-        $upload_list = $this->h_upload_list_1();
+        $upload_list = $this->build_upload_list();
 
         $form = SHM_FORM("upload", "POST", true, "file_upload");
         $form->appendChild(
             TABLE(
-                ["id" => "large_upload_form", "class" => "vert"],
+                ["id" => "large_upload_form"],
                 TR(
                     TD(["width" => "20"], rawHTML("Common&nbsp;Tags")),
-                    TD(["colspan" => "5"], INPUT(["name" => "tags", "type" => "text", "placeholder" => "tagme", "class" => "autocomplete_tags", "autocomplete" => "off"]))
+                    TD(["colspan" => "6"], INPUT(["name" => "tags", "type" => "text", "placeholder" => "tagme", "class" => "autocomplete_tags"]))
                 ),
                 TR(
                     TD(["width" => "20"], rawHTML("Common&nbsp;Source")),
-                    TD(["colspan" => "5"], INPUT(["name" => "source", "type" => "text"]))
+                    TD(["colspan" => "6"], INPUT(["name" => "source", "type" => "text", "placeholder" => "https://..."]))
                 ),
                 $upload_list,
                 TR(
-                    TD(["colspan" => $tl_enabled ? 2 : 4,"id" => "upload_size_tracker"], ""),
-                    TD(["colspan" => 2], ""),
-                ),
-                TR(
-                    TD(["colspan" => "6"], INPUT(["id" => "uploadbutton", "type" => "submit", "value" => "Post"]))
+                    TD(["colspan" => "7"], INPUT(["id" => "uploadbutton", "type" => "submit", "value" => "Post"]))
                 ),
             )
         );
         $html = emptyHTML(
             $form,
-            SMALL("(Max file size is $max_kb)"),
-            SMALL(BR(), "(Max total size is $max_total_kb)"),
+            SMALL(
+                "(",
+                $max_size > 0 ? "Per-file limit: $max_kb" : null,
+                $max_total_size > 0 ? " / Total limit: $max_total_kb" : null,
+                " / Current total: ",
+                SPAN(["id" => "upload_size_tracker"], "0KB"),
+                ")"
+            ),
             rawHTML("<script>
-                function fileSize(size){
-                    var i = Math.floor(Math.log(size) / Math.log(1024));
-                    return (size / Math.pow(1024, i)).toFixed(2) * 1 + ' ' + ['B', 'kB', 'MB', 'GB', 'TB'][i];
-                }
-                function updateTracker(){
-                    var size = 0;
-                    var upbtn = $(\"#uploadbutton\")[0];
-                    var tracker = $(\"#upload_size_tracker\")[0];
-                    var lockbtn = false;
-
-                    $(\"input[name*='data'][id!='data[]']\").each(function(_,n){
-                        var cancelbtn = $(\"div[name='cancel\"+n.name+\"']\")[0];
-                        var toobig = false;
-                        if (n.files.length){
-                            cancelbtn.style.visibility = 'visible';
-                            for (var i = 0; i<n.files.length; i++){
-                                size += n.files[i].size;
-                                if (n.files[i].size > $max_size){
-                                    toobig = true;
-                                }
-                            }
-                            if (toobig){
-                                lockbtn = true;
-                                n.style = 'color:red';
-                            }else{
-                                n.style = 'color:initial';
-                            }
-                        }else{
-                            n.style = 'color:initial';
-                            cancelbtn.style.visibility = 'hidden';
-                        }
-                    });
-
-                    if (size){
-                        tracker.innerText = 'Total: ' + fileSize(size);
-                        if (size > $max_total_size){
-                            lockbtn = true;
-                            tracker.style = 'color:red';
-                        }else{
-                            tracker.style = 'color:initial';
-                        }
-                    }else{
-                        tracker.innerText = '';
-                    }
-                    upbtn.disabled = lockbtn;
-                }
-                window.onload = function(){
-                    $(\"input[name*='data'][id!='data[]']\").change(function(){
-                        updateTracker();
-                    });
-                    updateTracker();
-                }
+            window.shm_max_size = $max_size;
+            window.shm_max_total_size = $max_total_size;
             </script>")
         );
 
@@ -134,11 +85,11 @@ class UploadTheme extends Themelet
         $page->add_block(new NavBlock());
         $page->add_block(new Block("Upload", $html, "main", 20));
         if ($tl_enabled) {
-            $page->add_block(new Block("Bookmarklets", (string)$this->h_bookmarklets(), "left", 20));
+            $page->add_block(new Block("Bookmarklets", $this->build_bookmarklets(), "left", 20));
         }
     }
 
-    protected function h_upload_list_1(): HTMLElement
+    protected function build_upload_list(): HTMLElement
     {
         global $config;
         $upload_list = emptyHTML();
@@ -148,18 +99,53 @@ class UploadTheme extends Themelet
 
         $upload_list->appendChild(
             TR(
-                TD(["colspan" => $tl_enabled ? 2 : 4], "Files"),
-                $tl_enabled ? TD(["colspan" => "2"], "URLs") : emptyHTML(),
-                TD(["colspan" => "2"], "Post-Specific Tags"),
+                TD(["colspan" => 2], "Select File"),
+                TD($tl_enabled ? "or URL" : null),
+                TD("Post-Specific Tags"),
+                TD("Post-Specific Source"),
             )
         );
 
         for ($i = 0; $i < $upload_count; $i++) {
             $upload_list->appendChild(
                 TR(
-                    TD(["colspan" => $tl_enabled ? 2 : 4], DIV(["name" => "canceldata{$i}[]","style" => "display:inline;margin-right:5px;font-size:15px;visibility:hidden;","onclick" => "$(\"input[name='data{$i}[]']\")[0].value='';updateTracker();"], "✖"), INPUT(["type" => "file", "name" => "data{$i}[]", "accept" => $accept, "multiple" => true])),
-                    $tl_enabled ? TD(["colspan" => "2"], INPUT(["type" => "text", "name" => "url{$i}"])) : emptyHTML(),
-                    TD(["colspan" => "2"], INPUT(["type" => "text", "name" => "tags{$i}", "class" => "autocomplete_tags", "autocomplete" => "off"])),
+                    TD(
+                        ["colspan" => 2, "style" => "white-space: nowrap;"],
+                        DIV([
+                            "id" => "canceldata{$i}",
+                            "style" => "display:inline;margin-right:5px;font-size:15px;visibility:hidden;",
+                            "onclick" => "document.getElementById('data{$i}').value='';updateTracker();",
+                        ], "✖"),
+                        INPUT([
+                            "type" => "file",
+                            "id" => "data{$i}",
+                            "name" => "data{$i}[]",
+                            "accept" => $accept,
+                            "multiple" => true,
+                        ]),
+                    ),
+                    TD(
+                        $tl_enabled ? INPUT([
+                            "type" => "text",
+                            "name" => "url{$i}",
+                            "value" => ($i == 0) ? @$_GET['url'] : null,
+                        ]) : null
+                    ),
+                    TD(
+                        INPUT([
+                            "type" => "text",
+                            "name" => "tags{$i}",
+                            "class" => "autocomplete_tags",
+                            "value" => ($i == 0) ? @$_GET['tags'] : null,
+                        ])
+                    ),
+                    TD(
+                        INPUT([
+                            "type" => "text",
+                            "name" => "source{$i}",
+                            "value" => ($i == 0) ? @$_GET['source'] : null,
+                        ])
+                    ),
                 )
             );
         }
@@ -167,7 +153,7 @@ class UploadTheme extends Themelet
         return $upload_list;
     }
 
-    protected function h_bookmarklets(): HTMLElement
+    protected function build_bookmarklets(): HTMLElement
     {
         global $config;
         $link = make_http(make_link("upload"));
@@ -217,7 +203,7 @@ class UploadTheme extends Themelet
         ';
         $html2 = P(
             A(["href" => $js], $title),
-            rawHTML("(Click when looking at a post page. Works on sites running Shimmie / Danbooru / Gelbooru. (This also grabs the tags / rating / source!))"),
+            rawHTML(" (Click when looking at a post page. Works on sites running Shimmie / Danbooru / Gelbooru. (This also grabs the tags / rating / source!))"),
         );
 
         return emptyHTML($html1, $html2);
@@ -242,7 +228,7 @@ class UploadTheme extends Themelet
             $upload_list->appendChild(
                 TR(
                     TD("or URL"),
-                    TD(INPUT(["name" => "url", "type" => "text"]))
+                    TD(INPUT(["name" => "url", "type" => "text", "value" => @$_GET['url']]))
                 )
             );
         }
@@ -253,11 +239,10 @@ class UploadTheme extends Themelet
         $image = Image::by_id($image_id);
         $thumbnail = $this->build_thumb_html($image);
 
-        $form = SHM_FORM("upload/replace/".$image_id, "POST", true);
+        $form = SHM_FORM("replace/".$image_id, "POST", true);
         $form->appendChild(emptyHTML(
-            INPUT(["type" => "hidden", "name" => "image_id", "value" => $image_id]),
             TABLE(
-                ["id" => "large_upload_form", "class" => "vert"],
+                ["id" => "large_upload_form"],
                 $upload_list,
                 TR(TD("Source"), TD(["colspan" => 3], INPUT(["name" => "source", "type" => "text"]))),
                 TR(TD(["colspan" => 4], INPUT(["id" => "uploadbutton", "type" => "submit", "value" => "Post"]))),
@@ -273,7 +258,7 @@ class UploadTheme extends Themelet
             $thumbnail,
             BR(),
             $form,
-            SMALL("(Max file size is $max_kb)"),
+            $max_size > 0 ? SMALL("(Max file size is $max_kb)") : null,
         );
 
         $page->set_title("Replace Post");
@@ -282,35 +267,38 @@ class UploadTheme extends Themelet
         $page->add_block(new Block("Upload Replacement Post", $html, "main", 20));
     }
 
-    public function display_upload_status(Page $page, array $image_ids): void
+    /**
+     * @param UploadResult[] $results
+     */
+    public function display_upload_status(Page $page, array $results): void
     {
         global $user;
 
-        if ($this->has_errors) {
+        /** @var UploadSuccess[] */
+        $successes = array_filter($results, fn ($r) => is_a($r, UploadSuccess::class));
+
+        /** @var UploadError[] */
+        $errors = array_filter($results, fn ($r) => is_a($r, UploadError::class));
+
+        if (count($errors) > 0) {
             $page->set_title("Upload Status");
             $page->set_heading("Upload Status");
             $page->add_block(new NavBlock());
-        } else {
-            if (count($image_ids) < 1) {
-                $page->set_title("No images uploaded");
-                $page->set_heading("No images uploaded");
-                $page->add_block(new NavBlock());
-            } elseif (count($image_ids) == 1) {
-                $page->set_mode(PageMode::REDIRECT);
-                $page->set_redirect(make_link("post/view/{$image_ids[0]}"));
-            } else {
-                $page->set_mode(PageMode::REDIRECT);
-                $page->set_redirect(search_link(["poster={$user->name}"]));
+            foreach($errors as $error) {
+                $page->add_block(new Block($error->name, format_text($error->error)));
             }
+        } elseif (count($successes) == 0) {
+            $page->set_title("No images uploaded");
+            $page->set_heading("No images uploaded");
+            $page->add_block(new NavBlock());
+            $page->add_block(new Block("No images uploaded", "Upload attempted, but nothing succeeded and nothing failed?"));
+        } elseif (count($successes) == 1) {
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("post/view/{$successes[0]->image_id}"));
+        } else {
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(search_link(["poster={$user->name}"]));
         }
-    }
-
-    public function display_upload_error(Page $page, string $title, string $message): void
-    {
-        // this message has intentional HTML in it...
-        $message = str_contains($message, "already has hash") ? $message : html_escape($message);
-        $page->add_block(new Block($title, $message));
-        $this->has_errors = true;
     }
 
     protected function build_upload_block(): HTMLElement
@@ -329,7 +317,7 @@ class UploadTheme extends Themelet
         $form->appendChild(
             emptyHTML(
                 INPUT(["id" => "data[]", "name" => "data[]", "size" => "16", "type" => "file", "accept" => $accept, "multiple" => true]),
-                INPUT(["name" => "tags", "type" => "text", "placeholder" => "tagme", "class" => "autocomplete_tags", "required" => true, "autocomplete" => "off"]),
+                INPUT(["name" => "tags", "type" => "text", "placeholder" => "tagme", "class" => "autocomplete_tags", "required" => true]),
                 INPUT(["type" => "submit", "value" => "Post"]),
             )
         );
@@ -337,8 +325,8 @@ class UploadTheme extends Themelet
         return DIV(
             ["class" => 'mini_upload'],
             $form,
-            SMALL("(Max file size is $max_kb)"),
-            SMALL(BR(), "(Max total size is $max_total_kb)"),
+            $max_size > 0 ? SMALL("(Max file size is $max_kb)") : null,
+            $max_total_size > 0 ? SMALL(BR(), "(Max total size is $max_total_kb)") : null,
             NOSCRIPT(BR(), A(["href" => make_link("upload")], "Larger Form"))
         );
     }

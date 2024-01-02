@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Shimmie2;
 
 use MicroHTML\HTMLElement;
-use TBela\CSS\Parser;
-use TBela\CSS\Renderer;
 
 require_once "core/event.php";
 
@@ -113,6 +111,7 @@ class BasePage
     public string $title = "";
     public string $heading = "";
     public string $subheading = "";
+    public bool $left_enabled = true;
 
     /** @var string[] */
     public array $html_headers = [];
@@ -155,6 +154,11 @@ class BasePage
     public function flash(string $message): void
     {
         $this->flash[] = $message;
+    }
+
+    public function disable_left()
+    {
+        $this->left_enabled = false;
     }
 
     /**
@@ -376,6 +380,9 @@ class BasePage
         $css_cache_file = $this->get_css_cache_file($theme_name, $config_latest);
         $this->add_html_header("<link rel='stylesheet' href='$data_href/$css_cache_file' type='text/css'>", 43);
 
+        $initjs_cache_file = $this->get_initjs_cache_file($theme_name, $config_latest);
+        $this->add_html_header("<script src='$data_href/$initjs_cache_file' type='text/javascript'></script>", 44);
+
         $js_cache_file = $this->get_js_cache_file($theme_name, $config_latest);
         $this->add_html_header("<script defer src='$data_href/$js_cache_file' type='text/javascript'></script>", 44);
     }
@@ -393,29 +400,37 @@ class BasePage
         $css_md5 = md5(serialize($css_files));
         $css_cache_file = data_path("cache/style/{$theme_name}.{$css_latest}.{$css_md5}.css");
         if (!file_exists($css_cache_file)) {
-            // the CSS minifier causes a bunch of deprecation warnings,
-            // so we turn off error reporting while it runs
-            $old_error_level = error_reporting(error_reporting(null) & ~E_DEPRECATED);
-            $parser = new Parser();
-            foreach($css_files as $file) {
-                $parser->append($file);
+            $mcss = new \MicroBundler\MicroBundler();
+            foreach($css_files as $css) {
+                $mcss->addSource($css, file_get_contents($css));
             }
-            $element = $parser->parse();
-
-            // minified output
-            $renderer = new Renderer([
-                'compress' => true,
-                'convert_color' => 'hex',
-                'css_level' => 3,
-                'sourcemap' => true,
-                'allow_duplicate_declarations' => false,
-                'legacy_rendering' => true,  // turn nested CSS into regular
-            ]);
-            $renderer->save($element, $css_cache_file);
-            error_reporting($old_error_level);
+            $mcss->save($css_cache_file);
         }
 
         return $css_cache_file;
+    }
+
+    private function get_initjs_cache_file(string $theme_name, int $config_latest): string
+    {
+        $js_latest = $config_latest;
+        $js_files = array_merge(
+            zglob("ext/{" . Extension::get_enabled_extensions_as_string() . "}/init.js"),
+            zglob("themes/$theme_name/init.js")
+        );
+        foreach ($js_files as $js) {
+            $js_latest = max($js_latest, filemtime($js));
+        }
+        $js_md5 = md5(serialize($js_files));
+        $js_cache_file = data_path("cache/initscript/{$theme_name}.{$js_latest}.{$js_md5}.js");
+        if (!file_exists($js_cache_file)) {
+            $mcss = new \MicroBundler\MicroBundler();
+            foreach($js_files as $js) {
+                $mcss->addSource($js, file_get_contents($js));
+            }
+            $mcss->save($js_cache_file);
+        }
+
+        return $js_cache_file;
     }
 
     private function get_js_cache_file(string $theme_name, int $config_latest): string
@@ -426,7 +441,6 @@ class BasePage
                 "vendor/bower-asset/jquery/dist/jquery.min.js",
                 "vendor/bower-asset/jquery-timeago/jquery.timeago.js",
                 "vendor/bower-asset/js-cookie/src/js.cookie.js",
-                "ext/static_files/modernizr-3.3.1.custom.js",
             ],
             zglob("ext/{" . Extension::get_enabled_extensions_as_string() . "}/script.js"),
             zglob("themes/$theme_name/{" . implode(",", $this->get_theme_scripts()) . "}")
@@ -437,16 +451,15 @@ class BasePage
         $js_md5 = md5(serialize($js_files));
         $js_cache_file = data_path("cache/script/{$theme_name}.{$js_latest}.{$js_md5}.js");
         if (!file_exists($js_cache_file)) {
-            $js_data = "";
-            foreach ($js_files as $file) {
-                $js_data .= file_get_contents($file) . "\n";
+            $mcss = new \MicroBundler\MicroBundler();
+            foreach($js_files as $js) {
+                $mcss->addSource($js, file_get_contents($js));
             }
-            file_put_contents($js_cache_file, $js_data);
+            $mcss->save($js_cache_file);
         }
 
         return $js_cache_file;
     }
-
 
     /**
      * @return array A list of stylesheets relative to the theme root.
@@ -505,8 +518,9 @@ class BasePage
         }
 
         $sub_links = $sub_links ?? [];
-        usort($nav_links, "Shimmie2\sort_nav_links");
-        usort($sub_links, "Shimmie2\sort_nav_links");
+
+        usort($nav_links, fn (NavLink $a, NavLink $b) => $a->order - $b->order);
+        usort($sub_links, fn (NavLink $a, NavLink $b) => $a->order - $b->order);
 
         return [$nav_links, $sub_links];
     }
@@ -521,7 +535,7 @@ class BasePage
 
         print <<<EOD
 <!doctype html>
-<html class="no-js" lang="en">
+<html lang="en">
     $head_html
     $body_html
 </html>
@@ -698,9 +712,4 @@ class NavLink
 
         return false;
     }
-}
-
-function sort_nav_links(NavLink $a, NavLink $b): int
-{
-    return $a->order - $b->order;
 }

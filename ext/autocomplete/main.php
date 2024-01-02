@@ -6,9 +6,6 @@ namespace Shimmie2;
 
 class AutoComplete extends Extension
 {
-    /** @var AutoCompleteTheme */
-    protected Themelet $theme;
-
     public function get_priority(): int
     {
         return 30;
@@ -19,7 +16,7 @@ class AutoComplete extends Extension
         global $page;
 
         if ($event->page_matches("api/internal/autocomplete")) {
-            $limit = (int)($_GET["limit"] ?? 0);
+            $limit = (int)($_GET["limit"] ?? 1000);
             $s = $_GET["s"] ?? "";
 
             $res = $this->complete($s, $limit);
@@ -28,8 +25,6 @@ class AutoComplete extends Extension
             $page->set_mime(MimeType::JSON);
             $page->set_data(json_encode($res));
         }
-
-        $this->theme->build_autocomplete($page);
     }
 
     private function complete(string $search, int $limit): array
@@ -51,7 +46,7 @@ class AutoComplete extends Extension
         }
 
         # memcache keys can't contain spaces
-        $cache_key = "autocomplete:" . md5($search);
+        $cache_key = "autocomplete:$limit:" . md5($search);
         $limitSQL = "";
         $search = str_replace('_', '\_', $search);
         $search = str_replace('%', '\%', $search);
@@ -62,23 +57,17 @@ class AutoComplete extends Extension
             $cache_key .= "-" . $limit;
         }
 
-        $res = $cache->get($cache_key);
-        if (is_null($res)) {
-            $res = $database->get_pairs(
-                "
+        return cache_get_or_set($cache_key, fn () => $database->get_pairs(
+            "
                 SELECT tag, count
                 FROM tags
                 WHERE LOWER(tag) LIKE LOWER(:search)
                 -- OR LOWER(tag) LIKE LOWER(:cat_search)
                 AND count > 0
-                ORDER BY count DESC
+                ORDER BY count DESC, tag ASC
                 $limitSQL
                 ",
-                $SQLarr
-            );
-            $cache->set($cache_key, $res, 600);
-        }
-
-        return $res;
+            $SQLarr
+        ), 600);
     }
 }

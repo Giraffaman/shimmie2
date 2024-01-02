@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Shimmie2;
 
-class ViewImageTheme extends Themelet
+use MicroHTML\HTMLElement;
+
+use function MicroHTML\{A, joinHTML, TABLE, TR, TD, INPUT, emptyHTML};
+
+class ViewPostTheme extends Themelet
 {
     public function display_meta_headers(Image $image)
     {
@@ -45,21 +49,21 @@ class ViewImageTheme extends Themelet
     protected function get_query(): ?string
     {
         if (isset($_GET['search'])) {
-            $query = "search=".url_escape(Tag::caret($_GET['search']));
+            $query = "search=".url_escape($_GET['search']);
         } else {
             $query = null;
         }
         return $query;
     }
 
-    protected function build_pin(Image $image): string
+    protected function build_pin(Image $image): HTMLElement
     {
         $query = $this->get_query();
-        $h_prev = "<a id='prevlink' href='".make_link("post/prev/{$image->id}", $query)."'>Prev</a>";
-        $h_index = "<a href='".make_link()."'>Index</a>";
-        $h_next = "<a id='nextlink' href='".make_link("post/next/{$image->id}", $query)."'>Next</a>";
-
-        return "$h_prev | $h_index | $h_next";
+        return joinHTML(" | ", [
+            A(["href" => make_link("post/prev/{$image->id}", $query), "id" => "prevlink"], "Prev"),
+            A(["href" => make_link()], "Index"),
+            A(["href" => make_link("post/next/{$image->id}", $query), "id" => "nextlink"], "Next"),
+        ]);
     }
 
     protected function build_navigation(Image $image): string
@@ -68,7 +72,7 @@ class ViewImageTheme extends Themelet
         $h_search = "
 			<p><form action='".make_link()."' method='GET'>
 				<input type='hidden' name='q' value='/post/list'>
-				<input type='search' name='search' placeholder='Search' class='autocomplete_tags' autocomplete='off'>
+				<input type='search' name='search' placeholder='Search' class='autocomplete_tags'>
 				<input type='submit' value='Find' style='display: none;'>
 			</form>
 		";
@@ -76,36 +80,34 @@ class ViewImageTheme extends Themelet
         return "$h_pin<br>$h_search";
     }
 
-    protected function build_info(Image $image, $editor_parts): string
+    protected function build_info(Image $image, $editor_parts): HTMLElement
     {
         global $user;
 
         if (count($editor_parts) == 0) {
-            return ($image->is_locked() ? "<br>[Post Locked]" : "");
+            return emptyHTML($image->is_locked() ? "[Post Locked]" : "");
         }
 
-        $html = make_form(make_link("post/set"))."
-					<input type='hidden' name='image_id' value='{$image->id}'>
-					<table style='width: 500px; max-width: 100%;' class='image_info form'>
-		";
-        foreach ($editor_parts as $part) {
-            $html .= $part;
-        }
-        if (
+        if(
             (!$image->is_locked() || $user->can(Permissions::EDIT_IMAGE_LOCK)) &&
             $user->can(Permissions::EDIT_IMAGE_TAG)
         ) {
-            $html .= "
-						<tr><td colspan='4'>
-							<input class='view' type='button' value='Edit' onclick='$(\".view\").hide(); $(\".edit\").show();'>
-							<input class='edit' type='submit' value='Set'>
-						</td></tr>
-			";
+            $editor_parts[] = TR(TD(
+                ["colspan" => 4],
+                INPUT(["class" => "view", "type" => "button", "value" => "Edit", "onclick" => "clearViewMode()"]),
+                INPUT(["class" => "edit", "type" => "submit", "value" => "Set"])
+            ));
         }
-        $html .= "
-					</table>
-				</form>
-		";
-        return $html;
+
+        return SHM_SIMPLE_FORM(
+            "post/set",
+            INPUT(["type" => "hidden", "name" => "image_id", "value" => $image->id]),
+            TABLE(
+                [
+                    "class" => "image_info form",
+                ],
+                ...$editor_parts,
+            ),
+        );
     }
 }

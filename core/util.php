@@ -565,11 +565,20 @@ function _load_core_files()
     ));
 }
 
+function _load_extension_files()
+{
+    ExtensionInfo::load_all_extension_info();
+    Extension::determine_enabled_extensions();
+    require_all(zglob("ext/{".Extension::get_enabled_extensions_as_string()."}/main.php"));
+}
+
 function _load_theme_files()
 {
     $theme = get_theme();
-    $files = _get_themelet_files($theme);
-    require_all($files);
+    require_once('themes/'.$theme.'/page.class.php');
+    require_once('themes/'.$theme.'/themelet.class.php');
+    require_all(zglob("ext/{".Extension::get_enabled_extensions_as_string()."}/theme.php"));
+    require_all(zglob('themes/'.$theme.'/{'.Extension::get_enabled_extensions_as_string().'}.theme.php'));
 }
 
 function _set_up_shimmie_environment(): void
@@ -592,19 +601,6 @@ function _set_up_shimmie_environment(): void
     // so to prevent running out of memory during complex operations code that uses it should
     // check if tracer output is enabled before making use of it.
     $tracer_enabled = constant('TRACE_FILE') !== null;
-}
-
-
-function _get_themelet_files(string $_theme): array
-{
-    $base_themelets = [];
-    $base_themelets[] = 'themes/'.$_theme.'/page.class.php';
-    $base_themelets[] = 'themes/'.$_theme.'/themelet.class.php';
-
-    $ext_themelets = zglob("ext/{".Extension::get_enabled_extensions_as_string()."}/theme.php");
-    $custom_themelets = zglob('themes/'.$_theme.'/{'.Extension::get_enabled_extensions_as_string().'}.theme.php');
-
-    return array_merge($base_themelets, $ext_themelets, $custom_themelets);
 }
 
 
@@ -677,7 +673,7 @@ function _get_user(): User
             }
         }
     }
-    if ($page->get_cookie("user") && $page->get_cookie("session")) {
+    if (is_null($my_user) && $page->get_cookie("user") && $page->get_cookie("session")) {
         $my_user = User::by_session($page->get_cookie("user"), $page->get_cookie("session"));
     }
     if (is_null($my_user)) {
@@ -690,7 +686,19 @@ function _get_user(): User
 
 function _get_query(): string
 {
-    return (@$_POST["q"] ?: @$_GET["q"]) ?: "/";
+    // if query is explicitly set, use it
+    $q = @$_POST["q"] ?: @$_GET["q"];
+    if(!empty($q)) {
+        return $q;
+    }
+    // if we're just looking at index.php, use the default query
+    elseif (str_contains($_SERVER['REQUEST_URI'], "index.php")) {
+        return "/";
+    }
+    // otherwise, use the request URI
+    else {
+        return explode("?", $_SERVER['REQUEST_URI'])[0];
+    }
 }
 
 

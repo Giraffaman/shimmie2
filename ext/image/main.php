@@ -95,18 +95,6 @@ class ImageIO extends Extension
                     }
                 }
             }
-        } elseif ($event->page_matches("image/replace")) {
-            global $page, $user;
-            if ($user->can(Permissions::REPLACE_IMAGE) && isset($_POST['image_id']) && $user->check_auth_token()) {
-                $image = Image::by_id(int_escape($_POST['image_id']));
-                if ($image) {
-                    $page->set_mode(PageMode::REDIRECT);
-                    $page->set_redirect(make_link('upload/replace/'.$image->id));
-                } else {
-                    /* Invalid image ID */
-                    throw new ImageReplaceException("Post to replace does not exist.");
-                }
-            }
         } elseif ($event->page_matches("image")) {
             $num = int_escape($event->get_arg(0));
             $this->send_file($num, "image");
@@ -164,9 +152,7 @@ class ImageIO extends Extension
                     $event->image = $im;
                     return;
                 } else {
-                    $error = "Post <a href='".make_link("post/view/{$existing->id}")."'>{$existing->id}</a> ".
-                        "already has hash {$image->hash}:<p>".$this->theme->build_thumb_html($existing);
-                    throw new ImageAdditionException($error);
+                    throw new ImageAdditionException(">>{$existing->id} already has hash {$image->hash}");
                 }
             }
 
@@ -228,9 +214,7 @@ class ImageIO extends Extension
 
             $duplicate = Image::by_hash($image->hash);
             if (!is_null($duplicate) && $duplicate->id != $id) {
-                $error = "Post <a href='" . make_link("post/view/{$duplicate->id}") . "'>{$duplicate->id}</a> " .
-                    "already has hash {$image->hash}:<p>" . $this->theme->build_thumb_html($duplicate);
-                throw new ImageReplaceException($error);
+                throw new ImageReplaceException(">>{$duplicate->id} already has hash {$image->hash}");
             }
 
             if (strlen(trim($image->source ?? '')) == 0) {
@@ -263,7 +247,7 @@ class ImageIO extends Extension
     public function onUserPageBuilding(UserPageBuildingEvent $event)
     {
         $u_name = url_escape($event->display_user->name);
-        $i_image_count = Image::count_images(["user={$event->display_user->name}"]);
+        $i_image_count = Search::count_images(["user={$event->display_user->name}"]);
         $i_days_old = ((time() - strtotime($event->display_user->join_date)) / 86400) + 1;
         $h_image_rate = sprintf("%.1f", ($i_image_count / $i_days_old));
         $images_link = search_link(["user=$u_name"]);

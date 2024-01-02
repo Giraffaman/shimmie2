@@ -12,7 +12,7 @@ class RSSImages extends Extension
         $title = $config->get_string(SetupConfig::TITLE);
 
         if (count($event->search_terms) > 0) {
-            $search = url_escape(Tag::caret(Tag::implode($event->search_terms)));
+            $search = url_escape(Tag::implode($event->search_terms));
             $page->add_html_header("<link id=\"images\" rel=\"alternate\" type=\"application/rss+xml\" ".
                 "title=\"$title - Posts with tags: $search\" href=\"".make_link("rss/images/$search/1")."\" />");
         } else {
@@ -31,7 +31,7 @@ class RSSImages extends Extension
                 return;
             }
             try {
-                $images = Image::find_images(($page_number - 1) * $page_size, $page_size, $search_terms);
+                $images = Search::find_images(($page_number - 1) * $page_size, $page_size, $search_terms);
                 $this->do_rss($images, $search_terms, $page_number);
             } catch (SearchTermParseException $stpe) {
                 $this->theme->display_error(400, "Search parse error", $stpe->error);

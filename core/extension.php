@@ -110,6 +110,10 @@ abstract class Extension
     }
 }
 
+class ExtensionNotFound extends SCoreException
+{
+}
+
 enum ExtensionVisibility
 {
     case DEFAULT;
@@ -235,7 +239,7 @@ abstract class ExtensionInfo
             return self::$all_info_by_class[$normal];
         } else {
             $infos = print_r(array_keys(self::$all_info_by_class), true);
-            throw new SCoreException("$normal not found in {$infos}");
+            throw new ExtensionNotFound("$normal not found in {$infos}");
         }
     }
 
@@ -370,10 +374,13 @@ abstract class DataHandlerExtension extends Extension
 
     public function onDisplayingImage(DisplayingImageEvent $event)
     {
-        global $page;
+        global $config, $page;
         if ($this->supported_mime($event->image->get_mime())) {
             // @phpstan-ignore-next-line
-            $this->theme->display_image($page, $event->image);
+            $this->theme->display_image($event->image);
+            if ($config->get_bool(ImageConfig::SHOW_META) && method_exists($this->theme, "display_metadata")) {
+                $this->theme->display_metadata($event->image);
+            }
         }
     }
 
