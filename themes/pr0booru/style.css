@@ -416,7 +416,7 @@ ul.tagit input[type="text"] {
 }
 
 div#dlimg {
-	background-image: url('/themes/pr0booru/save-red.png');
+	background-image: url('save-red.png');
 	background-size: contain;
 	background-repeat: no-repeat;
 	padding-left: 32px;
@@ -424,7 +424,7 @@ div#dlimg {
  }
  
 div#dlimg:hover {
-	background-image: url('/themes/pr0booru/save-white.png');
+	background-image: url('save-white.png');
 	color: white;
 }
 
