@@ -1,11 +1,16 @@
 Forked this for personal use and added/changed some things here and there:
 - custom red Danbooru-based theme
-- changed Autocomplete extension to load current theme's css last (currently dirty since it results in theem's stylesheet being loaded twice, but mkay)
-- changed home page extension to allow for configurable logo and logo link
+- added rating visibility control for users to toggle safe/explicit content on or off (if they have permission to see it)
+- hide side-wide list of tags and, if enabled, popular tags from anonymous users
+- hide list of pools to anonymous users
+- added keyboard controls to /post/list and /view
+- changed home extension to allow for configurable logo and logo link
 - changed index.php's site title behavior to also be configurable with a logo and custom logo link
+- changed Autocomplete extension to load current theme's css last (currently dirty since it results in theme's stylesheet being loaded twice)
+- various other fixes
 
 To Dos:
-- see feature request issues
+- see issues
 
 ```
      _________.__     .__                   .__         ________
