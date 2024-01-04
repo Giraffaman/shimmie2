@@ -7,11 +7,14 @@
 	text-align: left;
 	margin: 0 10px 10px 0;
 }
+
+/* 2024-01-04: changed grid width from +42px to +4 to get the denser layout we want */
 .shm-image-list {
 	display: grid;
-	grid-template-columns: repeat( auto-fill, calc(var(--thumb-width) + 42px) );
+	grid-template-columns: repeat( auto-fill, calc(var(--thumb-width) + 4px) );
 	place-items: center;
 }
+/* 2024-01-04: changed margin-bottom from 8px to 0 to get the denser layout we want */
 .shm-image-list .thumb {
-	margin-bottom: 8px;
+	margin-bottom: 0px;
 }
