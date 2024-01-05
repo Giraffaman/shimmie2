@@ -214,238 +214,244 @@ class Pools extends Extension
     public function onPageRequest(PageRequestEvent $event)
     {
         global $config, $database, $page, $user;
-        if ($event->page_matches("pool/list")) { //index
-            if (isset($_GET['search']) and $_GET['search'] != null) {
-                $page->set_mode(PageMode::REDIRECT);
-                $page->set_redirect(make_link('pool/list').'/'.$_GET['search'].'/'.strval($event->try_page_num(1)));
-                return;
-            }
-            if (count($event->args) >= 4) { // Assume first 2 args are search and page num
-                $search = $event->get_arg(0); // Search is based on name comparison instead of tag search
-                $page_num = $event->try_page_num(1);
-            } else {
-                $search = "";
-                $page_num = $event->try_page_num(0);
-            }
-            if($user->is_logged_in()) {
-                $this->list_pools($page, $page_num, $search);
-            } else {
-                $errMessage = "You must be registered and logged in to view pools.";
-                $this->theme->display_error(401, "Error", $errMessage);
-            }
-    } elseif ($event->page_matches("pool")) {
-            $pool_id = 0;
-            $pool = [];
+        
+        if(!$user->is_logged_in()) {
+            $errMessage = "You must be registered and logged in to use pools.";
+            $this->theme->display_error(403, "Error", $errMessage);
+        } else {
+            if ($event->page_matches("pool/list")) { //index
+                if (isset($_GET['search']) and $_GET['search'] != null) {
+                    $page->set_mode(PageMode::REDIRECT);
+                    $page->set_redirect(make_link('pool/list').'/'.$_GET['search'].'/'.strval($event->try_page_num(1)));
+                    return;
+                }
+                if (count($event->args) >= 4) { // Assume first 2 args are search and page num
+                    $search = $event->get_arg(0); // Search is based on name comparison instead of tag search
+                    $page_num = $event->try_page_num(1);
+                } else {
+                    $search = "";
+                    $page_num = $event->try_page_num(0);
+                }
+                if($user->is_logged_in()) {
+                    $this->list_pools($page, $page_num, $search);
+                } else {
+                    $errMessage = "You must be registered and logged in to view pools.";
+                    $this->theme->display_error(401, "Error", $errMessage);
+                }
+            } elseif ($event->page_matches("pool")) {
+                $pool_id = 0;
+                $pool = [];
 
-            // Check if we have pool id, since this is most often the case.
-            if (isset($_POST["pool_id"])) {
-                $pool_id = int_escape($_POST["pool_id"]);
-                $pool = $this->get_single_pool($pool_id);
-            }
+                // Check if we have pool id, since this is most often the case.
+                if (isset($_POST["pool_id"])) {
+                    $pool_id = int_escape($_POST["pool_id"]);
+                    $pool = $this->get_single_pool($pool_id);
+                }
 
-            // What action are we trying to perform?
-            switch ($event->get_arg(0)) {
-                case "new": // Show form for new pools
-                    if (!$user->is_anonymous()) {
-                        $this->theme->new_pool_composer($page);
-                    } else {
-                        $errMessage = "You must be registered and logged in to create a new pool.";
-                        $this->theme->display_error(401, "Error", $errMessage);
-                    }
-                    break;
-
-                case "create": // ADD _POST
-                    try {
-                        $title = $_POST["title"];
-                        $event = send_event(new PoolCreationEvent(
-                            $title,
-                            $user,
-                            bool_escape($_POST["public"]),
-                            $_POST["description"]
-                        ));
-                        $page->set_mode(PageMode::REDIRECT);
-                        $page->set_redirect(make_link("pool/view/" . $event->new_id));
-                    } catch (PoolCreationException $e) {
-                        $this->theme->display_error(400, "Error", $e->error);
-                    }
-                    break;
-
-                case "view":
-                    $poolID = int_escape($event->get_arg(1));
-                    $this->get_posts($event, $poolID);
-                    break;
-
-                case "updated":
-                    $this->get_history($event->try_page_num(1));
-                    break;
-
-                case "revert":
-                    if (!$user->is_anonymous()) {
-                        $historyID = int_escape($event->get_arg(1));
-                        $this->revert_history($historyID);
-                        $page->set_mode(PageMode::REDIRECT);
-                        $page->set_redirect(make_link("pool/updated"));
-                    }
-                    break;
-
-                case "edit": // Edit the pool (remove images)
-                    if ($this->have_permission($user, $pool)) {
-                        $result = $database->execute("SELECT image_id FROM pool_images WHERE pool_id=:pid ORDER BY image_order ASC", ["pid" => $pool_id]);
-                        $images = [];
-                        while ($row = $result->fetch()) {
-                            $images[] = Image::by_id((int)$row["image_id"]);
+                // What action are we trying to perform?
+                switch ($event->get_arg(0)) {
+                    case "new": // Show form for new pools
+                        if (!$user->is_anonymous()) {
+                            $this->theme->new_pool_composer($page);
+                        } else {
+                            $errMessage = "You must be registered and logged in to create a new pool.";
+                            $this->theme->display_error(401, "Error", $errMessage);
                         }
-                        $this->theme->edit_pool($page, $pool, $images);
-                    } else {
-                        $page->set_mode(PageMode::REDIRECT);
-                        $page->set_redirect(make_link("pool/view/" . $pool_id));
-                    }
-                    break;
+                        break;
 
-                case "order": // Order the pool (view and change the order of images within the pool)
-                    if (isset($_POST["order_view"])) {
+                    case "create": // ADD _POST
+                        try {
+                            $title = $_POST["title"];
+                            $event = send_event(new PoolCreationEvent(
+                                $title,
+                                $user,
+                                bool_escape($_POST["public"]),
+                                $_POST["description"]
+                            ));
+                            $page->set_mode(PageMode::REDIRECT);
+                            $page->set_redirect(make_link("pool/view/" . $event->new_id));
+                        } catch (PoolCreationException $e) {
+                            $this->theme->display_error(400, "Error", $e->error);
+                        }
+                        break;
+
+                    case "view":
+                        $poolID = int_escape($event->get_arg(1));
+                        $this->get_posts($event, $poolID);
+                        break;
+
+                    case "updated":
+                        $this->get_history($event->try_page_num(1));
+                        break;
+
+                    case "revert":
+                        if (!$user->is_anonymous()) {
+                            $historyID = int_escape($event->get_arg(1));
+                            $this->revert_history($historyID);
+                            $page->set_mode(PageMode::REDIRECT);
+                            $page->set_redirect(make_link("pool/updated"));
+                        }
+                        break;
+
+                    case "edit": // Edit the pool (remove images)
                         if ($this->have_permission($user, $pool)) {
-                            $result = $database->execute(
-                                "SELECT image_id FROM pool_images WHERE pool_id=:pid ORDER BY image_order ASC",
-                                ["pid" => $pool_id]
-                            );
+                            $result = $database->execute("SELECT image_id FROM pool_images WHERE pool_id=:pid ORDER BY image_order ASC", ["pid" => $pool_id]);
                             $images = [];
-
                             while ($row = $result->fetch()) {
-                                $image = $database->get_row(
-                                    "
-                                        SELECT * FROM images AS i
-                                        INNER JOIN pool_images AS p ON i.id = p.image_id
-                                        WHERE pool_id=:pid AND i.id=:iid",
-                                    ["pid" => $pool_id, "iid" => (int)$row['image_id']]
-                                );
-                                $images[] = ($image ? new Image($image) : null);
+                                $images[] = Image::by_id((int)$row["image_id"]);
                             }
-
-                            $this->theme->edit_order($page, $pool, $images);
+                            $this->theme->edit_pool($page, $pool, $images);
                         } else {
                             $page->set_mode(PageMode::REDIRECT);
                             $page->set_redirect(make_link("pool/view/" . $pool_id));
                         }
-                    } else {
-                        if ($this->have_permission($user, $pool)) {
-                            foreach ($_POST['imgs'] as $data) {
-                                list($imageORDER, $imageID) = $data;
-                                $database->execute(
-                                    "
-                                    UPDATE pool_images
-                                    SET image_order = :ord
-                                    WHERE pool_id = :pid AND image_id = :iid",
-                                    ["ord" => $imageORDER, "pid" => int_escape($_POST['pool_id']), "iid" => $imageID]
+                        break;
+
+                    case "order": // Order the pool (view and change the order of images within the pool)
+                        if (isset($_POST["order_view"])) {
+                            if ($this->have_permission($user, $pool)) {
+                                $result = $database->execute(
+                                    "SELECT image_id FROM pool_images WHERE pool_id=:pid ORDER BY image_order ASC",
+                                    ["pid" => $pool_id]
                                 );
+                                $images = [];
+
+                                while ($row = $result->fetch()) {
+                                    $image = $database->get_row(
+                                        "
+                                            SELECT * FROM images AS i
+                                            INNER JOIN pool_images AS p ON i.id = p.image_id
+                                            WHERE pool_id=:pid AND i.id=:iid",
+                                        ["pid" => $pool_id, "iid" => (int)$row['image_id']]
+                                    );
+                                    $images[] = ($image ? new Image($image) : null);
+                                }
+
+                                $this->theme->edit_order($page, $pool, $images);
+                            } else {
+                                $page->set_mode(PageMode::REDIRECT);
+                                $page->set_redirect(make_link("pool/view/" . $pool_id));
+                            }
+                        } else {
+                            if ($this->have_permission($user, $pool)) {
+                                foreach ($_POST['imgs'] as $data) {
+                                    list($imageORDER, $imageID) = $data;
+                                    $database->execute(
+                                        "
+                                        UPDATE pool_images
+                                        SET image_order = :ord
+                                        WHERE pool_id = :pid AND image_id = :iid",
+                                        ["ord" => $imageORDER, "pid" => int_escape($_POST['pool_id']), "iid" => $imageID]
+                                    );
+                                }
+                                $page->set_mode(PageMode::REDIRECT);
+                                $page->set_redirect(make_link("pool/view/" . $pool_id));
+                            } else {
+                                $this->theme->display_error(403, "Permission Denied", "You do not have permission to access this page");
+                            }
+                        }
+                        break;
+                    case "reverse":
+                        if ($this->have_permission($user, $pool)) {
+                            $result = $database->execute(
+                                "SELECT image_id FROM pool_images WHERE pool_id=:pid ORDER BY image_order DESC",
+                                ["pid" => $pool_id]
+                            );
+                            $image_order = 1;
+                            try {
+                                $database->begin_transaction();
+                                while ($row = $result->fetch()) {
+                                    $database->execute(
+                                        "
+                                            UPDATE pool_images 
+                                            SET image_order=:ord 
+                                            WHERE pool_id = :pid AND image_id = :iid",
+                                        ["ord" => $image_order, "pid" => $pool_id, "iid" => (int)$row['image_id']]
+                                    );
+                                    $image_order = $image_order + 1;
+                                }
+                                $database->commit();
+                            } catch (\Exception $e) {
+                                $database->rollback();
                             }
                             $page->set_mode(PageMode::REDIRECT);
                             $page->set_redirect(make_link("pool/view/" . $pool_id));
                         } else {
                             $this->theme->display_error(403, "Permission Denied", "You do not have permission to access this page");
                         }
-                    }
-                    break;
-                case "reverse":
-                    if ($this->have_permission($user, $pool)) {
-                        $result = $database->execute(
-                            "SELECT image_id FROM pool_images WHERE pool_id=:pid ORDER BY image_order DESC",
-                            ["pid" => $pool_id]
-                        );
-                        $image_order = 1;
-                        try {
-                            $database->begin_transaction();
-                            while ($row = $result->fetch()) {
-                                $database->execute(
-                                    "
-										UPDATE pool_images 
-										SET image_order=:ord 
-										WHERE pool_id = :pid AND image_id = :iid",
-                                    ["ord" => $image_order, "pid" => $pool_id, "iid" => (int)$row['image_id']]
-                                );
-                                $image_order = $image_order + 1;
-                            }
-                            $database->commit();
-                        } catch (\Exception $e) {
-                            $database->rollback();
-                        }
-                        $page->set_mode(PageMode::REDIRECT);
-                        $page->set_redirect(make_link("pool/view/" . $pool_id));
-                    } else {
-                        $this->theme->display_error(403, "Permission Denied", "You do not have permission to access this page");
-                    }
-                    break;
-                case "import":
-                    if ($this->have_permission($user, $pool)) {
-                        $images = Search::find_images(
-                            limit: $config->get_int(PoolsConfig::MAX_IMPORT_RESULTS, 1000),
-                            tags: Tag::explode($_POST["pool_tag"])
-                        );
-                        $this->theme->pool_result($page, $images, $pool);
-                    } else {
-                        $this->theme->display_error(403, "Permission Denied", "You do not have permission to access this page");
-                    }
-                    break;
-
-                case "add_posts":
-                    if ($this->have_permission($user, $pool)) {
-                        $image_ids = array_map('intval', $_POST['check']);
-                        send_event(new PoolAddPostsEvent($pool_id, $image_ids));
-                        $page->set_mode(PageMode::REDIRECT);
-                        $page->set_redirect(make_link("pool/view/" . $pool_id));
-                    } else {
-                        $this->theme->display_error(403, "Permission Denied", "You do not have permission to access this page");
-                    }
-                    break;
-
-                case "remove_posts":
-                    if ($this->have_permission($user, $pool)) {
-                        $images = "";
-                        foreach ($_POST['check'] as $imageID) {
-                            $database->execute(
-                                "DELETE FROM pool_images WHERE pool_id = :pid AND image_id = :iid",
-                                ["pid" => $pool_id, "iid" => $imageID]
+                        break;
+                    case "import":
+                        if ($this->have_permission($user, $pool)) {
+                            $images = Search::find_images(
+                                limit: $config->get_int(PoolsConfig::MAX_IMPORT_RESULTS, 1000),
+                                tags: Tag::explode($_POST["pool_tag"])
                             );
-                            $images .= " " . $imageID;
+                            $this->theme->pool_result($page, $images, $pool);
+                        } else {
+                            $this->theme->display_error(403, "Permission Denied", "You do not have permission to access this page");
                         }
-                        $count = (int)$database->get_one(
-                            "SELECT COUNT(*) FROM pool_images WHERE pool_id=:pid",
-                            ["pid" => $pool_id]
-                        );
-                        $this->add_history($pool_id, 0, $images, $count);
-                        $page->set_mode(PageMode::REDIRECT);
-                        $page->set_redirect(make_link("pool/view/" . $pool_id));
-                    } else {
-                        $this->theme->display_error(403, "Permission Denied", "You do not have permission to access this page");
-                    }
+                        break;
 
-                    break;
+                    case "add_posts":
+                        if ($this->have_permission($user, $pool)) {
+                            $image_ids = array_map('intval', $_POST['check']);
+                            send_event(new PoolAddPostsEvent($pool_id, $image_ids));
+                            $page->set_mode(PageMode::REDIRECT);
+                            $page->set_redirect(make_link("pool/view/" . $pool_id));
+                        } else {
+                            $this->theme->display_error(403, "Permission Denied", "You do not have permission to access this page");
+                        }
+                        break;
 
-                case "edit_description":
-                    if ($this->have_permission($user, $pool)) {
-                        $database->execute(
-                            "UPDATE pools SET description=:dsc,lastupdated=CURRENT_TIMESTAMP WHERE id=:pid",
-                            ["dsc" => $_POST['description'], "pid" => $pool_id]
-                        );
-                        $page->set_mode(PageMode::REDIRECT);
-                        $page->set_redirect(make_link("pool/view/" . $pool_id));
-                    } else {
-                        $this->theme->display_error(403, "Permission Denied", "You do not have permission to access this page");
-                    }
+                    case "remove_posts":
+                        if ($this->have_permission($user, $pool)) {
+                            $images = "";
+                            foreach ($_POST['check'] as $imageID) {
+                                $database->execute(
+                                    "DELETE FROM pool_images WHERE pool_id = :pid AND image_id = :iid",
+                                    ["pid" => $pool_id, "iid" => $imageID]
+                                );
+                                $images .= " " . $imageID;
+                            }
+                            $count = (int)$database->get_one(
+                                "SELECT COUNT(*) FROM pool_images WHERE pool_id=:pid",
+                                ["pid" => $pool_id]
+                            );
+                            $this->add_history($pool_id, 0, $images, $count);
+                            $page->set_mode(PageMode::REDIRECT);
+                            $page->set_redirect(make_link("pool/view/" . $pool_id));
+                        } else {
+                            $this->theme->display_error(403, "Permission Denied", "You do not have permission to access this page");
+                        }
 
-                    break;
+                        break;
 
-                case "nuke":
-                    // Completely remove the given pool.
-                    //  -> Only admins and owners may do this
-                    if ($user->can(Permissions::POOLS_ADMIN) || $user->id == $pool->user_id) {
-                        send_event(new PoolDeletionEvent($pool_id));
-                        $page->set_mode(PageMode::REDIRECT);
-                        $page->set_redirect(make_link("pool/list"));
-                    } else {
-                        $this->theme->display_error(403, "Permission Denied", "You do not have permission to access this page");
-                    }
-                    break;
+                    case "edit_description":
+                        if ($this->have_permission($user, $pool)) {
+                            $database->execute(
+                                "UPDATE pools SET description=:dsc,lastupdated=CURRENT_TIMESTAMP WHERE id=:pid",
+                                ["dsc" => $_POST['description'], "pid" => $pool_id]
+                            );
+                            $page->set_mode(PageMode::REDIRECT);
+                            $page->set_redirect(make_link("pool/view/" . $pool_id));
+                        } else {
+                            $this->theme->display_error(403, "Permission Denied", "You do not have permission to access this page");
+                        }
+
+                        break;
+
+                    case "nuke":
+                        // Completely remove the given pool.
+                        //  -> Only admins and owners may do this
+                        if ($user->can(Permissions::POOLS_ADMIN) || $user->id == $pool->user_id) {
+                            send_event(new PoolDeletionEvent($pool_id));
+                            $page->set_mode(PageMode::REDIRECT);
+                            $page->set_redirect(make_link("pool/list"));
+                        } else {
+                            $this->theme->display_error(403, "Permission Denied", "You do not have permission to access this page");
+                        }
+                        break;
+                }
             }
         }
     }
