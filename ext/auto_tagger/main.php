@@ -74,7 +74,7 @@ class AutoTagger extends Extension
         if ($event->page_matches("auto_tag")) {
             if(!$user->is_logged_in()) {
                 $errMessage = "You must be registered and logged in to use auto-tagger.";
-                $this->theme->display_error(403, "Error", $errMessage);
+                $this->theme->display_error(401, "Unauthorized", $errMessage);
             } else {
                 if ($event->get_arg(0) == "add") {
                     if ($user->can(Permissions::MANAGE_AUTO_TAG)) {

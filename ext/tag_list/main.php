@@ -55,8 +55,8 @@ class TagList extends Extension
                         break;
                 }
             } else {
-                $errMessage = "You must be registered and logged in to view tags.";
-                $this->theme->display_error(401, "Error", $errMessage);
+                $errMessage = "You must be registered and logged in to use tags.";
+                $this->theme->display_error(401, "Unauthorized", $errMessage);
             }
             $this->theme->display_page($page);
         }
