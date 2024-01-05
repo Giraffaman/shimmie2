@@ -16,14 +16,16 @@ class AutoComplete extends Extension
         global $page;
 
         if ($event->page_matches("api/internal/autocomplete")) {
-            $limit = (int)($_GET["limit"] ?? 1000);
-            $s = $_GET["s"] ?? "";
+            if($user->is_logged_in()) { 
+                $limit = (int)($_GET["limit"] ?? 1000);
+                $s = $_GET["s"] ?? "";
 
-            $res = $this->complete($s, $limit);
+                $res = $this->complete($s, $limit);
 
-            $page->set_mode(PageMode::DATA);
-            $page->set_mime(MimeType::JSON);
-            $page->set_data(json_encode($res));
+                $page->set_mode(PageMode::DATA);
+                $page->set_mime(MimeType::JSON);
+                $page->set_data(json_encode($res));
+            }
         }
     }
 
