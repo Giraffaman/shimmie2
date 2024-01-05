@@ -13,7 +13,7 @@ class AutoComplete extends Extension
 
     public function onPageRequest(PageRequestEvent $event)
     {
-        global $page;
+        global $page, $user;
 
         if ($event->page_matches("api/internal/autocomplete")) {
             if($user->is_logged_in()) { 
