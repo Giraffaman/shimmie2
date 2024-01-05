@@ -215,11 +215,11 @@ class Pools extends Extension
     {
         global $config, $database, $page, $user;
         
-        if(!$user->is_logged_in()) {
-            $errMessage = "You must be registered and logged in to use pools.";
-            $this->theme->display_error(403, "Error", $errMessage);
-        } else {
-            if ($event->page_matches("pool/list")) { //index
+        if ($event->page_matches("pool/list")) { //index
+            if(!$user->is_logged_in()) {
+                $errMessage = "You must be registered and logged in to use pools.";
+                $this->theme->display_error(403, "Error", $errMessage);
+            } else {
                 if (isset($_GET['search']) and $_GET['search'] != null) {
                     $page->set_mode(PageMode::REDIRECT);
                     $page->set_redirect(make_link('pool/list').'/'.$_GET['search'].'/'.strval($event->try_page_num(1)));
@@ -238,7 +238,12 @@ class Pools extends Extension
                     $errMessage = "You must be registered and logged in to view pools.";
                     $this->theme->display_error(401, "Error", $errMessage);
                 }
-            } elseif ($event->page_matches("pool")) {
+            }
+        } elseif ($event->page_matches("pool")) {
+            if(!$user->is_logged_in()) {
+                $errMessage = "You must be registered and logged in to use pools.";
+                $this->theme->display_error(403, "Error", $errMessage);
+            } else {
                 $pool_id = 0;
                 $pool = [];
 
