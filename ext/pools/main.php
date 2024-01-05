@@ -227,8 +227,13 @@ class Pools extends Extension
                 $search = "";
                 $page_num = $event->try_page_num(0);
             }
-            $this->list_pools($page, $page_num, $search);
-        } elseif ($event->page_matches("pool")) {
+            if($user->is_logged_in()) {
+                $this->list_pools($page, $page_num, $search);
+            } else {
+                $errMessage = "You must be registered and logged in to view pools.";
+                $this->theme->display_error(401, "Error", $errMessage);
+            }
+    } elseif ($event->page_matches("pool")) {
             $pool_id = 0;
             $pool = [];
 
