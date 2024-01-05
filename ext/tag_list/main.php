@@ -38,24 +38,27 @@ class TagList extends Extension
             } else {
                 $sub = $event->get_arg(0);
             }
-            switch ($sub) {
-                default:
-                case 'map':
-                    $this->theme->set_heading("Tag Map");
-                    if($user->is_logged_in()) {
+            if($user->is_logged_in()) {
+                switch ($sub) {
+                    default:
+                    case 'map':
+                        $this->theme->set_heading("Tag Map");
                         $this->theme->set_tag_list($this->build_tag_map());
-                    }
-                    break;
-                case 'alphabetic':
-                    $this->theme->set_heading("Alphabetic Tag List");
-                    $this->theme->set_tag_list($this->build_tag_alphabetic());
-                    break;
-                case 'popularity':
-                    $this->theme->set_heading("Tag List by Popularity");
-                    $this->theme->set_tag_list($this->build_tag_popularity());
-                    break;
+                        break;
+                    case 'alphabetic':
+                        $this->theme->set_heading("Alphabetic Tag List");
+                        $this->theme->set_tag_list($this->build_tag_alphabetic());
+                        break;
+                    case 'popularity':
+                        $this->theme->set_heading("Tag List by Popularity");
+                        $this->theme->set_tag_list($this->build_tag_popularity());
+                        break;
+                }
+            } else {
+                $errMessage = "You must be registered and logged in to view tags.";
+                $this->theme->display_error(401, "Error", $errMessage);
             }
-            $this->theme->display_page($page);
+    $this->theme->display_page($page);
         }
     }
 
