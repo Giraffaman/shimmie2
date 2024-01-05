@@ -473,24 +473,26 @@ class Pools extends Extension
      */
     public function onDisplayingImage(DisplayingImageEvent $event)
     {
-        global $config;
+        global $config, $user;
 
-        if ($config->get_bool(PoolsConfig::INFO_ON_VIEW_IMAGE)) {
-            $imageID = $event->image->id;
-            $poolsIDs = $this->get_pool_ids($imageID);
+        if($user->is_logged_in()) { 
+            if ($config->get_bool(PoolsConfig::INFO_ON_VIEW_IMAGE)) {
+                $imageID = $event->image->id;
+                $poolsIDs = $this->get_pool_ids($imageID);
 
-            $show_nav = $config->get_bool(PoolsConfig::SHOW_NAV_LINKS, false);
+                $show_nav = $config->get_bool(PoolsConfig::SHOW_NAV_LINKS, false);
 
-            $navInfo = [];
-            foreach ($poolsIDs as $poolID) {
-                $pool = $this->get_single_pool($poolID);
+                $navInfo = [];
+                foreach ($poolsIDs as $poolID) {
+                    $pool = $this->get_single_pool($poolID);
 
-                $navInfo[$pool->id] = [
-                    "info" => $pool,
-                    "nav" => $show_nav ? $this->get_nav_posts($pool, $imageID) : null,
-                ];
+                    $navInfo[$pool->id] = [
+                        "info" => $pool,
+                        "nav" => $show_nav ? $this->get_nav_posts($pool, $imageID) : null,
+                    ];
+                }
+                $this->theme->pool_info($navInfo);
             }
-            $this->theme->pool_info($navInfo);
         }
     }
 
