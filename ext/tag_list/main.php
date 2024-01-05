@@ -58,18 +58,20 @@ class TagList extends Extension
                 $errMessage = "You must be registered and logged in to view tags.";
                 $this->theme->display_error(401, "Error", $errMessage);
             }
-    $this->theme->display_page($page);
+            $this->theme->display_page($page);
         }
     }
 
     public function onPostListBuilding(PostListBuildingEvent $event)
     {
-        global $config, $page;
-        if ($config->get_int(TagListConfig::LENGTH) > 0) {
-            if (!empty($event->search_terms)) {
-                $this->add_refine_block($page, $event->search_terms);
-            } else {
-                $this->add_popular_block($page);
+        global $config, $page, $user;
+        if($user->is_logged_in()) {
+            if ($config->get_int(TagListConfig::LENGTH) > 0) {
+                if (!empty($event->search_terms)) {
+                    $this->add_refine_block($page, $event->search_terms);
+                } else {
+                    $this->add_popular_block($page);
+                }
             }
         }
     }
@@ -90,18 +92,20 @@ class TagList extends Extension
 
     public function onDisplayingImage(DisplayingImageEvent $event)
     {
-        global $config, $page;
-        if ($config->get_int(TagListConfig::LENGTH) > 0) {
-            $type = $config->get_string(TagListConfig::IMAGE_TYPE);
-            if ($type == TagListConfig::TYPE_TAGS || $type == TagListConfig::TYPE_BOTH) {
-                if (class_exists("Shimmie2\TagCategories") and $config->get_bool(TagCategoriesConfig::SPLIT_ON_VIEW)) {
-                    $this->add_split_tags_block($page, $event->image);
-                } else {
-                    $this->add_tags_block($page, $event->image);
+        global $config, $page, $user;
+        if($user->is_logged_in()) {
+            if ($config->get_int(TagListConfig::LENGTH) > 0) {
+                $type = $config->get_string(TagListConfig::IMAGE_TYPE);
+                if ($type == TagListConfig::TYPE_TAGS || $type == TagListConfig::TYPE_BOTH) {
+                    if (class_exists("Shimmie2\TagCategories") and $config->get_bool(TagCategoriesConfig::SPLIT_ON_VIEW)) {
+                        $this->add_split_tags_block($page, $event->image);
+                    } else {
+                        $this->add_tags_block($page, $event->image);
+                    }
                 }
-            }
-            if ($type == TagListConfig::TYPE_RELATED || $type == TagListConfig::TYPE_BOTH) {
-                $this->add_related_block($page, $event->image);
+                if ($type == TagListConfig::TYPE_RELATED || $type == TagListConfig::TYPE_BOTH) {
+                    $this->add_related_block($page, $event->image);
+                }
             }
         }
     }
