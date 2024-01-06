@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Shimmie2;
 
+use function MicroHTML\INPUT;
+
 require_once "config.php";
 
 class S3 extends Extension
@@ -38,9 +40,12 @@ class S3 extends Extension
                 $end = $start;
             }
             foreach(Search::find_images_iterable(tags: ["order=id", "id>=$start", "id<=$end"]) as $image) {
-                print("{$image->id}: {$image->hash}\n");
+                if($this->sync_post($image)) {
+                    print("{$image->id}: {$image->hash}\n");
+                } else {
+                    print("{$image->id}: {$image->hash} (skipped)\n");
+                }
                 ob_flush();
-                $this->sync_post($image);
             }
         }
         if ($event->cmd == "s3-rm") {
@@ -52,18 +57,45 @@ class S3 extends Extension
         }
     }
 
+    public function onPageRequest(PageRequestEvent $event)
+    {
+        global $config, $page, $user;
+        if ($event->page_matches("s3/sync")) {
+            if ($user->check_auth_token()) {
+                if ($user->can(Permissions::DELETE_IMAGE) && isset($_POST['image_id'])) {
+                    $id = int_escape($_POST['image_id']);
+                    if ($id > 0) {
+                        $this->sync_post(Image::by_id($id));
+                        log_info("s3", "Manual resync for >>$id", "File re-sync'ed");
+                        $page->set_mode(PageMode::REDIRECT);
+                        $page->set_redirect(make_link("post/view/$id"));
+                    }
+                }
+            }
+        }
+    }
+
+    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event)
+    {
+        global $user;
+        if ($user->can(Permissions::DELETE_IMAGE)) {
+            $event->add_part(SHM_SIMPLE_FORM(
+                "s3/sync",
+                INPUT(["type" => 'hidden', "name" => 'image_id', "value" => $event->image->id]),
+                INPUT(["type" => 'submit', "value" => 'CDN Re-Sync']),
+            ));
+        }
+    }
+
     public function onImageAddition(ImageAdditionEvent $event)
     {
-        $this->sync_post($event->image);
+        // Tags aren't set at this point, let's wait for the TagSetEvent
+        // $this->sync_post($event->image);
     }
 
     public function onTagSet(TagSetEvent $event)
     {
-        // pretend that tags were set already so that sync works
-        $orig_tags = $event->image->tag_array;
-        $event->image->tag_array = $event->tags;
-        $this->sync_post($event->image);
-        $event->image->tag_array = $orig_tags;
+        $this->sync_post($event->image, $event->tags);
     }
 
     public function onImageDeletion(ImageDeletionEvent $event)
@@ -73,9 +105,8 @@ class S3 extends Extension
 
     public function onImageReplace(ImageReplaceEvent $event)
     {
-        $existing = Image::by_id($event->id);
-        $this->remove_file($existing->hash);
-        $this->sync_post($event->image);
+        $this->remove_file($event->original->hash);
+        $this->sync_post($event->replacement, $event->original->get_tag_array());
     }
 
     // utils
@@ -105,31 +136,46 @@ class S3 extends Extension
     }
 
     // underlying s3 interaction functions
-    private function sync_post(Image $image)
+    private function sync_post(Image $image, ?array $new_tags = null, bool $overwrite = true): bool
     {
         global $config;
 
         // multiple events can trigger a sync,
         // let's only do one per request
         if(in_array($image->id, self::$synced)) {
-            return;
+            return false;
         }
         self::$synced[] = $image->id;
 
         $client = $this->get_client();
         if(is_null($client)) {
-            return;
+            return false;
         }
         $image_bucket = $config->get_string(S3Config::IMAGE_BUCKET);
-        $friendly = $image->parse_link_template('$id - $tags.$ext');
+
+        if(is_null($new_tags)) {
+            $friendly = $image->parse_link_template('$id - $tags.$ext');
+        } else {
+            $_orig_tags = $image->get_tag_array();
+            $image->tag_array = $new_tags;
+            $friendly = $image->parse_link_template('$id - $tags.$ext');
+            $image->tag_array = $_orig_tags;
+        }
+
+        $key = $this->hash_to_path($image->hash);
+        if(!$overwrite && $client->doesObjectExist($image_bucket, $key)) {
+            return false;
+        }
+
         $client->putObject([
             'Bucket' => $image_bucket,
-            'Key' => $this->hash_to_path($image->hash),
+            'Key' => $key,
             'Body' => file_get_contents($image->get_image_filename()),
             'ACL' => 'public-read',
             'ContentType' => $image->get_mime(),
             'ContentDisposition' => "inline; filename=\"$friendly\"",
         ]);
+        return true;
     }
 
     private function remove_file(string $hash)

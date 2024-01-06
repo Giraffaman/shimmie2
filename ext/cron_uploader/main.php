@@ -469,12 +469,12 @@ class CronUploader extends Extension
         $event = add_image($tmpname, $filename, $tags, null);
 
         // Generate info message
-        if ($event->image_id == -1) {
+        if (count($event->images) == 0) {
             throw new UploadException("File type not recognised (".$event->mime."). Filename: {$filename}");
         } elseif ($event->merged === true) {
-            $infomsg = "Post merged. ID: {$event->image_id} - Filename: {$filename}";
+            $infomsg = "Post merged. ID: {$event->images[0]->id} - Filename: {$filename}";
         } else {
-            $infomsg = "Post uploaded. ID: {$event->image_id} - Filename: {$filename}";
+            $infomsg = "Post uploaded. ID: {$event->images[0]->id} - Filename: {$filename}";
         }
         $this->log_message(SCORE_LOG_INFO, $infomsg);
 
@@ -482,7 +482,7 @@ class CronUploader extends Extension
     }
 
     private const PARTIAL_DOWNLOAD_EXTENSIONS = ['crdownload','part'];
-    private const SKIPPABLE_FILES = ['.ds_store','thumbs.db'];
+    private const SKIPPABLE_FILES = ['.ds_store', 'thumbs.db', 'desktop.ini', '.listing'];
 
     private function is_skippable_file(string $path): bool
     {
