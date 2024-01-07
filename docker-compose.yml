@@ -16,7 +16,7 @@ services:
   
   cache:
     image: memcached:latest
-    container-name: ${CAC_NAME}
+    container_name: ${CAC_NAME}
     ports:
       - 9445:11211
     command:
@@ -60,3 +60,4 @@ networks:
   bay-21-internal:
     external: true
     name: bay-21-internal
+    
