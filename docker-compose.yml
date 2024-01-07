@@ -17,7 +17,7 @@ services:
   redis:  
     image: redis
     command: "--port ${CAC_PORT} --maxmemory ${CAC_MAXMEM} --requirepass '${CAC_PW}'"
-    container_name: shimmie-tmp-cache
+    container_name: ${CAC_NAME}
     networks:
       - bay-21-internal
 
