@@ -16,12 +16,20 @@ services:
   
   redis:  
     image: redis
-    container_name: ${CAC_NAME}
-    ports:
-      - ${CAC_PORT}:6379
+    command: "--port ${CAC_PORT} --maxmemory ${CAC_MAXMEM} --requirepass '${CAC_PW}'"
+    container_name: shimmie-tmp-cache
     networks:
       - bay-21-internal
 
+  # memcached:
+  #   image: memcached:latest
+  #   container_name: ${CAC_NAME}
+  #   ports:
+  #     - ${CAC_PORT}:11211
+  #   command:
+  #     - '--memory-limit=512'
+  #   networks:
+  #     - bay-21-internal
 
   shimmie:
     build:
