@@ -16,10 +16,13 @@ services:
   
   cache:
     image: memcached:latest
+    container-name: ${CAC_NAME}
     ports:
       - 9445:11211
     command:
       - '--memory-limit=128'
+    networks:
+      - bay-21-internal
 
   shimmie:
     build:
