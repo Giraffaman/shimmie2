@@ -18,7 +18,17 @@ services:
     image: redis
     container_name: ${CAC_NAME}
     ports:
-      - "${CAC_PORT}:6379"
+      - ${CAC_PORT}:6379
+    networks:
+      - bay-21-internal
+
+  cache:
+    image: memcached:latest
+    container_name: ${CAC_NAME}
+    ports:
+      - ${CAC_PORT}:11211
+    command:
+      - '--memory-limit=512'
     networks:
       - bay-21-internal
 
