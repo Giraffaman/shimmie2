@@ -13,7 +13,14 @@ services:
       - ${DB_PATH}:/var/lib/postgresql/data
     networks:
       - bay-21-internal
-      
+  
+  cache:
+    image: memcached:latest
+    ports:
+      - 9445:11211
+    command:
+      - '--memory-limit=128'
+
   shimmie:
     build:
       context: .
