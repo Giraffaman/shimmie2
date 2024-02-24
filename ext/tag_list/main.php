@@ -51,9 +51,9 @@ class TagList extends Extension
                 global $config;
                 $tags_min = $config->get_int(TagListConfig::TAGS_MIN);	// get the default.
             }
+
             if($user->is_logged_in()) {
-    
-            switch ($sub) {
+                switch ($sub) {
                     default:
                     case 'map':
                         $this->theme->set_heading("Tag Map");
@@ -119,9 +119,6 @@ class TagList extends Extension
                     } else {
                         $this->add_tags_block($page, $event->image);
                     }
-                }
-                if ($type == TagListConfig::TYPE_RELATED || $type == TagListConfig::TYPE_BOTH) {
-                    $this->add_related_block($page, $event->image);
                 }
             }
         }
