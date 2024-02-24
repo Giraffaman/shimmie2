@@ -12,24 +12,24 @@ class RegenThumb extends Extension
     public function regenerate_thumbnail(Image $image, bool $force = true): bool
     {
         global $cache;
-        $event = send_event(new ThumbnailGenerationEvent($image->hash, $image->get_mime(), $force));
+        $event = send_event(new ThumbnailGenerationEvent($image, $force));
         $cache->delete("thumb-block:{$image->id}");
         return $event->generated;
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page, $user;
 
-        if ($event->page_matches("regen_thumb/one") && $user->can(Permissions::DELETE_IMAGE) && isset($_POST['image_id'])) {
-            $image = Image::by_id(int_escape($_POST['image_id']));
+        if ($event->page_matches("regen_thumb/one/{image_id}", method: "POST", permission: Permissions::DELETE_IMAGE)) {
+            $image = Image::by_id_ex($event->get_iarg('image_id'));
 
             $this->regenerate_thumbnail($image);
 
             $this->theme->display_results($page, $image);
         }
-        if ($event->page_matches("regen_thumb/mass") && $user->can(Permissions::DELETE_IMAGE) && isset($_POST['tags'])) {
-            $tags = Tag::explode(strtolower($_POST['tags']), false);
+        if ($event->page_matches("regen_thumb/mass", method: "POST", permission: Permissions::DELETE_IMAGE)) {
+            $tags = Tag::explode(strtolower($event->req_POST('tags')), false);
             $images = Search::find_images(limit: 10000, tags: $tags);
 
             foreach ($images as $image) {
@@ -41,15 +41,15 @@ class RegenThumb extends Extension
         }
     }
 
-    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event)
+    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event): void
     {
         global $user;
         if ($user->can(Permissions::DELETE_IMAGE)) {
-            $event->add_part($this->theme->get_buttons_html($event->image->id));
+            $event->add_button("Regenerate Thumbnail", "regen_thumb/one/{$event->image->id}");
         }
     }
 
-    // public function onPostListBuilding(PostListBuildingEvent $event)
+    // public function onPostListBuilding(PostListBuildingEvent $event): void
     // {
     //     global $user;
     //     if ($user->can(UserAbilities::DELETE_IMAGE) && !empty($event->search_terms)) {
@@ -57,7 +57,7 @@ class RegenThumb extends Extension
     //     }
     // }
 
-    public function onBulkActionBlockBuilding(BulkActionBlockBuildingEvent $event)
+    public function onBulkActionBlockBuilding(BulkActionBlockBuildingEvent $event): void
     {
         global $user;
 
@@ -66,7 +66,7 @@ class RegenThumb extends Extension
         }
     }
 
-    public function onBulkAction(BulkActionEvent $event)
+    public function onBulkAction(BulkActionEvent $event): void
     {
         global $page, $user;
 
@@ -74,8 +74,8 @@ class RegenThumb extends Extension
             case "bulk_regen":
                 if ($user->can(Permissions::DELETE_IMAGE)) {
                     $force = true;
-                    if (isset($_POST["bulk_regen_thumb_missing_only"])
-                        && $_POST["bulk_regen_thumb_missing_only"] == "true") {
+                    if (isset($event->params["bulk_regen_thumb_missing_only"])
+                        && $event->params["bulk_regen_thumb_missing_only"] == "true") {
                         $force = false;
                     }
 
@@ -91,41 +91,41 @@ class RegenThumb extends Extension
         }
     }
 
-    public function onAdminBuilding(AdminBuildingEvent $event)
+    public function onAdminBuilding(AdminBuildingEvent $event): void
     {
         $this->theme->display_admin_block();
     }
 
-    public function onAdminAction(AdminActionEvent $event)
+    public function onAdminAction(AdminActionEvent $event): void
     {
         global $page;
         switch ($event->action) {
             case "regen_thumbs":
                 $event->redirect = true;
                 $force = false;
-                if (isset($_POST["regen_thumb_force"]) && $_POST["regen_thumb_force"] == "true") {
+                if (isset($event->params["regen_thumb_force"]) && $event->params["regen_thumb_force"] == "true") {
                     $force = true;
                 }
                 $limit = 1000;
-                if (isset($_POST["regen_thumb_limit"]) && is_numeric($_POST["regen_thumb_limit"])) {
-                    $limit = intval($_POST["regen_thumb_limit"]);
+                if (isset($event->params["regen_thumb_limit"]) && is_numeric($event->params["regen_thumb_limit"])) {
+                    $limit = intval($event->params["regen_thumb_limit"]);
                 }
 
                 $mime = "";
-                if (isset($_POST["regen_thumb_mime"])) {
-                    $mime = $_POST["regen_thumb_mime"];
+                if (isset($event->params["regen_thumb_mime"])) {
+                    $mime = $event->params["regen_thumb_mime"];
                 }
-                $images = $this->get_images($mime);
+                $images = Search::find_images(tags: ["mime=" . $mime]);
 
                 $i = 0;
                 foreach ($images as $image) {
                     if (!$force) {
-                        $path = warehouse_path(Image::THUMBNAIL_DIR, $image["hash"], false);
+                        $path = warehouse_path(Image::THUMBNAIL_DIR, $image->hash, false);
                         if (file_exists($path)) {
                             continue;
                         }
                     }
-                    $event = send_event(new ThumbnailGenerationEvent($image["hash"], $image["mime"], $force));
+                    $event = send_event(new ThumbnailGenerationEvent($image, $force));
                     if ($event->generated) {
                         $i++;
                     }
@@ -138,58 +138,26 @@ class RegenThumb extends Extension
             case "delete_thumbs":
                 $event->redirect = true;
 
-                if (isset($_POST["delete_thumb_mime"]) && $_POST["delete_thumb_mime"] != "") {
-                    $images = $this->get_images($_POST["delete_thumb_mime"]);
+                if (isset($event->params["delete_thumb_mime"]) && $event->params["delete_thumb_mime"] != "") {
+                    $images = Search::find_images(tags: ["mime=" . $event->params["delete_thumb_mime"]]);
 
                     $i = 0;
                     foreach ($images as $image) {
-                        $outname = warehouse_path(Image::THUMBNAIL_DIR, $image["hash"]);
+                        $outname = $image->get_thumb_filename();
                         if (file_exists($outname)) {
                             unlink($outname);
                             $i++;
                         }
                     }
-                    $page->flash("Deleted $i thumbnails for ".$_POST["delete_thumb_mime"]." images");
+                    $page->flash("Deleted $i thumbnails for ".$event->params["delete_thumb_mime"]." images");
                 } else {
                     $dir = "data/thumbs/";
-                    $this->remove_dir_recursively($dir);
+                    deltree($dir);
                     $page->flash("Deleted all thumbnails");
                 }
 
 
                 break;
-        }
-    }
-
-    public function get_images(string $mime = null): array
-    {
-        global $database;
-
-        $query = "SELECT hash, mime FROM images";
-        $args = [];
-        if (!empty($mime)) {
-            $query .= " WHERE mime = :mime";
-            $args["mime"] = $mime;
-        }
-
-        return $database->get_all($query, $args);
-    }
-
-    public function remove_dir_recursively($dir)
-    {
-        if (is_dir($dir)) {
-            $objects = scandir($dir);
-            foreach ($objects as $object) {
-                if ($object != "." && $object != "..") {
-                    if (filetype($dir."/".$object) == "dir") {
-                        $this->remove_dir_recursively($dir."/".$object);
-                    } else {
-                        unlink($dir."/".$object);
-                    }
-                }
-            }
-            reset($objects);
-            rmdir($dir);
         }
     }
 }

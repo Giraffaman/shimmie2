@@ -4,68 +4,75 @@ declare(strict_types=1);
 
 namespace Shimmie2;
 
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\{InputInterface,InputArgument};
+use Symfony\Component\Console\Output\OutputInterface;
+
 class BulkAddCSV extends Extension
 {
     /** @var BulkAddCSVTheme */
     protected Themelet $theme;
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page, $user;
-        if ($event->page_matches("bulk_add_csv")) {
-            if ($user->can(Permissions::BULK_ADD) && $user->check_auth_token() && isset($_POST['csv'])) {
-                shm_set_timeout(null);
-                $this->add_csv($_POST['csv']);
-                $this->theme->display_upload_results($page);
-            }
+        if ($event->page_matches("bulk_add_csv", method: "POST", permission: Permissions::BULK_ADD)) {
+            $csv = $event->req_POST('csv');
+            shm_set_timeout(null);
+            $this->add_csv($csv);
+            $this->theme->display_upload_results($page);
         }
     }
 
-    public function onCommand(CommandEvent $event)
+    public function onCliGen(CliGenEvent $event): void
     {
-        if ($event->cmd == "help") {
-            print "\tbulk-add-csv [/path/to.csv]\n";
-            print "\t\tImport this .csv file (refer to documentation)\n\n";
-        }
-        if ($event->cmd == "bulk-add-csv") {
-            global $user;
+        $event->app->register('bulk-add-csv')
+            ->addArgument('path-to-csv', InputArgument::REQUIRED)
+            ->setDescription('Import posts from a given CSV file')
+            ->setCode(function (InputInterface $input, OutputInterface $output): int {
+                global $user;
+                if (!$user->can(Permissions::BULK_ADD)) {
+                    $output->writeln("Not running as an admin, which can cause problems.");
+                    $output->writeln("Please add the parameter: -u admin_username");
+                    return Command::FAILURE;
+                }
 
-            //Nag until CLI is admin by default
-            if (!$user->can(Permissions::BULK_ADD)) {
-                print "Not running as an admin, which can cause problems.\n";
-                print "Please add the parameter: -u admin_username";
-            } elseif (count($event->args) == 1) {
-                $this->add_csv($event->args[0]);
-            }
-        }
+                $this->add_csv($input->getArgument('path-to-csv'));
+                return Command::SUCCESS;
+            });
     }
 
-    public function onAdminBuilding(AdminBuildingEvent $event)
+    public function onAdminBuilding(AdminBuildingEvent $event): void
     {
         $this->theme->display_admin_block();
     }
 
     /**
      * Generate the necessary DataUploadEvent for a given image and tags.
+     *
+     * @param string[] $tags
      */
-    private function add_image(string $tmpname, string $filename, array $tags, string $source, string $rating, string $thumbfile)
+    private function add_image(string $tmpname, string $filename, array $tags, string $source, string $rating, string $thumbfile): void
     {
-        $event = add_image($tmpname, $filename, $tags, $source);
-        if (count($event->images) == 0) {
-            throw new UploadException("File type not recognised");
-        } else {
-            if (class_exists("Shimmie2\RatingSetEvent") && in_array($rating, ["s", "q", "e"])) {
-                foreach($event->images as $image) {
-                    send_event(new RatingSetEvent($image, $rating));
+        global $database;
+        $database->with_savepoint(function () use ($tmpname, $filename, $tags, $source, $rating, $thumbfile) {
+            $event = send_event(new DataUploadEvent($tmpname, basename($filename), 0, [
+                'tags' => Tag::implode($tags),
+                'source' => $source,
+                'rating' => $rating,
+            ]));
+
+            if (count($event->images) == 0) {
+                throw new UploadException("File type not recognised");
+            } else {
+                if (file_exists($thumbfile)) {
+                    copy($thumbfile, warehouse_path(Image::THUMBNAIL_DIR, $event->hash));
                 }
             }
-            if (file_exists($thumbfile)) {
-                copy($thumbfile, warehouse_path(Image::THUMBNAIL_DIR, $event->hash));
-            }
-        }
+        });
     }
 
-    private function add_csv(string $csvfile)
+    private function add_csv(string $csvfile): void
     {
         if (!file_exists($csvfile)) {
             $this->theme->add_status("Error", "$csvfile not found");
@@ -78,7 +85,7 @@ class BulkAddCSV extends Extension
 
         $linenum = 1;
         $list = "";
-        $csvhandle = fopen($csvfile, "r");
+        $csvhandle = \Safe\fopen($csvfile, "r");
 
         while (($csvdata = fgetcsv($csvhandle, 0, ",")) !== false) {
             if (count($csvdata) != 5) {

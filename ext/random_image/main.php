@@ -9,27 +9,23 @@ class RandomImage extends Extension
     /** @var RandomImageTheme */
     protected Themelet $theme;
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page;
 
-        if ($event->page_matches("random_image")) {
-            if ($event->count_args() == 1) {
-                $action = $event->get_arg(0);
-                $search_terms = [];
-            } elseif ($event->count_args() == 2) {
-                $action = $event->get_arg(0);
-                $search_terms = Tag::explode($event->get_arg(1));
-            } else {
-                throw new SCoreException("Error: too many arguments.");
-            }
+        if (
+            $event->page_matches("random_image/{action}")
+            || $event->page_matches("random_image/{action}/{search}")
+        ) {
+            $action = $event->get_arg('action');
+            $search_terms = Tag::explode($event->get_arg('search', ""), false);
             $image = Image::by_random($search_terms);
             if (!$image) {
-                throw new SCoreException("Couldn't find any posts randomly");
+                throw new ImageNotFound("Couldn't find any posts randomly");
             }
 
             if ($action === "download") {
-                send_event(new ImageDownloadingEvent($image, $image->get_image_filename(), $image->get_mime()));
+                send_event(new ImageDownloadingEvent($image, $image->get_image_filename(), $image->get_mime(), $event->GET));
             } elseif ($action === "view") {
                 send_event(new DisplayingImageEvent($image));
             } elseif ($action === "widget") {
@@ -40,13 +36,13 @@ class RandomImage extends Extension
         }
     }
 
-    public function onSetupBuilding(SetupBuildingEvent $event)
+    public function onSetupBuilding(SetupBuildingEvent $event): void
     {
         $sb = $event->panel->create_new_block("Random Post");
         $sb->add_bool_option("show_random_block", "Show Random Block: ");
     }
 
-    public function onPostListBuilding(PostListBuildingEvent $event)
+    public function onPostListBuilding(PostListBuildingEvent $event): void
     {
         global $config, $page;
         if ($config->get_bool("show_random_block")) {
@@ -57,7 +53,7 @@ class RandomImage extends Extension
         }
     }
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         if ($event->parent == "posts") {
             $event->add_nav_link("posts_random", new Link('random_image/view'), "Random Post");

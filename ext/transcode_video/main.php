@@ -36,7 +36,7 @@ class TranscodeVideo extends Extension
     }
 
 
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
         $config->set_default_bool(TranscodeVideoConfig::ENABLED, true);
@@ -44,7 +44,7 @@ class TranscodeVideo extends Extension
         $config->set_default_bool(TranscodeVideoConfig::UPLOAD_TO_NATIVE_CONTAINER, false);
     }
 
-    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event)
+    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event): void
     {
         global $user;
 
@@ -56,7 +56,7 @@ class TranscodeVideo extends Extension
         }
     }
 
-    public function onSetupBuilding(SetupBuildingEvent $event)
+    public function onSetupBuilding(SetupBuildingEvent $event): void
     {
         $sb = $event->panel->create_new_block("Video Transcode");
         $sb->start_table();
@@ -66,7 +66,7 @@ class TranscodeVideo extends Extension
     }
 
     /*
-        public function onDataUpload(DataUploadEvent $event)
+        public function onDataUpload(DataUploadEvent $event): void
         {
             global $config;
 
@@ -97,36 +97,24 @@ class TranscodeVideo extends Extension
         }
     */
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page, $user;
 
-        if ($event->page_matches("transcode_video") && $user->can(Permissions::EDIT_FILES)) {
-            if ($event->count_args() >= 1) {
-                $image_id = int_escape($event->get_arg(0));
-            } elseif (isset($_POST['image_id'])) {
-                $image_id =  int_escape($_POST['image_id']);
-            } else {
-                throw new VideoTranscodeException("Can not transcode video: No valid ID given.");
-            }
-            $image_obj = Image::by_id($image_id);
-            if (is_null($image_obj)) {
-                $this->theme->display_error(404, "Post not found", "No post in the database has the ID #$image_id");
-            } else {
-                if (isset($_POST['transcode_format'])) {
-                    try {
-                        $this->transcode_and_replace_video($image_obj, $_POST['transcode_format']);
-                        $page->set_mode(PageMode::REDIRECT);
-                        $page->set_redirect(make_link("post/view/".$image_id));
-                    } catch (VideoTranscodeException $e) {
-                        $this->theme->display_transcode_error($page, "Error Transcoding", $e->getMessage());
-                    }
-                }
+        if ($event->page_matches("transcode_video/{image_id}", method: "POST", permission: Permissions::EDIT_FILES)) {
+            $image_id = $event->get_iarg('image_id');
+            $image_obj = Image::by_id_ex($image_id);
+            try {
+                $this->transcode_and_replace_video($image_obj, $event->req_POST('transcode_format'));
+                $page->set_mode(PageMode::REDIRECT);
+                $page->set_redirect(make_link("post/view/".$image_id));
+            } catch (VideoTranscodeException $e) {
+                $this->theme->display_transcode_error($page, "Error Transcoding", $e->getMessage());
             }
         }
     }
 
-    public function onBulkActionBlockBuilding(BulkActionBlockBuildingEvent $event)
+    public function onBulkActionBlockBuilding(BulkActionBlockBuildingEvent $event): void
     {
         global $user;
 
@@ -141,37 +129,31 @@ class TranscodeVideo extends Extension
         }
     }
 
-    public function onBulkAction(BulkActionEvent $event)
+    public function onBulkAction(BulkActionEvent $event): void
     {
         global $user, $database, $page;
 
         switch ($event->action) {
             case self::ACTION_BULK_TRANSCODE:
-                if (!isset($_POST['transcode_format'])) {
+                if (!isset($event->params['transcode_format'])) {
                     return;
                 }
                 if ($user->can(Permissions::EDIT_FILES)) {
-                    $format = $_POST['transcode_format'];
+                    $format = $event->params['transcode_format'];
                     $total = 0;
                     foreach ($event->items as $image) {
                         try {
-                            $database->begin_transaction();
-
-                            $output_image = $this->transcode_and_replace_video($image, $format);
                             // If a subsequent transcode fails, the database needs to have everything about the previous
                             // transcodes recorded already, otherwise the image entries will be stuck pointing to
                             // missing image files
-                            $database->commit();
-                            if ($output_image != $image) {
+                            $transcoded = $database->with_savepoint(function () use ($image, $format) {
+                                return $this->transcode_and_replace_video($image, $format);
+                            });
+                            if ($transcoded) {
                                 $total++;
                             }
                         } catch (\Exception $e) {
                             log_error("transcode_video", "Error while bulk transcode on item {$image->id} to $format: ".$e->getMessage());
-                            try {
-                                $database->rollback();
-                            } catch (\Exception $e) {
-                                // is this safe? o.o
-                            }
                         }
                     }
                     $page->flash("Transcoded $total items");
@@ -180,10 +162,12 @@ class TranscodeVideo extends Extension
         }
     }
 
+    /**
+     * @return array<string, string>
+     */
     private static function get_output_options(?string $starting_container = null, ?string $starting_codec = null): array
     {
         $output = ["" => ""];
-
 
         foreach (VideoContainers::ALL as $container) {
             if ($starting_container == $container) {
@@ -199,10 +183,10 @@ class TranscodeVideo extends Extension
         return $output;
     }
 
-    private function transcode_and_replace_video(Image $image, string $target_mime): Image
+    private function transcode_and_replace_video(Image $image, string $target_mime): bool
     {
         if ($image->get_mime() == $target_mime) {
-            return $image;
+            return false;
         }
 
         if ($image->video == null || ($image->video === true && empty($image->video_codec))) {
@@ -215,31 +199,10 @@ class TranscodeVideo extends Extension
         }
 
         $original_file = warehouse_path(Image::IMAGE_DIR, $image->hash);
-
-        $tmp_filename = tempnam(sys_get_temp_dir(), "shimmie_transcode_video");
-        try {
-            $tmp_filename = $this->transcode_video($original_file, $image->video_codec, $target_mime, $tmp_filename);
-
-            $new_image = new Image();
-            $new_image->hash = md5_file($tmp_filename);
-            $new_image->filesize = filesize($tmp_filename);
-            $new_image->filename = $image->filename;
-            $new_image->width = $image->width;
-            $new_image->height = $image->height;
-
-            /* Move the new image into the main storage location */
-            $target = warehouse_path(Image::IMAGE_DIR, $new_image->hash);
-            if (!@copy($tmp_filename, $target)) {
-                throw new VideoTranscodeException("Failed to copy new post file from temporary location ({$tmp_filename}) to archive ($target)");
-            }
-
-            send_event(new ImageReplaceEvent($image, $new_image));
-
-            return $new_image;
-        } finally {
-            /* Remove temporary file */
-            @unlink($tmp_filename);
-        }
+        $tmp_filename = shm_tempnam("transcode_video");
+        $tmp_filename = $this->transcode_video($original_file, $image->video_codec, $target_mime, $tmp_filename);
+        send_event(new ImageReplaceEvent($image, $tmp_filename));
+        return true;
     }
 
 

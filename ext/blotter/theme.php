@@ -4,9 +4,15 @@ declare(strict_types=1);
 
 namespace Shimmie2;
 
+/**
+ * @phpstan-type BlotterEntry array{id:int,entry_date:string,entry_text:string,important:bool}
+ */
 class BlotterTheme extends Themelet
 {
-    public function display_editor($entries)
+    /**
+     * @param BlotterEntry[] $entries
+     */
+    public function display_editor(array $entries): void
     {
         global $page;
         $html = $this->get_html_for_blotter_editor($entries);
@@ -16,7 +22,10 @@ class BlotterTheme extends Themelet
         $page->add_block(new Block("Navigation", "<a href='".make_link()."'>Index</a>", "left", 0));
     }
 
-    public function display_blotter_page($entries)
+    /**
+     * @param BlotterEntry[] $entries
+     */
+    public function display_blotter_page(array $entries): void
     {
         global $page;
         $html = $this->get_html_for_blotter_page($entries);
@@ -25,6 +34,9 @@ class BlotterTheme extends Themelet
         $page->add_block(new Block("Blotter Entries", $html, "main", 10));
     }
 
+    /**
+     * @param BlotterEntry[] $entries
+     */
     public function display_blotter(array $entries): void
     {
         global $page, $config;
@@ -33,6 +45,9 @@ class BlotterTheme extends Themelet
         $page->add_block(new Block(null, $html, $position, 20));
     }
 
+    /**
+     * @param BlotterEntry[] $entries
+     */
     private function get_html_for_blotter_editor(array $entries): string
     {
         global $user;
@@ -81,8 +96,7 @@ class BlotterTheme extends Themelet
 				<td>$entry_date</td>
 				<td>$entry_text</td>
 				<td>$important</td>
-				<td><form name='remove$id' method='post' action='".make_link("blotter/remove")."'>
-				".$user->get_auth_html()."
+				<td>".make_form(make_link("blotter/remove"), name: "remove$id")."
 				<input type='hidden' name='id' value='$id' />
 				<input type='submit' style='width: 100%;' value='Remove' />
 				</form>
@@ -104,6 +118,9 @@ class BlotterTheme extends Themelet
         return $html;
     }
 
+    /**
+     * @param BlotterEntry[] $entries
+     */
     private function get_html_for_blotter_page(array $entries): string
     {
         /**
@@ -123,7 +140,7 @@ class BlotterTheme extends Themelet
             $i_close = "";
             //$id = $entries[$i]['id'];
             $messy_date = $entries[$i]['entry_date'];
-            $clean_date = date("y/m/d", strtotime($messy_date));
+            $clean_date = date("y/m/d", \Safe\strtotime($messy_date));
             $entry_text = $entries[$i]['entry_text'];
             if ($entries[$i]['important'] == 'Y') {
                 $i_open = "<span style='color: #$i_color;'>";
@@ -135,25 +152,27 @@ class BlotterTheme extends Themelet
         return $html;
     }
 
+    /**
+     * @param BlotterEntry[] $entries
+     */
     private function get_html_for_blotter(array $entries): string
     {
         global $config;
         $i_color = $config->get_string("blotter_color", "#FF0000");
         $position = $config->get_string("blotter_position", "subheading");
         $entries_list = "";
-        $num_entries = count($entries);
-        for ($i = 0 ; $i < $num_entries ; $i++) {
+        foreach($entries as $entry) {
             /**
              * Blotter entries
              */
             // Reset variables:
             $i_open = "";
             $i_close = "";
-            //$id = $entries[$i]['id'];
-            $messy_date = $entries[$i]['entry_date'];
-            $clean_date = date("m/d/y", strtotime($messy_date));
-            $entry_text = $entries[$i]['entry_text'];
-            if ($entries[$i]['important'] == 'Y') {
+            //$id = $entry['id'];
+            $messy_date = $entry['entry_date'];
+            $clean_date = date("m/d/y", \Safe\strtotime($messy_date));
+            $entry_text = $entry['entry_text'];
+            if ($entry['important'] == 'Y') {
                 $i_open = "<span style='color: #$i_color'>";
                 $i_close = "</span>";
             }
@@ -172,7 +191,7 @@ class BlotterTheme extends Themelet
             $out_text = "No blotter entries yet.";
             $in_text = "Empty.";
         } else {
-            $clean_date = date("m/d/y", strtotime($entries[0]['entry_date']));
+            $clean_date = date("m/d/y", \Safe\strtotime($entries[0]['entry_date']));
             $out_text = "Blotter updated: {$clean_date}";
             $in_text = "<ul>$entries_list</ul>";
         }

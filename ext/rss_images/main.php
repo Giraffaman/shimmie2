@@ -6,7 +6,7 @@ namespace Shimmie2;
 
 class RSSImages extends Extension
 {
-    public function onPostListBuilding(PostListBuildingEvent $event)
+    public function onPostListBuilding(PostListBuildingEvent $event): void
     {
         global $config, $page;
         $title = $config->get_string(SetupConfig::TITLE);
@@ -21,33 +21,40 @@ class RSSImages extends Extension
         }
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
+        global $config;
         if ($event->page_matches("rss/images")) {
-            $search_terms = $event->get_search_terms();
-            $page_number = $event->get_page_number();
-            $page_size = $event->get_page_size();
+            if ($event->page_matches("rss/images/{search}/{page}")) {
+                $search_terms = Tag::explode($event->get_arg('search'));
+                $page_number = int_escape($event->get_arg('page'));
+            } elseif ($event->page_matches("rss/images/{page}")) {
+                $search_terms = [];
+                $page_number = int_escape($event->get_arg('page'));
+            } else {
+                $search_terms = [];
+                $page_number = 1;
+            }
+            $page_size = $config->get_int(IndexConfig::IMAGES);
             if (SPEED_HAX && $page_number > 9) {
                 return;
             }
-            try {
-                $images = Search::find_images(($page_number - 1) * $page_size, $page_size, $search_terms);
-                $this->do_rss($images, $search_terms, $page_number);
-            } catch (SearchTermParseException $stpe) {
-                $this->theme->display_error(400, "Search parse error", $stpe->error);
-            } catch (PermissionDeniedException $pde) {
-                $this->theme->display_error(403, "Permission denied", $pde->error);
-            }
+            $images = Search::find_images(($page_number - 1) * $page_size, $page_size, $search_terms);
+            $this->do_rss($images, $search_terms, $page_number);
         }
     }
 
-    public function onImageInfoSet(ImageInfoSetEvent $event)
+    public function onImageInfoSet(ImageInfoSetEvent $event): void
     {
         global $cache;
         $cache->delete("rss-item-image:{$event->image->id}");
     }
 
-    private function do_rss(array $images, array $search_terms, int $page_number)
+    /**
+     * @param Image[] $images
+     * @param string[] $search_terms
+     */
+    private function do_rss(array $images, array $search_terms, int $page_number): void
     {
         global $page;
         global $config;
@@ -105,7 +112,7 @@ class RSSImages extends Extension
         $tags = html_escape($image->get_tag_list());
         $thumb_url = $image->get_thumb_link();
         $image_url = $image->get_image_link();
-        $posted = date(DATE_RSS, strtotime($image->posted));
+        $posted = date(DATE_RSS, \Safe\strtotime($image->posted));
         $content = html_escape(
             "<div>" .
             "<p>" . $this->theme->build_thumb_html($image) . "</p>" .
@@ -129,7 +136,7 @@ class RSSImages extends Extension
         return $data;
     }
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         if ($event->parent == "posts") {
             $event->add_nav_link("posts_rss", new Link('rss/images'), "Feed");

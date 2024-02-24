@@ -22,7 +22,7 @@ use function MicroHTML\rawHTML;
 
 class ShortDateTimeColumn extends DateTimeColumn
 {
-    public function read_input(array $inputs)
+    public function read_input(array $inputs): HTMLElement
     {
         return emptyHTML(
             INPUT([
@@ -42,7 +42,7 @@ class ShortDateTimeColumn extends DateTimeColumn
 
 class ActorColumn extends Column
 {
-    public function __construct($name, $title)
+    public function __construct(string $name, string $title)
     {
         parent::__construct($name, $title);
         $this->sortable = false;
@@ -59,7 +59,7 @@ class ActorColumn extends Column
         }
     }
 
-    public function read_input($inputs)
+    public function read_input(array $inputs): HTMLElement
     {
         return emptyHTML(
             INPUT([
@@ -78,8 +78,12 @@ class ActorColumn extends Column
         );
     }
 
-    public function modify_input_for_read($input): array
+    /**
+     * @return array{0: string|null, 1: string|null}
+     */
+    public function modify_input_for_read(string|array $input): array
     {
+        assert(is_array($input));
         list($un, $ip) = $input;
         if (empty($un)) {
             $un = null;
@@ -90,7 +94,10 @@ class ActorColumn extends Column
         return [$un, $ip];
     }
 
-    public function display($row): HTMLElement
+    /**
+     * @param array{username: string, address: string} $row
+     */
+    public function display(array $row): HTMLElement
     {
         $ret = emptyHTML();
         if ($row['username'] != "Anonymous") {
@@ -121,7 +128,7 @@ class MessageColumn extends Column
         }
     }
 
-    public function read_input(array $inputs)
+    public function read_input(array $inputs): HTMLElement
     {
         $ret = emptyHTML(
             INPUT([
@@ -152,8 +159,9 @@ class MessageColumn extends Column
         return $ret;
     }
 
-    public function modify_input_for_read($input)
+    public function modify_input_for_read(array|string $input): mixed
     {
+        assert(is_array($input));
         list($m, $l) = $input;
         if (empty($m)) {
             $m = "%";
@@ -166,7 +174,7 @@ class MessageColumn extends Column
         return [$m, $l];
     }
 
-    public function display($row)
+    public function display(array $row): HTMLElement
     {
         $c = "#000";
         switch ($row['priority']) {
@@ -189,7 +197,7 @@ class MessageColumn extends Column
         return SPAN(["style" => "color: $c"], rawHTML($this->scan_entities($row[$this->name])));
     }
 
-    protected function scan_entities(string $line)
+    protected function scan_entities(string $line): string
     {
         $line = preg_replace_callback("/Image #(\d+)/s", [$this, "link_image"], $line);
         $line = preg_replace_callback("/Post #(\d+)/s", [$this, "link_image"], $line);
@@ -197,7 +205,10 @@ class MessageColumn extends Column
         return $line;
     }
 
-    protected function link_image($id)
+    /**
+     * @param array{1: string} $id
+     */
+    protected function link_image(array $id): string
     {
         $iid = int_escape($id[1]);
         return "<a href='".make_link("post/view/$iid")."'>&gt;&gt;$iid</a>";
@@ -221,22 +232,19 @@ class LogTable extends Table
             new ActionColumn("id"),
         ]);
         $this->order_by = ["date_sent DESC"];
-        $this->table_attrs = ["class" => "zebra"];
+        $this->table_attrs = ["class" => "zebra form"];
     }
 }
 
 class LogDatabase extends Extension
 {
-    /** @var LogDatabaseTheme */
-    protected Themelet $theme;
-
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
         $config->set_default_int("log_db_priority", SCORE_LOG_INFO);
     }
 
-    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event)
+    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event): void
     {
         global $database;
 
@@ -255,7 +263,7 @@ class LogDatabase extends Extension
         }
     }
 
-    public function onSetupBuilding(SetupBuildingEvent $event)
+    public function onSetupBuilding(SetupBuildingEvent $event): void
     {
         $sb = $event->panel->create_new_block("Logging (Database)");
         $sb->add_choice_option("log_db_priority", [
@@ -267,19 +275,17 @@ class LogDatabase extends Extension
         ], "Debug Level: ");
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $database, $user;
-        if ($event->page_matches("log/view")) {
-            if ($user->can(Permissions::VIEW_EVENTLOG)) {
-                $t = new LogTable($database->raw_db());
-                $t->inputs = $_GET;
-                $this->theme->display_events($t->table($t->query()), $t->paginator());
-            }
+        if ($event->page_matches("log/view", permission: Permissions::VIEW_EVENTLOG)) {
+            $t = new LogTable($database->raw_db());
+            $t->inputs = $event->GET;
+            $this->theme->display_crud("Event Log", $t->table($t->query()), $t->paginator());
         }
     }
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         global $user;
         if ($event->parent === "system") {
@@ -289,7 +295,7 @@ class LogDatabase extends Extension
         }
     }
 
-    public function onUserBlockBuilding(UserBlockBuildingEvent $event)
+    public function onUserBlockBuilding(UserBlockBuildingEvent $event): void
     {
         global $user;
         if ($user->can(Permissions::VIEW_EVENTLOG)) {
@@ -297,7 +303,7 @@ class LogDatabase extends Extension
         }
     }
 
-    public function onLog(LogEvent $event)
+    public function onLog(LogEvent $event): void
     {
         global $config, $database, $user;
 

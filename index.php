@@ -23,7 +23,7 @@ if (!file_exists("vendor/")) {
     );
 }
 
-if (!file_exists("data/config/shimmie.conf.php")) {
+if (!file_exists("data/config/shimmie.conf.php") && !getenv("SHM_DATABASE_DSN")) {
     require_once "core/install.php";
     install();
     exit;
@@ -80,9 +80,15 @@ try {
     $user = _get_user();
     send_event(new UserLoginEvent($user));
     if (PHP_SAPI === 'cli' || PHP_SAPI == 'phpdbg') {
-        send_event(new CommandEvent($argv));
+        ob_end_flush();
+        ob_implicit_flush(true);
+        $app = new CliApp();
+        send_event(new CliGenEvent($app));
+        if($app->run() !== 0) {
+            throw new \Exception("CLI command failed");
+        }
     } else {
-        send_event(new PageRequestEvent($_SERVER['REQUEST_METHOD'], _get_query()));
+        send_event(new PageRequestEvent($_SERVER['REQUEST_METHOD'], _get_query(), $_GET, $_POST));
         $page->display();
     }
 
@@ -96,10 +102,18 @@ try {
     }
     $exit_code = 0;
 } catch (\Exception $e) {
-    if ($database && $database->is_transaction_open()) {
+    if ($database->is_transaction_open()) {
         $database->rollback();
     }
-    _fatal_error($e);
+    if(is_a($e, \Shimmie2\UserError::class)) {
+        $page->set_mode(PageMode::PAGE);
+        $page->set_code($e->http_code);
+        $page->set_title("Error");
+        $page->add_block(new Block(null, \MicroHTML\SPAN($e->getMessage())));
+        $page->display();
+    } else {
+        _fatal_error($e);
+    }
     $exit_code = 1;
 } finally {
     $_tracer->end();

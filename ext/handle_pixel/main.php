@@ -42,30 +42,20 @@ class PixelFileHandler extends DataHandlerExtension
         return $info && in_array($info[2], $valid);
     }
 
-    protected function create_thumb(string $hash, string $mime): bool
+    protected function create_thumb(Image $image): bool
     {
         try {
-            create_image_thumb($hash, $mime);
-            return true;
-        } catch (InsufficientMemoryException $e) {
-            $tsize = get_thumbnail_max_size_scaled();
-            $thumb = imagecreatetruecolor($tsize[0], min($tsize[1], 64));
-            $white = imagecolorallocate($thumb, 255, 255, 255);
-            $black = imagecolorallocate($thumb, 0, 0, 0);
-            imagefill($thumb, 0, 0, $white);
-            log_warning("handle_pixel", "Insufficient memory while creating thumbnail: ".$e->getMessage());
-            imagestring($thumb, 5, 10, 24, "Image Too Large :(", $black);
+            create_image_thumb($image);
             return true;
         } catch (\Exception $e) {
-            log_error("handle_pixel", "Error while creating thumbnail: ".$e->getMessage());
-            return false;
+            throw new UploadException("Error while creating thumbnail: ".$e->getMessage());
         }
     }
 
-    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event)
+    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event): void
     {
         if ($event->context == "view") {
-            $event->add_part("
+            $event->add_part(\MicroHTML\rawHTML("
                 <form>
                     <select class='shm-zoomer'>
                         <option value='full'>Full Size</option>
@@ -74,7 +64,7 @@ class PixelFileHandler extends DataHandlerExtension
                         <option value='both'>Fit Both</option>
                     </select>
                 </form>
-            ", 20);
+            "), 20);
         }
     }
 }

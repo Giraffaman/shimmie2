@@ -8,12 +8,15 @@ class CommentListTheme extends Themelet
 {
     private bool $show_anon_id = false;
     private int $anon_id = 1;
+    /** @var array<string,int> */
     private array $anon_map = [];
 
     /**
      * Display a page with a list of images, and for each image, the image's comments.
+     *
+     * @param array<array{0: Image, 1: Comment[]}> $images
      */
-    public function display_comment_list(array $images, int $page_number, int $total_pages, bool $can_post)
+    public function display_comment_list(array $images, int $page_number, int $total_pages, bool $can_post): void
     {
         global $config, $page, $user;
 
@@ -56,7 +59,7 @@ class CommentListTheme extends Themelet
             $comment_count = count($comments);
             if ($comment_limit > 0 && $comment_count > $comment_limit) {
                 $comment_html .= "<p>showing $comment_limit of $comment_count comments</p>";
-                $comments = array_slice($comments, -$comment_limit);
+                $comments = array_slice($comments, negative_int($comment_limit));
                 $this->show_anon_id = false;
             } else {
                 $this->show_anon_id = true;
@@ -91,14 +94,14 @@ class CommentListTheme extends Themelet
         }
     }
 
-    public function display_admin_block()
+    public function display_admin_block(): void
     {
         global $page;
 
         $html = '
 			Delete comments by IP.
 
-			<br><br>'.make_form(make_link("comment/bulk_delete"), 'POST')."
+			<br><br>'.make_form(make_link("comment/bulk_delete"))."
 				<table class='form'>
 					<tr><th>IP&nbsp;Address</th> <td><input type='text' name='ip' size='15'></td></tr>
 					<tr><td colspan='2'><input type='submit' value='Delete'></td></tr>
@@ -113,7 +116,7 @@ class CommentListTheme extends Themelet
      *
      * @param Comment[] $comments An array of Comment objects to be shown
      */
-    public function display_recent_comments(array $comments)
+    public function display_recent_comments(array $comments): void
     {
         global $page;
         $this->show_anon_id = false;
@@ -130,7 +133,7 @@ class CommentListTheme extends Themelet
      *
      * @param Comment[] $comments
      */
-    public function display_image_comments(Image $image, array $comments, bool $postbox)
+    public function display_image_comments(Image $image, array $comments, bool $postbox): void
     {
         global $page;
         $this->show_anon_id = true;
@@ -149,7 +152,7 @@ class CommentListTheme extends Themelet
      *
      * @param Comment[] $comments
      */
-    public function display_recent_user_comments(array $comments, User $user)
+    public function display_recent_user_comments(array $comments, User $user): void
     {
         global $page;
         $html = "";
@@ -164,7 +167,10 @@ class CommentListTheme extends Themelet
         $page->add_block(new Block("Comments", $html, "left", 70, "comment-list-user"));
     }
 
-    public function display_all_user_comments(array $comments, int $page_number, int $total_pages, User $user)
+    /**
+     * @param Comment[] $comments
+     */
+    public function display_all_user_comments(array $comments, int $page_number, int $total_pages, User $user): void
     {
         global $page;
 
@@ -203,7 +209,11 @@ class CommentListTheme extends Themelet
         $i_uid = $comment->owner_id;
         $h_name = html_escape($comment->owner_name);
         $h_timestamp = autodate($comment->posted);
-        $h_comment = ($trim ? truncate($tfe->stripped, 50) : $tfe->formatted);
+        if ($trim) {
+            $h_comment = truncate($tfe->stripped, 50);
+        } else {
+            $h_comment = $tfe->formatted;
+        }
         $i_comment_id = $comment->comment_id;
         $i_image_id = $comment->image_id;
 
@@ -248,11 +258,7 @@ class CommentListTheme extends Themelet
             $h_ip = $user->can(Permissions::VIEW_IP) ? "<br>".show_ip($comment->poster_ip, "Comment posted {$comment->posted}") : "";
             $h_del = "";
             if ($user->can(Permissions::DELETE_COMMENT)) {
-                $comment_preview = substr(html_unescape($tfe->stripped), 0, 50);
-                $j_delete_confirm_message = json_encode("Delete comment by {$comment->owner_name}:\n$comment_preview");
-                $h_delete_script = html_escape("return confirm($j_delete_confirm_message);");
-                $h_delete_link = make_link("comment/delete/$i_comment_id/$i_image_id");
-                $h_del = " - <a onclick='$h_delete_script' href='$h_delete_link'>Del</a>";
+                $h_del = " - " . $this->delete_link($i_comment_id, $i_image_id, $comment->owner_name, $tfe->stripped);
             }
             $html = "
 				<div class=\"comment $hb\" id=\"c$i_comment_id\">
@@ -265,6 +271,15 @@ class CommentListTheme extends Themelet
 			";
         }
         return $html;
+    }
+
+    protected function delete_link(int $comment_id, int $image_id, string $owner, string $text): string
+    {
+        $comment_preview = substr(html_unescape($text), 0, 50);
+        $j_delete_confirm_message = json_encode("Delete comment by {$owner}:\n$comment_preview") ?: "Delete <corrupt comment>";
+        $h_delete_script = html_escape("return confirm($j_delete_confirm_message);");
+        $h_delete_link = make_link("comment/delete/$comment_id/$image_id");
+        return "<a onclick='$h_delete_script' href='$h_delete_link'>Del</a>";
     }
 
     protected function build_postbox(int $image_id): string

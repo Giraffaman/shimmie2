@@ -14,7 +14,7 @@ use function MicroHTML\rawHTML;
  */
 class TagEditCloud extends Extension
 {
-    public function onImageInfoBoxBuilding(ImageInfoBoxBuildingEvent $event)
+    public function onImageInfoBoxBuilding(ImageInfoBoxBuildingEvent $event): void
     {
         global $config;
 
@@ -26,7 +26,7 @@ class TagEditCloud extends Extension
         }
     }
 
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
         $config->set_default_bool("tageditcloud_disable", false);
@@ -38,7 +38,7 @@ class TagEditCloud extends Extension
         $config->set_default_string("tageditcloud_ignoretags", 'tagme');
     }
 
-    public function onSetupBuilding(SetupBuildingEvent $event)
+    public function onSetupBuilding(SetupBuildingEvent $event): void
     {
         $sort_by = ['Alphabetical' => 'a','Popularity' => 'p','Relevance' => 'r','Categories' => 'c'];
 
@@ -163,7 +163,7 @@ class TagEditCloud extends Extension
             }
 
             $size = sprintf("%.2f", max($row['scaled'], 0.5));
-            $js = html_escape('tageditcloud_toggle_tag(this,'.json_encode($full_tag).')'); //Ugly, but it works
+            $js = html_escape('tageditcloud_toggle_tag(this,'.\Safe\json_encode($full_tag).')'); //Ugly, but it works
 
             if (in_array($row['tag'], $image->get_tag_array())) {
                 if ($used_first) {

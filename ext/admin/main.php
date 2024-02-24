@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Shimmie2;
 
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\{InputInterface,InputArgument};
+use Symfony\Component\Console\Output\OutputInterface;
+
 /**
  * Sent when the admin page is ready to be added to
  */
@@ -22,11 +26,17 @@ class AdminActionEvent extends Event
 {
     public string $action;
     public bool $redirect = true;
+    /** @var array<string, mixed> */
+    public array $params;
 
-    public function __construct(string $action)
+    /**
+     * @param array<string, mixed> $params
+     */
+    public function __construct(string $action, array $params)
     {
         parent::__construct();
         $this->action = $action;
+        $this->params = $params;
     }
 }
 
@@ -35,105 +45,130 @@ class AdminPage extends Extension
     /** @var AdminPageTheme */
     protected Themelet $theme;
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $database, $page, $user;
 
-        if ($event->page_matches("admin")) {
-            if (!$user->can(Permissions::MANAGE_ADMINTOOLS)) {
-                $this->theme->display_permission_denied();
-            } else {
-                if ($event->count_args() == 0) {
-                    send_event(new AdminBuildingEvent($page));
-                } else {
-                    $action = $event->get_arg(0);
-                    $aae = new AdminActionEvent($action);
+        if ($event->page_matches("admin", method: "GET", permission: Permissions::MANAGE_ADMINTOOLS)) {
+            send_event(new AdminBuildingEvent($page));
+        }
+        if ($event->page_matches("admin/{action}", method: "POST", permission: Permissions::MANAGE_ADMINTOOLS)) {
+            $action = $event->get_arg('action');
+            $aae = new AdminActionEvent($action, $event->POST);
 
-                    if ($user->check_auth_token()) {
-                        log_info("admin", "Util: $action");
-                        shm_set_timeout(null);
-                        $database->set_timeout(null);
-                        send_event($aae);
-                    }
+            log_info("admin", "Util: $action");
+            shm_set_timeout(null);
+            $database->set_timeout(null);
+            send_event($aae);
 
-                    if ($aae->redirect) {
-                        $page->set_mode(PageMode::REDIRECT);
-                        $page->set_redirect(make_link("admin"));
-                    }
-                }
+            if ($aae->redirect) {
+                $page->set_mode(PageMode::REDIRECT);
+                $page->set_redirect(make_link("admin"));
             }
         }
     }
 
-    public function onCommand(CommandEvent $event)
+    public function onCliGen(CliGenEvent $event): void
     {
-        if ($event->cmd == "help") {
-            print "\tget-page <query string>\n";
-            print "\t\teg 'get-page post/list'\n\n";
-            print "\tpost-page <query string> <urlencoded params>\n";
-            print "\t\teg 'post-page ip_ban/delete id=1'\n\n";
-            print "\tget-token\n";
-            print "\t\tget a CSRF auth token\n\n";
-            print "\tregen-thumb <id / hash>\n";
-            print "\t\tregenerate a thumbnail\n\n";
-            print "\tcache [get|set|del] [key] <value>\n";
-            print "\t\teg 'cache get config'\n\n";
-        }
-        if ($event->cmd == "get-page") {
-            global $page;
-            $_SERVER['REQUEST_URI'] = $event->args[0];
-            if (isset($event->args[1])) {
-                parse_str($event->args[1], $_GET);
-                $_SERVER['REQUEST_URI'] .= "?" . $event->args[1];
-            }
-            send_event(new PageRequestEvent("GET", $event->args[0]));
-            $page->display();
-        }
-        if ($event->cmd == "post-page") {
-            global $page;
-            if (isset($event->args[1])) {
-                parse_str($event->args[1], $_POST);
-            }
-            send_event(new PageRequestEvent("POST", $event->args[0]));
-            $page->display();
-        }
-        if ($event->cmd == "get-token") {
-            global $user;
-            print($user->get_auth_token());
-        }
-        if ($event->cmd == "regen-thumb") {
-            $uid = $event->args[0];
-            $image = Image::by_id_or_hash($uid);
-            if ($image) {
-                send_event(new ThumbnailGenerationEvent($image->hash, $image->get_mime(), true));
-            } else {
-                print("No post with ID '$uid'\n");
-            }
-        }
-        if ($event->cmd == "cache") {
-            global $cache;
-            $cmd = $event->args[0];
-            $key = $event->args[1];
-            switch ($cmd) {
-                case "get":
-                    var_export($cache->get($key));
-                    break;
-                case "set":
-                    $cache->set($key, $event->args[2], 60);
-                    break;
-                case "del":
-                    $cache->delete($key);
-                    break;
-            }
+        $event->app->register('page:get')
+            ->addArgument('query', InputArgument::REQUIRED)
+            ->addArgument('args', InputArgument::OPTIONAL)
+            ->setDescription('Get a page, eg /post/list')
+            ->setCode(function (InputInterface $input, OutputInterface $output): int {
+                global $page;
+                $query = $input->getArgument('query');
+                $args = $input->getArgument('args');
+                $_SERVER['REQUEST_URI'] = make_link($query);
+                if (!is_null($args)) {
+                    parse_str($args, $_GET);
+                    $_SERVER['REQUEST_URI'] .= "?" . $args;
+                }
+                send_event(new PageRequestEvent("GET", $query, $_GET, []));
+                $page->display();
+                return Command::SUCCESS;
+            });
+        $event->app->register('page:post')
+            ->addArgument('query', InputArgument::REQUIRED)
+            ->addArgument('args', InputArgument::OPTIONAL)
+            ->setDescription('Post a page, eg ip_ban/delete id=1')
+            ->setCode(function (InputInterface $input, OutputInterface $output): int {
+                global $page;
+                $query = $input->getArgument('query');
+                $args = $input->getArgument('args');
+                global $page;
+                if (!is_null($args)) {
+                    parse_str($args, $_POST);
+                }
+                send_event(new PageRequestEvent("POST", $query, [], $_POST));
+                $page->display();
+                return Command::SUCCESS;
+            });
+        $event->app->register('get-token')
+            ->setDescription('Get a CSRF token')
+            ->setCode(function (InputInterface $input, OutputInterface $output): int {
+                global $user;
+                $output->writeln($user->get_auth_token());
+                return Command::SUCCESS;
+            });
+        $event->app->register('regen-thumb')
+            ->addArgument('id_or_hash', InputArgument::REQUIRED)
+            ->setDescription("Regenerate a post's thumbnail")
+            ->setCode(function (InputInterface $input, OutputInterface $output): int {
+                $uid = $input->getArgument('id_or_hash');
+                $image = Image::by_id_or_hash($uid);
+                if ($image) {
+                    send_event(new ThumbnailGenerationEvent($image, true));
+                } else {
+                    $output->writeln("No post with ID '$uid'\n");
+                }
+                return Command::SUCCESS;
+            });
+        $event->app->register('cache:get')
+            ->addArgument('key', InputArgument::REQUIRED)
+            ->setDescription("Get a cache value")
+            ->setCode(function (InputInterface $input, OutputInterface $output): int {
+                global $cache;
+                $key = $input->getArgument('key');
+                $output->writeln(var_export($cache->get($key), true));
+                return Command::SUCCESS;
+            });
+        $event->app->register('cache:set')
+            ->addArgument('key', InputArgument::REQUIRED)
+            ->addArgument('value', InputArgument::REQUIRED)
+            ->setDescription("Set a cache value")
+            ->setCode(function (InputInterface $input, OutputInterface $output): int {
+                global $cache;
+                $key = $input->getArgument('key');
+                $value = $input->getArgument('value');
+                $cache->set($key, $value, 60);
+                return Command::SUCCESS;
+            });
+        $event->app->register('cache:del')
+            ->addArgument('key', InputArgument::REQUIRED)
+            ->setDescription("Delete a cache value")
+            ->setCode(function (InputInterface $input, OutputInterface $output): int {
+                global $cache;
+                $key = $input->getArgument('key');
+                $cache->delete($key);
+                return Command::SUCCESS;
+            });
+    }
+
+    public function onAdminAction(AdminActionEvent $event): void
+    {
+        global $page;
+        if ($event->action === "test") {
+            $page->set_mode(PageMode::DATA);
+            $page->set_data("test");
         }
     }
 
-    public function onAdminBuilding(AdminBuildingEvent $event)
+    public function onAdminBuilding(AdminBuildingEvent $event): void
     {
         $this->theme->display_page();
     }
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         global $user;
         if ($event->parent === "system") {
@@ -143,7 +178,7 @@ class AdminPage extends Extension
         }
     }
 
-    public function onUserBlockBuilding(UserBlockBuildingEvent $event)
+    public function onUserBlockBuilding(UserBlockBuildingEvent $event): void
     {
         global $user;
         if ($user->can(Permissions::MANAGE_ADMINTOOLS)) {

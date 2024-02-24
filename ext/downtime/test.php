@@ -10,9 +10,10 @@ class DowntimeTest extends ShimmiePHPUnitTestCase
     {
         global $config;
         $config->set_bool("downtime", false);
+        parent::tearDown();
     }
 
-    public function testDowntime()
+    public function testDowntime(): void
     {
         global $config;
 

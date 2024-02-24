@@ -26,7 +26,7 @@ class AutoTaggerTable extends Table
             new ActionColumn("tag"),
         ]);
         $this->order_by = ["tag"];
-        $this->table_attrs = ["class" => "zebra"];
+        $this->table_attrs = ["class" => "zebra form"];
     }
 }
 
@@ -67,78 +67,61 @@ class AutoTagger extends Extension
     /** @var AutoTaggerTheme */
     protected Themelet $theme;
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $config, $database, $page, $user;
 
-        if ($event->page_matches("auto_tag")) {
-            if(!$user->is_logged_in()) {
-                $errMessage = "You must be registered and logged in to use auto-tagger.";
-                $this->theme->display_error(401, "Unauthorized", $errMessage);
+        if ($event->page_matches("auto_tag/add", method: "POST", permission: Permissions::MANAGE_AUTO_TAG)) {
+            $input = validate_input(["c_tag" => "string", "c_additional_tags" => "string"]);
+            send_event(new AddAutoTagEvent($input['c_tag'], $input['c_additional_tags']));
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("auto_tag/list"));
+        }
+        if ($event->page_matches("auto_tag/remove", method: "POST", permission: Permissions::MANAGE_AUTO_TAG)) {
+            $input = validate_input(["d_tag" => "string"]);
+            send_event(new DeleteAutoTagEvent($input['d_tag']));
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("auto_tag/list"));
+        }
+        if ($event->page_matches("auto_tag/list")) {
+            $t = new AutoTaggerTable($database->raw_db());
+            $t->token = $user->get_auth_token();
+            $t->inputs = $event->GET;
+            $t->size = $config->get_int(AutoTaggerConfig::ITEMS_PER_PAGE, 30);
+            if ($user->can(Permissions::MANAGE_AUTO_TAG)) {
+                $t->create_url = make_link("auto_tag/add");
+                $t->delete_url = make_link("auto_tag/remove");
+            }
+            $this->theme->display_auto_tagtable($t->table($t->query()), $t->paginator());
+        }
+        if ($event->page_matches("auto_tag/export/auto_tag.csv")) {
+            $page->set_mode(PageMode::DATA);
+            $page->set_mime(MimeType::CSV);
+            $page->set_filename("auto_tag.csv");
+            $page->set_data($this->get_auto_tag_csv($database));
+        }
+        if ($event->page_matches("auto_tag/import", method: "POST", permission: Permissions::MANAGE_AUTO_TAG)) {
+            if (count($_FILES) > 0) {
+                $tmp = $_FILES['auto_tag_file']['tmp_name'];
+                $contents = \Safe\file_get_contents($tmp);
+                $count = $this->add_auto_tag_csv($contents);
+                log_info(AutoTaggerInfo::KEY, "Imported $count auto-tag definitions from file from file", "Imported $count auto-tag definitions");
+                $page->set_mode(PageMode::REDIRECT);
+                $page->set_redirect(make_link("auto_tag/list"));
             } else {
-                if ($event->get_arg(0) == "add") {
-                    if ($user->can(Permissions::MANAGE_AUTO_TAG)) {
-                        $user->ensure_authed();
-                        $input = validate_input(["c_tag" => "string", "c_additional_tags" => "string"]);
-                        try {
-                            send_event(new AddAutoTagEvent($input['c_tag'], $input['c_additional_tags']));
-                            $page->set_mode(PageMode::REDIRECT);
-                            $page->set_redirect(make_link("auto_tag/list"));
-                        } catch (AddAutoTagException $ex) {
-                            $this->theme->display_error(500, "Error adding auto-tag", $ex->getMessage());
-                        }
-                    }
-                } elseif ($event->get_arg(0) == "remove") {
-                    if ($user->can(Permissions::MANAGE_AUTO_TAG)) {
-                        $user->ensure_authed();
-                        $input = validate_input(["d_tag" => "string"]);
-                        send_event(new DeleteAutoTagEvent($input['d_tag']));
-                        $page->set_mode(PageMode::REDIRECT);
-                        $page->set_redirect(make_link("auto_tag/list"));
-                    }
-                } elseif ($event->get_arg(0) == "list") {
-                    $t = new AutoTaggerTable($database->raw_db());
-                    $t->token = $user->get_auth_token();
-                    $t->inputs = $_GET;
-                    $t->size = $config->get_int(AutoTaggerConfig::ITEMS_PER_PAGE, 30);
-                    if ($user->can(Permissions::MANAGE_AUTO_TAG)) {
-                        $t->create_url = make_link("auto_tag/add");
-                        $t->delete_url = make_link("auto_tag/remove");
-                    }
-                    $this->theme->display_auto_tagtable($t->table($t->query()), $t->paginator());
-                } elseif ($event->get_arg(0) == "export") {
-                    $page->set_mode(PageMode::DATA);
-                    $page->set_mime(MimeType::CSV);
-                    $page->set_filename("auto_tag.csv");
-                    $page->set_data($this->get_auto_tag_csv($database));
-                } elseif ($event->get_arg(0) == "import") {
-                    if ($user->can(Permissions::MANAGE_AUTO_TAG)) {
-                        if (count($_FILES) > 0) {
-                            $tmp = $_FILES['auto_tag_file']['tmp_name'];
-                            $contents = file_get_contents($tmp);
-                            $count = $this->add_auto_tag_csv($contents);
-                            log_info(AutoTaggerInfo::KEY, "Imported $count auto-tag definitions from file from file", "Imported $count auto-tag definitions");
-                            $page->set_mode(PageMode::REDIRECT);
-                            $page->set_redirect(make_link("auto_tag/list"));
-                        } else {
-                            $this->theme->display_error(400, "No File Specified", "You have to upload a file");
-                        }
-                    } else {
-                        $this->theme->display_error(401, "Admins Only", "Only admins can edit the auto-tag list");
-                    }
-                }
+                $this->theme->display_error(400, "No File Specified", "You have to upload a file");
             }
         }
     }
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         if ($event->parent == "tags") {
             $event->add_nav_link("auto_tag", new Link('auto_tag/list'), "Auto-Tag", NavLink::is_active(["auto_tag"]));
         }
     }
 
-    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event)
+    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event): void
     {
         global $database;
 
@@ -158,27 +141,27 @@ class AutoTagger extends Extension
         }
     }
 
-    public function onTagSet(TagSetEvent $event)
+    public function onTagSet(TagSetEvent $event): void
     {
-        $results = $this->apply_auto_tags($event->tags);
+        $results = $this->apply_auto_tags($event->new_tags);
         if (!empty($results)) {
-            $event->tags = $results;
+            $event->new_tags = $results;
         }
     }
 
-    public function onAddAutoTag(AddAutoTagEvent $event)
+    public function onAddAutoTag(AddAutoTagEvent $event): void
     {
         global $page;
         $this->add_auto_tag($event->tag, $event->additional_tags);
         $page->flash("Added Auto-Tag");
     }
 
-    public function onDeleteAutoTag(DeleteAutoTagEvent $event)
+    public function onDeleteAutoTag(DeleteAutoTagEvent $event): void
     {
         $this->remove_auto_tag($event->tag);
     }
 
-    public function onUserBlockBuilding(UserBlockBuildingEvent $event)
+    public function onUserBlockBuilding(UserBlockBuildingEvent $event): void
     {
         global $user;
         if ($user->can(Permissions::MANAGE_AUTO_TAG)) {
@@ -191,6 +174,7 @@ class AutoTagger extends Extension
         $csv = "";
         $pairs = $database->get_pairs("SELECT tag, additional_tags FROM auto_tag ORDER BY tag");
         foreach ($pairs as $old => $new) {
+            assert(is_string($new));
             $csv .= "\"$old\",\"$new\"\n";
         }
         return $csv;
@@ -203,18 +187,14 @@ class AutoTagger extends Extension
         foreach (explode("\n", $csv) as $line) {
             $parts = str_getcsv($line);
             if (count($parts) == 2) {
-                try {
-                    send_event(new AddAutoTagEvent($parts[0], $parts[1]));
-                    $i++;
-                } catch (AddAutoTagException $ex) {
-                    $this->theme->display_error(500, "Error adding auto-tags", $ex->getMessage());
-                }
+                send_event(new AddAutoTagEvent($parts[0], $parts[1]));
+                $i++;
             }
         }
         return $i;
     }
 
-    private function add_auto_tag(string $tag, string $additional_tags)
+    private function add_auto_tag(string $tag, string $additional_tags): void
     {
         global $database;
         $existing_tags = $database->get_one("SELECT additional_tags FROM auto_tag WHERE LOWER(tag)=LOWER(:tag)", ["tag" => $tag]);
@@ -255,7 +235,7 @@ class AutoTagger extends Extension
         $this->apply_new_auto_tag($tag);
     }
 
-    private function apply_new_auto_tag(string $tag)
+    private function apply_new_auto_tag(string $tag): void
     {
         global $database;
         $tag_id = $database->get_one("SELECT id FROM tags WHERE LOWER(tag) = LOWER(:tag)", ["tag" => $tag]);
@@ -263,13 +243,13 @@ class AutoTagger extends Extension
             $image_ids = $database->get_col_iterable("SELECT image_id FROM  image_tags WHERE tag_id = :tag_id", ["tag_id" => $tag_id]);
             foreach ($image_ids as $image_id) {
                 $image_id = (int) $image_id;
-                $image = Image::by_id($image_id);
+                $image = Image::by_id_ex($image_id);
                 send_event(new TagSetEvent($image, $image->get_tag_array()));
             }
         }
     }
 
-    private function remove_auto_tag(string $tag)
+    private function remove_auto_tag(string $tag): void
     {
         global $database;
 
@@ -278,8 +258,9 @@ class AutoTagger extends Extension
 
     /**
      * @param string[] $tags_mixed
+     * @return string[]
      */
-    private function apply_auto_tags(array $tags_mixed): ?array
+    private function apply_auto_tags(array $tags_mixed): array
     {
         global $database;
 

@@ -21,10 +21,10 @@ function get_theme(): string
     return $theme;
 }
 
-function contact_link(): ?string
+function contact_link(?string $contact = null): ?string
 {
     global $config;
-    $text = $config->get_string('contact_link');
+    $text = $contact ?? $config->get_string('contact_link');
     if (is_null($text)) {
         return null;
     }
@@ -42,7 +42,7 @@ function contact_link(): ?string
     }
 
     if (str_contains($text, "/")) {
-        return "http://$text";
+        return "https://$text";
     }
 
     return $text;
@@ -143,7 +143,7 @@ function check_gd_version(): int
  */
 function check_im_version(): int
 {
-    $convert_check = exec("convert");
+    $convert_check = exec("convert --version");
 
     return (empty($convert_check) ? 0 : 1);
 }
@@ -151,7 +151,14 @@ function check_im_version(): int
 function is_trusted_proxy(): bool
 {
     $ra = $_SERVER['REMOTE_ADDR'] ?? "0.0.0.0";
+    if(!defined("TRUSTED_PROXIES")) {
+        return false;
+    }
+    // @phpstan-ignore-next-line - TRUSTED_PROXIES is defined in config
     foreach(TRUSTED_PROXIES as $proxy) {
+        if($ra === $proxy) { // check for "unix:" before checking IPs
+            return true;
+        }
         if(ip_in_range($ra, $proxy)) {
             return true;
         }
@@ -162,13 +169,17 @@ function is_trusted_proxy(): bool
 /**
  * Get real IP if behind a reverse proxy
  */
-function get_real_ip()
+function get_real_ip(): string
 {
     $ip = $_SERVER['REMOTE_ADDR'];
 
+    if($ip == "unix:") {
+        $ip = "0.0.0.0";
+    }
+
     if(is_trusted_proxy()) {
         if (isset($_SERVER['HTTP_X_REAL_IP'])) {
-            if(filter_var($ip, FILTER_VALIDATE_IP)) {
+            if(filter_var_ex($ip, FILTER_VALIDATE_IP)) {
                 $ip = $_SERVER['HTTP_X_REAL_IP'];
             }
         }
@@ -176,7 +187,7 @@ function get_real_ip()
         if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
             $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
             $last_ip = $ips[count($ips) - 1];
-            if(filter_var($last_ip, FILTER_VALIDATE_IP)) {
+            if(filter_var_ex($last_ip, FILTER_VALIDATE_IP)) {
                 $ip = $last_ip;
             }
         }
@@ -193,7 +204,7 @@ function get_session_ip(Config $config): string
 {
     $mask = $config->get_string("session_hash_mask", "255.255.0.0");
     $addr = get_real_ip();
-    $addr = inet_ntop(inet_pton($addr) & inet_pton($mask));
+    $addr = \Safe\inet_ntop(inet_pton_ex($addr) & inet_pton_ex($mask));
     return $addr;
 }
 
@@ -207,6 +218,22 @@ function format_text(string $string): string
     return $event->formatted;
 }
 
+/**
+ * Take a map of string to string-or-array, return only the string-to-string subset
+ *
+ * @param array<string, string|string[]> $map
+ * @return array<string, string>
+ */
+function only_strings(array $map): array
+{
+    $out = [];
+    foreach ($map as $k => $v) {
+        if (is_string($v)) {
+            $out[$k] = $v;
+        }
+    }
+    return $out;
+}
 /**
  * Generates the path to a file under the data folder based on the file's hash.
  * This process creates subfolders based on octet pairs from the file's hash.
@@ -284,16 +311,24 @@ function load_balance_url(string $tmpl, string $hash, int $n = 0): string
     return $tmpl;
 }
 
-function fetch_url(string $url, string $mfile): ?array
+class FetchException extends \Exception
+{
+}
+
+/**
+ * @return array<string, string|string[]>
+ */
+function fetch_url(string $url, string $mfile): array
 {
     global $config;
 
     if ($config->get_string(UploadConfig::TRANSLOAD_ENGINE) === "curl" && function_exists("curl_init")) {
         $ch = curl_init($url);
-        $fp = fopen($mfile, "w");
+        assert($ch !== false);
+        $fp = \Safe\fopen($mfile, "w");
 
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_VERBOSE, 1);
+        # curl_setopt($ch, CURLOPT_VERBOSE, 1);
         curl_setopt($ch, CURLOPT_HEADER, 1);
         curl_setopt($ch, CURLOPT_REFERER, $url);
         curl_setopt($ch, CURLOPT_USERAGENT, "Shimmie-".VERSION);
@@ -301,37 +336,37 @@ function fetch_url(string $url, string $mfile): ?array
 
         $response = curl_exec($ch);
         if ($response === false) {
-            return null;
+            throw new FetchException("cURL failed: ".curl_error($ch));
+        }
+        if ($response === true) { // we use CURLOPT_RETURNTRANSFER, so this should never happen
+            throw new FetchException("cURL failed successfully??");
         }
 
         $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-        $headers = http_parse_headers(implode("\n", preg_split('/\R/', rtrim(substr($response, 0, $header_size)))));
+        $header_text = trim(substr($response, 0, $header_size));
+        $headers = http_parse_headers(implode("\n", \Safe\preg_split('/\R/', $header_text)));
         $body = substr($response, $header_size);
 
         curl_close($ch);
         fwrite($fp, $body);
         fclose($fp);
-
-        return $headers;
-    }
-
-    if ($config->get_string(UploadConfig::TRANSLOAD_ENGINE) === "wget") {
+    } elseif ($config->get_string(UploadConfig::TRANSLOAD_ENGINE) === "wget") {
         $s_url = escapeshellarg($url);
         $s_mfile = escapeshellarg($mfile);
         system("wget --no-check-certificate $s_url --output-document=$s_mfile");
-
-        return file_exists($mfile) ? ["ok" => "true"] : null;
-    }
-
-    if ($config->get_string(UploadConfig::TRANSLOAD_ENGINE) === "fopen") {
+        if(!file_exists($mfile)) {
+            throw new FetchException("wget failed");
+        }
+        $headers = [];
+    } elseif ($config->get_string(UploadConfig::TRANSLOAD_ENGINE) === "fopen") {
         $fp_in = @fopen($url, "r");
         $fp_out = fopen($mfile, "w");
         if (!$fp_in || !$fp_out) {
-            return null;
+            throw new FetchException("fopen failed");
         }
         $length = 0;
         while (!feof($fp_in) && $length <= $config->get_int(UploadConfig::SIZE)) {
-            $data = fread($fp_in, 8192);
+            $data = \Safe\fread($fp_in, 8192);
             $length += strlen($data);
             fwrite($fp_out, $data);
         }
@@ -339,11 +374,16 @@ function fetch_url(string $url, string $mfile): ?array
         fclose($fp_out);
 
         $headers = http_parse_headers(implode("\n", $http_response_header));
-
-        return $headers;
+    } else {
+        throw new FetchException("No transload engine configured");
     }
 
-    return null;
+    if (filesize($mfile) == 0) {
+        @unlink($mfile);
+        throw new FetchException("No data found in $url -- perhaps the site has hotlink protection?");
+    }
+
+    return $headers;
 }
 
 /**
@@ -396,6 +436,9 @@ function path_to_tags(string $path): array
     return $tags;
 }
 
+/**
+ * @return string[]
+ */
 function get_dir_contents(string $dir): array
 {
     assert(!empty($dir));
@@ -404,29 +447,17 @@ function get_dir_contents(string $dir): array
         return [];
     }
     return array_diff(
-        scandir(
-            $dir
-        ),
+        \Safe\scandir($dir),
         ['..', '.']
     );
 }
 
 function remove_empty_dirs(string $dir): bool
 {
-    assert(!empty($dir));
-
     $result = true;
 
-    if (!is_dir($dir)) {
-        return false;
-    }
-
-    $items = array_diff(
-        scandir(
-            $dir
-        ),
-        ['..', '.']
-    );
+    $items = get_dir_contents($dir);
+    ;
     foreach ($items as $item) {
         $path = join_path($dir, $item);
         if (is_dir($path)) {
@@ -441,24 +472,14 @@ function remove_empty_dirs(string $dir): bool
     return $result;
 }
 
-
+/**
+ * @return string[]
+ */
 function get_files_recursively(string $dir): array
 {
-    assert(!empty($dir));
-
-    if (!is_dir($dir)) {
-        return [];
-    }
-
-    $things = array_diff(
-        scandir(
-            $dir
-        ),
-        ['..', '.']
-    );
+    $things = get_dir_contents($dir);
 
     $output = [];
-
 
     foreach ($things as $thing) {
         $path = join_path($dir, $thing);
@@ -474,6 +495,8 @@ function get_files_recursively(string $dir): array
 
 /**
  * Returns amount of files & total size of dir.
+ *
+ * @return array{"path": string, "total_files": int, "total_mb": string}
  */
 function scan_dir(string $path): array
 {
@@ -535,6 +558,11 @@ function get_debug_info(): string
     return $debug;
 }
 
+/**
+ * Collects some debug information (execution time, memory usage, queries, etc)
+ *
+ * @return array<string, mixed>
+ */
 function get_debug_info_arr(): array
 {
     global $cache, $config, $_shm_event_count, $database, $_shm_load_start;
@@ -564,6 +592,9 @@ function get_debug_info_arr(): array
 * Request initialisation stuff                                              *
 \* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+/**
+ * @param string[] $files
+ */
 function require_all(array $files): void
 {
     foreach ($files as $filename) {
@@ -571,7 +602,7 @@ function require_all(array $files): void
     }
 }
 
-function _load_core_files()
+function _load_core_files(): void
 {
     require_all(array_merge(
         zglob("core/*.php"),
@@ -580,14 +611,14 @@ function _load_core_files()
     ));
 }
 
-function _load_extension_files()
+function _load_extension_files(): void
 {
     ExtensionInfo::load_all_extension_info();
     Extension::determine_enabled_extensions();
     require_all(zglob("ext/{".Extension::get_enabled_extensions_as_string()."}/main.php"));
 }
 
-function _load_theme_files()
+function _load_theme_files(): void
 {
     $theme = get_theme();
     require_once('themes/'.$theme.'/page.class.php');
@@ -615,7 +646,8 @@ function _set_up_shimmie_environment(): void
     // The trace system has a certain amount of memory consumption every time it is used,
     // so to prevent running out of memory during complex operations code that uses it should
     // check if tracer output is enabled before making use of it.
-    $tracer_enabled = constant('TRACE_FILE') !== null;
+    // @phpstan-ignore-next-line - TRACE_FILE is defined in config
+    $tracer_enabled = !is_null('TRACE_FILE');
 }
 
 
@@ -638,8 +670,10 @@ function _fatal_error(\Exception $e): void
         foreach ($t as $n => $f) {
             $c = $f['class'] ?? '';
             $t = $f['type'] ?? '';
+            $i = $f['file'] ?? 'unknown file';
+            $l = $f['line'] ?? -1;
             $a = implode(", ", array_map("Shimmie2\stringer", $f['args'] ?? []));
-            print("$n: {$f['file']}({$f['line']}): {$c}{$t}{$f['function']}({$a})\n");
+            print("$n: {$i}({$l}): {$c}{$t}{$f['function']}({$a})\n");
         }
 
         print("Message: $message\n");
@@ -705,23 +739,6 @@ function _get_user(): User
     return $my_user;
 }
 
-function _get_query(): string
-{
-    // if query is explicitly set, use it
-    $q = @$_POST["q"] ?: @$_GET["q"];
-    if(!empty($q)) {
-        return $q;
-    }
-    // if we're just looking at index.php, use the default query
-    elseif (str_contains($_SERVER['REQUEST_URI'], "index.php")) {
-        return "/";
-    }
-    // otherwise, use the request URI
-    else {
-        return explode("?", $_SERVER['REQUEST_URI'])[0];
-    }
-}
-
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
 * HTML Generation                                                           *
@@ -746,16 +763,10 @@ function show_ip(string $ip, string $ban_reason): string
 /**
  * Make a form tag with relevant auth token and stuff
  */
-function make_form(string $target, string $method = "POST", bool $multipart = false, string $form_id = "", string $onsubmit = ""): string
+function make_form(string $target, bool $multipart = false, string $form_id = "", string $onsubmit = "", string $name = ""): string
 {
     global $user;
-    if ($method == "GET") {
-        $link = html_escape($target);
-        $target = make_link($target);
-        $extra_inputs = "<input type='hidden' name='q' value='$link'>";
-    } else {
-        $extra_inputs = $user->get_auth_html();
-    }
+    $at = $user->get_auth_token();
 
     $extra = empty($form_id) ? '' : 'id="'. $form_id .'"';
     if ($multipart) {
@@ -764,11 +775,15 @@ function make_form(string $target, string $method = "POST", bool $multipart = fa
     if ($onsubmit) {
         $extra .= ' onsubmit="'.$onsubmit.'"';
     }
-    return '<form action="'.$target.'" method="'.$method.'" '.$extra.'>'.$extra_inputs;
+    if ($name) {
+        $extra .= ' name="'.$name.'"';
+    }
+    return '<form action="'.$target.'" method="POST" '.$extra.'>'.
+    '<input type="hidden" name="auth_token" value="'.$at.'">';
 }
 
 const BYTE_DENOMINATIONS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-function human_filesize(int $bytes, $decimals = 2): string
+function human_filesize(int $bytes, int $decimals = 2): string
 {
     $factor = floor((strlen(strval($bytes)) - 1) / 3);
     return sprintf("%.{$decimals}f", $bytes / pow(1024, $factor)) . @BYTE_DENOMINATIONS[$factor];
@@ -787,4 +802,13 @@ function generate_key(int $length = 20): string
     }
 
     return $randomString;
+}
+
+function shm_tempnam(string $prefix = ""): string
+{
+    if(!is_dir("data/temp")) {
+        mkdir("data/temp");
+    }
+    $temp = \Safe\realpath("data/temp");
+    return \Safe\tempnam($temp, $prefix);
 }

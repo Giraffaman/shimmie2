@@ -40,49 +40,39 @@ class ImageReport
     }
 }
 
+/**
+ * @phpstan-type Report array{id: int, image: Image, reason: string, reporter_name: string}
+ */
 class ReportImage extends Extension
 {
     /** @var ReportImageTheme */
     protected Themelet $theme;
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page, $user;
-        if ($event->page_matches("image_report")) {
-            if ($event->get_arg(0) == "add") {
-                if (!empty($_POST['image_id']) && !empty($_POST['reason'])) {
-                    $image_id = int_escape($_POST['image_id']);
-                    send_event(new AddReportedImageEvent(new ImageReport($image_id, $user->id, $_POST['reason'])));
-                    $page->set_mode(PageMode::REDIRECT);
-                    $page->set_redirect(make_link("post/view/$image_id"));
-                } else {
-                    $this->theme->display_error(500, "Missing input", "Missing post ID or report reason");
-                }
-            } elseif ($event->get_arg(0) == "remove") {
-                if (!empty($_POST['id'])) {
-                    if ($user->can(Permissions::VIEW_IMAGE_REPORT)) {
-                        send_event(new RemoveReportedImageEvent(int_escape($_POST['id'])));
-                        $page->set_mode(PageMode::REDIRECT);
-                        $page->set_redirect(make_link("image_report/list"));
-                    }
-                } else {
-                    $this->theme->display_error(500, "Missing input", "Missing post ID");
-                }
-            } elseif ($event->get_arg(0) == "remove_reports_by" && $user->check_auth_token()) {
-                if ($user->can(Permissions::VIEW_IMAGE_REPORT)) {
-                    $this->delete_reports_by(int_escape($_POST['user_id']));
-                    $page->set_mode(PageMode::REDIRECT);
-                    $page->set_redirect(make_link());
-                }
-            } elseif ($event->get_arg(0) == "list") {
-                if ($user->can(Permissions::VIEW_IMAGE_REPORT)) {
-                    $this->theme->display_reported_images($page, $this->get_reported_images());
-                }
-            }
+        if ($event->page_matches("image_report/add")) {
+            $image_id = int_escape($event->req_POST('image_id'));
+            send_event(new AddReportedImageEvent(new ImageReport($image_id, $user->id, $event->req_POST('reason'))));
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("post/view/$image_id"));
+        }
+        if ($event->page_matches("image_report/remove", method: "POST", permission: Permissions::VIEW_IMAGE_REPORT)) {
+            send_event(new RemoveReportedImageEvent(int_escape($event->req_POST('id'))));
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("image_report/list"));
+        }
+        if ($event->page_matches("image_report/remove_reports_by", method: "POST", permission: Permissions::VIEW_IMAGE_REPORT)) {
+            $this->delete_reports_by(int_escape($event->req_POST('user_id')));
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link());
+        }
+        if ($event->page_matches("image_report/list", permission: Permissions::VIEW_IMAGE_REPORT)) {
+            $this->theme->display_reported_images($page, $this->get_reported_images());
         }
     }
 
-    public function onAddReportedImage(AddReportedImageEvent $event)
+    public function onAddReportedImage(AddReportedImageEvent $event): void
     {
         global $cache, $database;
         log_info("report_image", "Adding report of >>{$event->report->image_id} with reason '{$event->report->reason}'");
@@ -94,14 +84,14 @@ class ReportImage extends Extension
         $cache->delete("image-report-count");
     }
 
-    public function onRemoveReportedImage(RemoveReportedImageEvent $event)
+    public function onRemoveReportedImage(RemoveReportedImageEvent $event): void
     {
         global $cache, $database;
         $database->execute("DELETE FROM image_reports WHERE id = :id", ["id" => $event->id]);
         $cache->delete("image-report-count");
     }
 
-    public function onUserPageBuilding(UserPageBuildingEvent $event)
+    public function onUserPageBuilding(UserPageBuildingEvent $event): void
     {
         global $user;
         if ($user->can(Permissions::VIEW_IMAGE_REPORT)) {
@@ -109,7 +99,7 @@ class ReportImage extends Extension
         }
     }
 
-    public function onDisplayingImage(DisplayingImageEvent $event)
+    public function onDisplayingImage(DisplayingImageEvent $event): void
     {
         global $user;
         if ($user->can(Permissions::CREATE_IMAGE_REPORT)) {
@@ -119,7 +109,7 @@ class ReportImage extends Extension
     }
 
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         global $user;
         if ($event->parent === "system") {
@@ -132,7 +122,7 @@ class ReportImage extends Extension
         }
     }
 
-    public function onUserBlockBuilding(UserBlockBuildingEvent $event)
+    public function onUserBlockBuilding(UserBlockBuildingEvent $event): void
     {
         global $user;
         if ($user->can(Permissions::VIEW_IMAGE_REPORT)) {
@@ -142,19 +132,19 @@ class ReportImage extends Extension
         }
     }
 
-    public function onImageDeletion(ImageDeletionEvent $event)
+    public function onImageDeletion(ImageDeletionEvent $event): void
     {
         global $cache, $database;
         $database->execute("DELETE FROM image_reports WHERE image_id = :image_id", ["image_id" => $event->image->id]);
         $cache->delete("image-report-count");
     }
 
-    public function onUserDeletion(UserDeletionEvent $event)
+    public function onUserDeletion(UserDeletionEvent $event): void
     {
         $this->delete_reports_by($event->id);
     }
 
-    public function onSetupBuilding(SetupBuildingEvent $event)
+    public function onSetupBuilding(SetupBuildingEvent $event): void
     {
         $sb = $event->panel->create_new_block("Post Reports");
 
@@ -167,14 +157,14 @@ class ReportImage extends Extension
         $sb->add_choice_option("report_image_publicity", $opts, "Show publicly: ");
     }
 
-    public function delete_reports_by(int $user_id)
+    public function delete_reports_by(int $user_id): void
     {
         global $cache, $database;
         $database->execute("DELETE FROM image_reports WHERE reporter_id=:reporter_id", ['reporter_id' => $user_id]);
         $cache->delete("image-report-count");
     }
 
-    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event)
+    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event): void
     {
         global $database;
 
@@ -210,6 +200,9 @@ class ReportImage extends Extension
         return $reps;
     }
 
+    /**
+     * @return array<Report>
+     */
     public function get_reported_images(): array
     {
         global $database;

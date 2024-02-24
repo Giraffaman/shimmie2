@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Shimmie2;
 
+require_once "core/urls.php";
+
 /**
  * Shimmie Installer
  *
@@ -20,7 +22,7 @@ namespace Shimmie2;
  * and other such things that aren't ready yet
  */
 
-function install()
+function install(): void
 {
     date_default_timezone_set('UTC');
 
@@ -46,11 +48,16 @@ function install()
     if ($dsn) {
         do_install($dsn);
     } else {
-        ask_questions();
+        if (PHP_SAPI == 'cli') {
+            print("INSTALL_DSN needs to be set for CLI installation\n");
+            exit(1);
+        } else {
+            ask_questions();
+        }
     }
 }
 
-function get_dsn()
+function get_dsn(): ?string
 {
     if (getenv("INSTALL_DSN")) {
         $dsn = getenv("INSTALL_DSN");
@@ -66,7 +73,7 @@ function get_dsn()
     return $dsn;
 }
 
-function do_install($dsn)
+function do_install(string $dsn): void
 {
     try {
         create_dirs();
@@ -77,7 +84,7 @@ function do_install($dsn)
     }
 }
 
-function ask_questions()
+function ask_questions(): void
 {
     $warnings = [];
     $errors = [];
@@ -121,13 +128,15 @@ function ask_questions()
     $warn_msg = $warnings ? "<h3>Warnings</h3>".implode("\n<p>", $warnings) : "";
     $err_msg = $errors ? "<h3>Errors</h3>".implode("\n<p>", $errors) : "";
 
+    $data_href = get_base_href();
+
     die_nicely(
         "Install Options",
         <<<EOD
     $warn_msg
     $err_msg
 
-    <form action="index.php" method="POST">
+    <form action="$data_href/index.php" method="POST">
 		<table class='form' style="margin: 1em auto;">
 			<tr>
 				<th>Type:</th>
@@ -187,7 +196,7 @@ EOD
 }
 
 
-function create_dirs()
+function create_dirs(): void
 {
     $data_exists = file_exists("data") || mkdir("data");
     $data_writable = $data_exists && (is_writable("data") || chmod("data", 0755));
@@ -204,7 +213,7 @@ function create_dirs()
     }
 }
 
-function create_tables(Database $db)
+function create_tables(Database $db): void
 {
     try {
         if ($db->count_tables() > 0) {
@@ -289,6 +298,8 @@ function create_tables(Database $db)
         if ($db->is_transaction_open()) {
             $db->commit();
         }
+        // Ensure that we end this code in a transaction (for testing)
+        $db->begin_transaction();
     } catch (\PDOException $e) {
         throw new InstallerException(
             "PDO Error:",
@@ -301,7 +312,7 @@ function create_tables(Database $db)
     }
 }
 
-function write_config($dsn)
+function write_config(string $dsn): void
 {
     $file_content = "<" . "?php\ndefine('DATABASE_DSN', '$dsn');\n";
 
@@ -310,11 +321,16 @@ function write_config($dsn)
     }
 
     if (file_put_contents("data/config/shimmie.conf.php", $file_content, LOCK_EX)) {
-        header("Location: index.php?flash=Installation%20complete");
-        die_nicely(
-            "Installation Successful",
-            "<p>If you aren't redirected, <a href=\"index.php\">click here to Continue</a>."
-        );
+        if (PHP_SAPI == 'cli') {
+            print("Installation Successful\n");
+            exit(0);
+        } else {
+            header("Location: index.php?flash=Installation%20complete");
+            die_nicely(
+                "Installation Successful",
+                "<p>If you aren't redirected, <a href=\"index.php\">click here to Continue</a>."
+            );
+        }
     } else {
         $h_file_content = htmlentities($file_content);
         throw new InstallerException(

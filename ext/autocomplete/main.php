@@ -11,31 +11,28 @@ class AutoComplete extends Extension
         return 30;
     } // before Home
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page, $user;
 
         if ($event->page_matches("api/internal/autocomplete")) {
-            if($user->is_logged_in()) { 
-                $limit = (int)($_GET["limit"] ?? 1000);
-                $s = $_GET["s"] ?? "";
+            $limit = (int)($event->get_GET("limit") ?? 1000);
+            $s = $event->get_GET("s") ?? "";
 
                 $res = $this->complete($s, $limit);
 
-                $page->set_mode(PageMode::DATA);
-                $page->set_mime(MimeType::JSON);
-                $page->set_data(json_encode($res));
-            }
+            $page->set_mode(PageMode::DATA);
+            $page->set_mime(MimeType::JSON);
+            $page->set_data(\Safe\json_encode($res));
         }
     }
 
+    /**
+     * @return array<string, array{newtag:string|null,count:int}>
+     */
     private function complete(string $search, int $limit): array
     {
         global $cache, $database;
-
-        if (!$search) {
-            return [];
-        }
 
         $search = strtolower($search);
         if (
@@ -59,20 +56,44 @@ class AutoComplete extends Extension
         if ($limit !== 0) {
             $limitSQL = "LIMIT :limit";
             $SQLarr['limit'] = $limit;
-            $cache_key .= "-" . $limit;
         }
 
-        return cache_get_or_set($cache_key, fn () => $database->get_pairs(
-            "
-                SELECT tag, count
-                FROM tags
-                WHERE LOWER(tag) LIKE LOWER(:search)
-                OR LOWER(tag) LIKE LOWER(:cat_search)
-                AND count > 0
-                ORDER BY count DESC, tag ASC
-                $limitSQL
+        return cache_get_or_set($cache_key, function () use ($database, $limitSQL, $SQLarr) {
+            $rows = $database->get_all(
+                "
+                    -- (
+                        SELECT tag, NULL AS newtag, count
+                        FROM tags
+                        WHERE (
+                            LOWER(tag) LIKE LOWER(:search)
+                            OR LOWER(tag) LIKE LOWER(:cat_search)
+                        )
+                        AND count > 0
+                    -- )
+                    UNION
+                    -- (
+                        SELECT oldtag AS tag, newtag, count
+                        FROM aliases
+                        JOIN tags ON tag = newtag
+                        WHERE (
+                            (LOWER(oldtag) LIKE LOWER(:search) AND LOWER(newtag) NOT LIKE LOWER(:search))
+                            OR (LOWER(oldtag) LIKE LOWER(:cat_search) AND LOWER(newtag) NOT LIKE LOWER(:cat_search))
+                        )
+                        AND count > 0
+                    -- )
+                    ORDER BY count DESC, tag ASC
+                    $limitSQL
                 ",
-            $SQLarr
-        ), 600);
+                $SQLarr
+            );
+            $ret = [];
+            foreach($rows as $row) {
+                $ret[(string)$row['tag']] = [
+                    "newtag" => $row["newtag"],
+                    "count" => $row["count"],
+                ];
+            }
+            return $ret;
+        }, 600);
     }
 }

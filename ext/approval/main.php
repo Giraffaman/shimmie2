@@ -16,17 +16,18 @@ class Approval extends Extension
     /** @var ApprovalTheme */
     protected Themelet $theme;
 
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
 
         $config->set_default_bool(ApprovalConfig::IMAGES, false);
         $config->set_default_bool(ApprovalConfig::COMMENTS, false);
 
-        Image::$bool_props[] = "approved";
+        Image::$prop_types["approved"] = ImagePropType::BOOL;
+        Image::$prop_types["approved_by_id"] = ImagePropType::INT;
     }
 
-    public function onImageAddition(ImageAdditionEvent $event)
+    public function onImageAddition(ImageAdditionEvent $event): void
     {
         global $user, $config;
 
@@ -35,59 +36,44 @@ class Approval extends Extension
         }
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page, $user;
 
-        if ($event->page_matches("approve_image") && $user->can(Permissions::APPROVE_IMAGE)) {
-            // Try to get the image ID
-            $image_id = int_escape($event->get_arg(0));
-            if (empty($image_id)) {
-                $image_id = isset($_POST['image_id']) ? $_POST['image_id'] : null;
-            }
-            if (empty($image_id)) {
-                throw new SCoreException("Can not approve post: No valid Post ID given.");
-            }
-
+        if ($event->page_matches("approve_image/{image_id}", method: "POST", permission: Permissions::APPROVE_IMAGE)) {
+            $image_id = int_escape($event->get_arg('image_id'));
             self::approve_image($image_id);
             $page->set_mode(PageMode::REDIRECT);
             $page->set_redirect(make_link("post/view/" . $image_id));
         }
 
-        if ($event->page_matches("disapprove_image") && $user->can(Permissions::APPROVE_IMAGE)) {
-            // Try to get the image ID
-            $image_id = int_escape($event->get_arg(0));
-            if (empty($image_id)) {
-                $image_id = isset($_POST['image_id']) ? $_POST['image_id'] : null;
-            }
-            if (empty($image_id)) {
-                throw new SCoreException("Can not disapprove image: No valid Post ID given.");
-            }
-
+        if ($event->page_matches("disapprove_image/{image_id}", method: "POST", permission: Permissions::APPROVE_IMAGE)) {
+            $image_id = int_escape($event->get_arg('image_id'));
             self::disapprove_image($image_id);
             $page->set_mode(PageMode::REDIRECT);
             $page->set_redirect(make_link("post/view/".$image_id));
         }
     }
 
-    public function onSetupBuilding(SetupBuildingEvent $event)
+    public function onSetupBuilding(SetupBuildingEvent $event): void
     {
-        $this->theme->display_admin_block($event);
+        $sb = $event->panel->create_new_block("Approval");
+        $sb->add_bool_option(ApprovalConfig::IMAGES, "Posts: ");
     }
 
-    public function onAdminBuilding(AdminBuildingEvent $event)
+    public function onAdminBuilding(AdminBuildingEvent $event): void
     {
         $this->theme->display_admin_form();
     }
 
-    public function onAdminAction(AdminActionEvent $event)
+    public function onAdminAction(AdminActionEvent $event): void
     {
         global $database, $user;
 
         $action = $event->action;
         $event->redirect = true;
         if ($action === "approval") {
-            $approval_action = $_POST["approval_action"];
+            $approval_action = $event->params["approval_action"];
             switch ($approval_action) {
                 case "approve_all":
                     $database->set_timeout(null); // These updates can take a little bit
@@ -104,23 +90,22 @@ class Approval extends Extension
                     );
                     break;
                 default:
-
                     break;
             }
         }
     }
 
-    public function onDisplayingImage(DisplayingImageEvent $event)
+    public function onDisplayingImage(DisplayingImageEvent $event): void
     {
         global $page;
 
-        if (!$this->check_permissions(($event->image))) {
+        if (!$this->check_permissions($event->image)) {
             $page->set_mode(PageMode::REDIRECT);
             $page->set_redirect(make_link());
         }
     }
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         global $user;
         if ($event->parent == "posts") {
@@ -130,7 +115,7 @@ class Approval extends Extension
         }
     }
 
-    public function onUserBlockBuilding(UserBlockBuildingEvent $event)
+    public function onUserBlockBuilding(UserBlockBuildingEvent $event): void
     {
         global $user;
         if ($user->can(Permissions::APPROVE_IMAGE)) {
@@ -139,7 +124,7 @@ class Approval extends Extension
     }
 
     public const SEARCH_REGEXP = "/^approved:(yes|no)/";
-    public function onSearchTermParse(SearchTermParseEvent $event)
+    public function onSearchTermParse(SearchTermParseEvent $event): void
     {
         global $user, $config;
 
@@ -163,7 +148,7 @@ class Approval extends Extension
         }
     }
 
-    public function onHelpPageBuilding(HelpPageBuildingEvent $event)
+    public function onHelpPageBuilding(HelpPageBuildingEvent $event): void
     {
         global $user, $config;
         if ($event->key === HelpPages::SEARCH) {
@@ -173,7 +158,9 @@ class Approval extends Extension
         }
     }
 
-
+    /**
+     * @param string[] $context
+     */
     private function no_approval_query(array $context): bool
     {
         foreach ($context as $term) {
@@ -184,7 +171,7 @@ class Approval extends Extension
         return true;
     }
 
-    public static function approve_image($image_id)
+    public static function approve_image(int $image_id): void
     {
         global $database, $user;
 
@@ -194,7 +181,7 @@ class Approval extends Extension
         );
     }
 
-    public static function disapprove_image($image_id)
+    public static function disapprove_image(int $image_id): void
     {
         global $database;
 
@@ -208,31 +195,36 @@ class Approval extends Extension
     {
         global $user, $config;
 
-        if ($config->get_bool(ApprovalConfig::IMAGES) && $image->approved === false && !$user->can(Permissions::APPROVE_IMAGE) && $user->id !== $image->owner_id) {
+        if ($config->get_bool(ApprovalConfig::IMAGES) && $image['approved'] === false && !$user->can(Permissions::APPROVE_IMAGE) && $user->id !== $image->owner_id) {
             return false;
         }
         return true;
     }
 
-    public function onImageDownloading(ImageDownloadingEvent $event)
+    public function onImageDownloading(ImageDownloadingEvent $event): void
     {
         /**
          * Deny images upon insufficient permissions.
          **/
         if (!$this->check_permissions($event->image)) {
-            throw new SCoreException("Access denied");
+            throw new PermissionDenied("Access denied");
         }
     }
 
-    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event)
+    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event): void
     {
         global $user, $config;
         if ($user->can(Permissions::APPROVE_IMAGE) && $config->get_bool(ApprovalConfig::IMAGES)) {
-            $event->add_part((string)$this->theme->get_image_admin_html($event->image));
+            if ($event->image['approved'] === true) {
+                $event->add_button("Disapprove", "disapprove_image/".$event->image->id);
+            } else {
+                $event->add_button("Approve", "approve_image/".$event->image->id);
+            }
+
         }
     }
 
-    public function onBulkActionBlockBuilding(BulkActionBlockBuildingEvent $event)
+    public function onBulkActionBlockBuilding(BulkActionBlockBuildingEvent $event): void
     {
         global $user, $config;
 
@@ -245,7 +237,7 @@ class Approval extends Extension
         }
     }
 
-    public function onBulkAction(BulkActionEvent $event)
+    public function onBulkAction(BulkActionEvent $event): void
     {
         global $page, $user;
 
@@ -273,7 +265,7 @@ class Approval extends Extension
         }
     }
 
-    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event)
+    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event): void
     {
         global $database;
 

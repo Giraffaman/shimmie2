@@ -28,7 +28,7 @@ class VideoFileHandler extends DataHandlerExtension
     ];
     protected array $SUPPORTED_MIME = self::SUPPORTED_MIME;
 
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
 
@@ -41,6 +41,9 @@ class VideoFileHandler extends DataHandlerExtension
         );
     }
 
+    /**
+     * @return array<string, string>
+     */
     private function get_options(): array
     {
         $output = [];
@@ -50,7 +53,7 @@ class VideoFileHandler extends DataHandlerExtension
         return $output;
     }
 
-    public function onSetupBuilding(SetupBuildingEvent $event)
+    public function onSetupBuilding(SetupBuildingEvent $event): void
     {
         $sb = $event->panel->create_new_block("Video Options");
         $sb->start_table();
@@ -123,9 +126,9 @@ class VideoFileHandler extends DataHandlerExtension
         return MimeType::matches_array($mime, $enabled_formats, true);
     }
 
-    protected function create_thumb(string $hash, string $mime): bool
+    protected function create_thumb(Image $image): bool
     {
-        return Media::create_thumbnail_ffmpeg($hash);
+        return Media::create_thumbnail_ffmpeg($image);
     }
 
     protected function check_contents(string $tmpname): bool

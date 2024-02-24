@@ -6,36 +6,36 @@ namespace Shimmie2;
 
 class AdminPageTest extends ShimmiePHPUnitTestCase
 {
-    public function testAuth()
+    public function testAuth(): void
     {
-        send_event(new UserLoginEvent(User::by_name(self::$anon_name)));
-        $page = $this->get_page('admin');
-        $this->assertEquals(403, $page->code);
-        $this->assertEquals("Permission Denied", $page->title);
+        $this->log_out();
+        $this->assertException(PermissionDenied::class, function () {
+            $this->get_page('admin');
+        });
 
-        send_event(new UserLoginEvent(User::by_name(self::$user_name)));
-        $page = $this->get_page('admin');
-        $this->assertEquals(403, $page->code);
-        $this->assertEquals("Permission Denied", $page->title);
+        $this->log_in_as_user();
+        $this->assertException(PermissionDenied::class, function () {
+            $this->get_page('admin');
+        });
 
-        send_event(new UserLoginEvent(User::by_name(self::$admin_name)));
+        $this->log_in_as_admin();
         $page = $this->get_page('admin');
         $this->assertEquals(200, $page->code);
         $this->assertEquals("Admin Tools", $page->title);
     }
 
-    public function testCommands()
+    public function testAct(): void
     {
-        send_event(new UserLoginEvent(User::by_name(self::$admin_name)));
-        ob_start();
-        send_event(new CommandEvent(["index.php", "help"]));
-        send_event(new CommandEvent(["index.php", "get-page", "post/list"]));
-        send_event(new CommandEvent(["index.php", "post-page", "post/list", "foo=bar"]));
-        send_event(new CommandEvent(["index.php", "get-token"]));
-        send_event(new CommandEvent(["index.php", "regen-thumb", "42"]));
-        ob_end_clean();
+        $this->log_in_as_admin();
+        $page = $this->post_page('admin/test');
+        $this->assertEquals("test", $page->data);
+    }
 
-        // don't crash
-        $this->assertTrue(true);
+    // does this belong here??
+    public function testCliGen(): void
+    {
+        $app = new CliApp();
+        send_event(new CliGenEvent($app));
+        $this->assertTrue(true); // TODO: check for more than "no crash"?
     }
 }

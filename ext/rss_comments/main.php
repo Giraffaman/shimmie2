@@ -6,7 +6,7 @@ namespace Shimmie2;
 
 class RSSComments extends Extension
 {
-    public function onPostListBuilding(PostListBuildingEvent $event)
+    public function onPostListBuilding(PostListBuildingEvent $event): void
     {
         global $config, $page;
         $title = $config->get_string(SetupConfig::TITLE);
@@ -15,7 +15,7 @@ class RSSComments extends Extension
             "title=\"$title - Comments\" href=\"".make_link("rss/comments")."\" />");
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $config, $database, $page;
         if ($event->page_matches("rss/comments")) {
@@ -40,7 +40,7 @@ class RSSComments extends Extension
                 $comment_id = $comment['comment_id'];
                 $link = make_http(make_link("post/view/$image_id"));
                 $owner = html_escape($comment['user_name']);
-                $posted = date(DATE_RSS, strtotime($comment['posted']));
+                $posted = date(DATE_RSS, \Safe\strtotime($comment['posted']));
                 $comment = html_escape($comment['comment']);
                 $content = html_escape("$owner: $comment");
 
@@ -57,7 +57,7 @@ class RSSComments extends Extension
 
             $title = $config->get_string(SetupConfig::TITLE);
             $base_href = make_http(get_base_href());
-            $version = $config->get_string('version');
+            $version = VERSION;
             $xml = <<<EOD
 <?xml version="1.0" encoding="utf-8" ?>
 <rss version="2.0">
@@ -75,7 +75,7 @@ EOD;
         }
     }
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         if ($event->parent == "comment") {
             $event->add_nav_link("comment_rss", new Link('rss/comments'), "Feed");

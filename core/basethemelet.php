@@ -38,15 +38,6 @@ class BaseThemelet
     }
 
     /**
-     * A specific, common error message
-     */
-    public function display_permission_denied(): void
-    {
-        $this->display_error(403, "Permission Denied", "You do not have permission to access this page");
-    }
-
-
-    /**
      * Generic thumbnail code; returns HTML rather than adding
      * a block since thumbs tend to go inside blocks...
      */
@@ -70,11 +61,11 @@ class BaseThemelet
         }
 
         $custom_classes = "";
-        if (class_exists("Shimmie2\Relationships")) {
-            if (property_exists($image, 'parent_id') && $image->parent_id !== null) {
+        if (Extension::is_enabled(RelationshipsInfo::KEY)) {
+            if ($image['parent_id'] !== null) {
                 $custom_classes .= "shm-thumb-has_parent ";
             }
-            if (property_exists($image, 'has_children') && bool_escape($image->has_children)) {
+            if ($image['has_children']) {
                 $custom_classes .= "shm-thumb-has_child ";
             }
         }
@@ -89,7 +80,7 @@ class BaseThemelet
             "data-post-id" => $id,
         ];
         if(Extension::is_enabled(RatingsInfo::KEY)) {
-            $attrs["data-rating"] = $image->rating;
+            $attrs["data-rating"] = $image['rating'];
         }
 
         return A(
@@ -107,7 +98,7 @@ class BaseThemelet
         );
     }
 
-    public function display_paginator(Page $page, string $base, ?string $query, int $page_number, int $total_pages, bool $show_random = false)
+    public function display_paginator(Page $page, string $base, ?string $query, int $page_number, int $total_pages, bool $show_random = false): void
     {
         if ($total_pages == 0) {
             $total_pages = 1;
@@ -182,5 +173,14 @@ class BaseThemelet
             $pages_html,
             ' >>'
         );
+    }
+
+    public function display_crud(string $title, HTMLElement $table, HTMLElement $paginator): void
+    {
+        global $page;
+        $page->set_title($title);
+        $page->set_heading($title);
+        $page->add_block(new NavBlock());
+        $page->add_block(new Block("$title Table", emptyHTML($table, $paginator)));
     }
 }

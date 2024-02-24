@@ -9,7 +9,7 @@ class Blocks extends Extension
     /** @var BlocksTheme */
     protected Themelet $theme;
 
-    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event)
+    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event): void
     {
         global $database;
         if ($this->get_version("ext_blocks_version") < 1) {
@@ -31,7 +31,7 @@ class Blocks extends Extension
         }
     }
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         global $user;
         if ($event->parent === "system") {
@@ -41,7 +41,7 @@ class Blocks extends Extension
         }
     }
 
-    public function onUserBlockBuilding(UserBlockBuildingEvent $event)
+    public function onUserBlockBuilding(UserBlockBuildingEvent $event): void
     {
         global $user;
         if ($user->can(Permissions::MANAGE_BLOCKS)) {
@@ -49,7 +49,7 @@ class Blocks extends Extension
         }
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $cache, $database, $page, $user;
 
@@ -68,41 +68,36 @@ class Blocks extends Extension
             }
         }
 
-        if ($event->page_matches("blocks") && $user->can(Permissions::MANAGE_BLOCKS)) {
-            if ($event->get_arg(0) == "add") {
-                if ($user->check_auth_token()) {
-                    $database->execute("
-						INSERT INTO blocks (pages, title, area, priority, content, userclass)
-						VALUES (:pages, :title, :area, :priority, :content, :userclass)
-					", ['pages' => $_POST['pages'], 'title' => $_POST['title'], 'area' => $_POST['area'], 'priority' => (int)$_POST['priority'], 'content' => $_POST['content'], 'userclass' => $_POST['userclass']]);
-                    log_info("blocks", "Added Block #".($database->get_last_insert_id('blocks_id_seq'))." (".$_POST['title'].")");
-                    $cache->delete("blocks");
-                    $page->set_mode(PageMode::REDIRECT);
-                    $page->set_redirect(make_link("blocks/list"));
-                }
+        if ($event->page_matches("blocks/add", method: "POST", permission: Permissions::MANAGE_BLOCKS)) {
+            $database->execute("
+                    INSERT INTO blocks (pages, title, area, priority, content, userclass)
+                    VALUES (:pages, :title, :area, :priority, :content, :userclass)
+                ", ['pages' => $event->req_POST('pages'), 'title' => $event->req_POST('title'), 'area' => $event->req_POST('area'), 'priority' => (int)$event->req_POST('priority'), 'content' => $event->req_POST('content'), 'userclass' => $event->req_POST('userclass')]);
+            log_info("blocks", "Added Block #".($database->get_last_insert_id('blocks_id_seq'))." (".$event->req_POST('title').")");
+            $cache->delete("blocks");
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("blocks/list"));
+        }
+        if ($event->page_matches("blocks/update", method: "POST", permission: Permissions::MANAGE_BLOCKS)) {
+            if (!empty($event->req_POST('delete'))) {
+                $database->execute("
+                        DELETE FROM blocks
+                        WHERE id=:id
+                    ", ['id' => $event->req_POST('id')]);
+                log_info("blocks", "Deleted Block #".$event->req_POST('id'));
+            } else {
+                $database->execute("
+                        UPDATE blocks SET pages=:pages, title=:title, area=:area, priority=:priority, content=:content, userclass=:userclass
+                        WHERE id=:id
+                    ", ['pages' => $event->req_POST('pages'), 'title' => $event->req_POST('title'), 'area' => $event->req_POST('area'), 'priority' => (int)$event->req_POST('priority'), 'content' => $event->req_POST('content'), 'userclass' => $event->req_POST('userclass'), 'id' => $event->req_POST('id')]);
+                log_info("blocks", "Updated Block #".$event->req_POST('id')." (".$event->req_POST('title').")");
             }
-            if ($event->get_arg(0) == "update") {
-                if ($user->check_auth_token()) {
-                    if (!empty($_POST['delete'])) {
-                        $database->execute("
-							DELETE FROM blocks
-							WHERE id=:id
-						", ['id' => $_POST['id']]);
-                        log_info("blocks", "Deleted Block #".$_POST['id']);
-                    } else {
-                        $database->execute("
-							UPDATE blocks SET pages=:pages, title=:title, area=:area, priority=:priority, content=:content, userclass=:userclass
-							WHERE id=:id
-						", ['pages' => $_POST['pages'], 'title' => $_POST['title'], 'area' => $_POST['area'], 'priority' => (int)$_POST['priority'], 'content' => $_POST['content'], 'userclass' => $_POST['userclass'], 'id' => $_POST['id']]);
-                        log_info("blocks", "Updated Block #".$_POST['id']." (".$_POST['title'].")");
-                    }
-                    $cache->delete("blocks");
-                    $page->set_mode(PageMode::REDIRECT);
-                    $page->set_redirect(make_link("blocks/list"));
-                }
-            } elseif ($event->get_arg(0) == "list") {
-                $this->theme->display_blocks($database->get_all("SELECT * FROM blocks ORDER BY area, priority"));
-            }
+            $cache->delete("blocks");
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("blocks/list"));
+        }
+        if ($event->page_matches("blocks/list", permission: Permissions::MANAGE_BLOCKS)) {
+            $this->theme->display_blocks($database->get_all("SELECT * FROM blocks ORDER BY area, priority"));
         }
     }
 }

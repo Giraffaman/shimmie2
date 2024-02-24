@@ -21,7 +21,7 @@ class CronUploader extends Extension
 
     private static bool $IMPORT_RUNNING = false;
 
-    public function onInitUserConfig(InitUserConfigEvent $event)
+    public function onInitUserConfig(InitUserConfigEvent $event): void
     {
         $event->user_config->set_default_string(
             CronUploaderConfig::DIR,
@@ -32,7 +32,7 @@ class CronUploader extends Extension
         $event->user_config->set_default_int(CronUploaderConfig::LOG_LEVEL, SCORE_LOG_INFO);
     }
 
-    public function onUserOptionsBuilding(UserOptionsBuildingEvent $event)
+    public function onUserOptionsBuilding(UserOptionsBuildingEvent $event): void
     {
         if ($event->user->can(Permissions::CRON_ADMIN)) {
             $documentation_link = make_http(make_link("cron_upload"));
@@ -55,7 +55,7 @@ class CronUploader extends Extension
     }
 
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         if ($event->parent == "system") {
             $event->add_nav_link("cron_docs", new Link('cron_upload'), "Cron Upload");
@@ -66,20 +66,16 @@ class CronUploader extends Extension
      * Checks if the cron upload page has been accessed
      * and initializes the upload.
      */
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
-        global $user;
-
-        if ($event->page_matches("cron_upload")) {
-            if ($event->count_args() == 1 && $event->get_arg(0) == "run") {
-                $this->process_upload(); // Start upload
-            } elseif ($user->can(Permissions::CRON_RUN)) {
-                $this->display_documentation();
-            }
+        if ($event->page_matches("cron_upload/run")) {
+            $this->process_upload();
+        } elseif ($event->page_matches("cron_upload", permission: Permissions::CRON_RUN)) {
+            $this->display_documentation();
         }
     }
 
-    public function onAdminBuilding(AdminBuildingEvent $event)
+    public function onAdminBuilding(AdminBuildingEvent $event): void
     {
         $failed_dir = $this->get_failed_dir();
         $results = get_dir_contents($failed_dir);
@@ -95,7 +91,7 @@ class CronUploader extends Extension
         $this->theme->display_form($failed_dirs);
     }
 
-    public function onAdminAction(AdminActionEvent $event)
+    public function onAdminAction(AdminActionEvent $event): void
     {
         $action = $event->action;
         switch ($action) {
@@ -113,14 +109,14 @@ class CronUploader extends Extension
                 break;
             case "cron_uploader_restage":
                 $event->redirect = true;
-                if (array_key_exists("failed_dir", $_POST) && !empty($_POST["failed_dir"])) {
-                    $this->restage_folder($_POST["failed_dir"]);
+                if (array_key_exists("failed_dir", $event->params) && !empty($event->params["failed_dir"])) {
+                    $this->restage_folder($event->params["failed_dir"]);
                 }
                 break;
         }
     }
 
-    public function onLog(LogEvent $event)
+    public function onLog(LogEvent $event): void
     {
         global $user_config;
 
@@ -139,17 +135,17 @@ class CronUploader extends Extension
         }
     }
 
-    private function restage_folder(string $folder)
+    private function restage_folder(string $folder): void
     {
         global $page;
         if (empty($folder)) {
-            throw new SCoreException("folder empty");
+            throw new InvalidInput("folder empty");
         }
         $queue_dir = $this->get_queue_dir();
         $stage_dir = join_path($this->get_failed_dir(), $folder);
 
         if (!is_dir($stage_dir)) {
-            throw new SCoreException("Could not find $stage_dir");
+            throw new InvalidInput("Could not find $stage_dir");
         }
 
         $this->prep_root_dir();
@@ -196,7 +192,7 @@ class CronUploader extends Extension
         }
     }
 
-    private function clear_folder($folder)
+    private function clear_folder(string $folder): void
     {
         global $page, $user_config;
         $path = join_path($user_config->get_string(CronUploaderConfig::DIR), $folder);
@@ -235,7 +231,7 @@ class CronUploader extends Extension
 
 
         $running = false;
-        $lockfile = fopen($this->get_lock_file(), "w");
+        $lockfile = \Safe\fopen($this->get_lock_file(), "w");
         try {
             if (!flock($lockfile, LOCK_EX | LOCK_NB)) {
                 $running = true;
@@ -330,22 +326,22 @@ class CronUploader extends Extension
         $this->set_headers();
 
         if (!$config->get_bool(UserConfig::ENABLE_API_KEYS)) {
-            throw new SCoreException("User API keys are not enabled. Please enable them for the cron upload functionality to work.");
+            throw new ServerError("User API keys are not enabled. Please enable them for the cron upload functionality to work.");
         }
 
         if ($user->is_anonymous()) {
-            throw new SCoreException("User not present. Please specify the api_key for the user to run cron upload as.");
+            throw new UserError("User not present. Please specify the api_key for the user to run cron upload as.");
         }
 
         $this->log_message(SCORE_LOG_INFO, "Logged in as user {$user->name}");
 
         if (!$user->can(Permissions::CRON_RUN)) {
-            throw new SCoreException("User does not have permission to run cron upload");
+            throw new PermissionDenied("User does not have permission to run cron upload");
         }
 
-        $lockfile = fopen($this->get_lock_file(), "w");
+        $lockfile = \Safe\fopen($this->get_lock_file(), "w");
         if (!flock($lockfile, LOCK_EX | LOCK_NB)) {
-            throw new SCoreException("Cron upload process is already running");
+            throw new ServerError("Cron upload process is already running");
         }
 
         self::$IMPORT_RUNNING = true;
@@ -372,27 +368,18 @@ class CronUploader extends Extension
                     $this->log_message(SCORE_LOG_DEBUG, "Max run time remaining: $remaining");
                 }
                 try {
-                    $database->begin_transaction();
-                    $this->log_message(SCORE_LOG_INFO, "Adding file: {$img[0]} - tags: {$img[2]}");
-                    $result = $this->add_image($img[0], $img[1], $img[2]);
-                    if ($database->is_transaction_open()) {
-                        $database->commit();
-                    }
-                    $this->move_uploaded($img[0], $img[1], $output_subdir, false);
+                    $result = $database->with_savepoint(function () use ($img, $output_subdir) {
+                        $this->log_message(SCORE_LOG_INFO, "Adding file: {$img[0]} - tags: {$img[2]}");
+                        $result = $this->add_image($img[0], $img[1], $img[2]);
+                        $this->move_uploaded($img[0], $img[1], $output_subdir, false);
+                        return $result;
+                    });
                     if ($result->merged) {
                         $merged++;
                     } else {
                         $added++;
                     }
                 } catch (\Exception $e) {
-                    try {
-                        if ($database->is_transaction_open()) {
-                            $database->rollback();
-                        }
-                    } catch (\Exception $e) {
-                        // rollback failed, let's just log things and die
-                    }
-
                     $failed++;
                     $this->log_message(SCORE_LOG_ERROR, "(" . gettype($e) . ") " . $e->getMessage());
                     $this->log_message(SCORE_LOG_ERROR, $e->getTraceAsString());
@@ -423,7 +410,7 @@ class CronUploader extends Extension
         }
     }
 
-    private function move_uploaded(string $path, string $filename, string $output_subdir, bool $corrupt = false)
+    private function move_uploaded(string $path, string $filename, string $output_subdir, bool $corrupt = false): void
     {
         global $user_config;
 
@@ -463,10 +450,14 @@ class CronUploader extends Extension
 
     /**
      * Generate the necessary DataUploadEvent for a given image and tags.
+     *
+     * @param string[] $tags
      */
     private function add_image(string $tmpname, string $filename, array $tags): DataUploadEvent
     {
-        $event = add_image($tmpname, $filename, $tags, null);
+        $event = send_event(new DataUploadEvent($tmpname, basename($filename), 0, [
+            'tags' => Tag::implode($tags),
+        ]));
 
         // Generate info message
         if (count($event->images) == 0) {

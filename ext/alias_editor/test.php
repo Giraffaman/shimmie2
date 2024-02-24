@@ -6,14 +6,14 @@ namespace Shimmie2;
 
 class AliasEditorTest extends ShimmiePHPUnitTestCase
 {
-    public function testAliasList()
+    public function testAliasList(): void
     {
         $this->get_page('alias/list');
         $this->assert_response(200);
         $this->assert_title("Alias List");
     }
 
-    public function testAliasListReadOnly()
+    public function testAliasListReadOnly(): void
     {
         $this->log_in_as_user();
         $this->get_page('alias/list');
@@ -26,14 +26,14 @@ class AliasEditorTest extends ShimmiePHPUnitTestCase
         $this->assert_no_text("Add");
     }
 
-    public function testAliasOneToOne()
+    public function testAliasOneToOne(): void
     {
         $this->log_in_as_admin();
 
         $this->get_page("alias/export/aliases.csv");
         $this->assert_no_text("test1");
 
-        send_event(new AddAliasEvent("test1", "test2"));
+        $this->post_page('alias/add', ['c_oldtag' => 'test1', 'c_newtag' => 'test2']);
         $this->get_page('alias/list');
         $this->assert_text("test1");
         $this->get_page("alias/export/aliases.csv");
@@ -48,13 +48,13 @@ class AliasEditorTest extends ShimmiePHPUnitTestCase
         $this->assert_response(302);
         $this->delete_image($image_id);
 
-        send_event(new DeleteAliasEvent("test1"));
+        $this->post_page('alias/remove', ['d_oldtag' => 'test1']);
         $this->get_page('alias/list');
         $this->assert_title("Alias List");
         $this->assert_no_text("test1");
     }
 
-    public function testAliasOneToMany()
+    public function testAliasOneToMany(): void
     {
         $this->log_in_as_admin();
 

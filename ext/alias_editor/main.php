@@ -24,7 +24,7 @@ class AliasTable extends Table
             new ActionColumn("oldtag"),
         ]);
         $this->order_by = ["oldtag"];
-        $this->table_attrs = ["class" => "zebra"];
+        $this->table_attrs = ["class" => "zebra form"];
     }
 }
 
@@ -52,7 +52,7 @@ class DeleteAliasEvent extends Event
     }
 }
 
-class AddAliasException extends SCoreException
+class AddAliasException extends UserError
 {
 }
 
@@ -61,71 +61,54 @@ class AliasEditor extends Extension
     /** @var AliasEditorTheme */
     protected Themelet $theme;
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $config, $database, $page, $user;
 
-        if ($event->page_matches("alias")) {
-            if(!$user->is_logged_in()) {
-                $errMessage = "You must be registered and logged in to use aliases.";
-                $this->theme->display_error(401, "Unauthorized", $errMessage);
+        if ($event->page_matches("alias/add", method: "POST", permission: Permissions::MANAGE_ALIAS_LIST)) {
+            $input = validate_input(["c_oldtag" => "string", "c_newtag" => "string"]);
+            send_event(new AddAliasEvent($input['c_oldtag'], $input['c_newtag']));
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("alias/list"));
+        }
+        if ($event->page_matches("alias/remove", method: "POST", permission: Permissions::MANAGE_ALIAS_LIST)) {
+            $input = validate_input(["d_oldtag" => "string"]);
+            send_event(new DeleteAliasEvent($input['d_oldtag']));
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("alias/list"));
+        }
+        if ($event->page_matches("alias/list")) {
+            $t = new AliasTable($database->raw_db());
+            $t->token = $user->get_auth_token();
+            $t->inputs = $event->GET;
+            $t->size = $config->get_int('alias_items_per_page', 30);
+            if ($user->can(Permissions::MANAGE_ALIAS_LIST)) {
+                $t->create_url = make_link("alias/add");
+                $t->delete_url = make_link("alias/remove");
+            }
+            $this->theme->display_aliases($t->table($t->query()), $t->paginator());
+        }
+        if ($event->page_matches("alias/export/aliases.csv")) {
+            $page->set_mode(PageMode::DATA);
+            $page->set_mime(MimeType::CSV);
+            $page->set_filename("aliases.csv");
+            $page->set_data($this->get_alias_csv($database));
+        }
+        if ($event->page_matches("alias/import", method: "POST", permission: Permissions::MANAGE_ALIAS_LIST)) {
+            if (count($_FILES) > 0) {
+                $tmp = $_FILES['alias_file']['tmp_name'];
+                $contents = \Safe\file_get_contents($tmp);
+                $this->add_alias_csv($contents);
+                log_info("alias_editor", "Imported aliases from file", "Imported aliases"); # FIXME: how many?
+                $page->set_mode(PageMode::REDIRECT);
+                $page->set_redirect(make_link("alias/list"));
             } else {
-                if ($event->get_arg(0) == "add") {
-                    if ($user->can(Permissions::MANAGE_ALIAS_LIST)) {
-                        $user->ensure_authed();
-                        $input = validate_input(["c_oldtag" => "string", "c_newtag" => "string"]);
-                        try {
-                            send_event(new AddAliasEvent($input['c_oldtag'], $input['c_newtag']));
-                            $page->set_mode(PageMode::REDIRECT);
-                            $page->set_redirect(make_link("alias/list"));
-                        } catch (AddAliasException $ex) {
-                            $this->theme->display_error(500, "Error adding alias", $ex->getMessage());
-                        }
-                    }
-                } elseif ($event->get_arg(0) == "remove") {
-                    if ($user->can(Permissions::MANAGE_ALIAS_LIST)) {
-                        $user->ensure_authed();
-                        $input = validate_input(["d_oldtag" => "string"]);
-                        send_event(new DeleteAliasEvent($input['d_oldtag']));
-                        $page->set_mode(PageMode::REDIRECT);
-                        $page->set_redirect(make_link("alias/list"));
-                    }
-                } elseif ($event->get_arg(0) == "list") {
-                    $t = new AliasTable($database->raw_db());
-                    $t->token = $user->get_auth_token();
-                    $t->inputs = $_GET;
-                    $t->size = $config->get_int('alias_items_per_page', 30);
-                    if ($user->can(Permissions::MANAGE_ALIAS_LIST)) {
-                        $t->create_url = make_link("alias/add");
-                        $t->delete_url = make_link("alias/remove");
-                    }
-                    $this->theme->display_aliases($t->table($t->query()), $t->paginator());
-                } elseif ($event->get_arg(0) == "export") {
-                    $page->set_mode(PageMode::DATA);
-                    $page->set_mime(MimeType::CSV);
-                    $page->set_filename("aliases.csv");
-                    $page->set_data($this->get_alias_csv($database));
-                } elseif ($event->get_arg(0) == "import") {
-                    if ($user->can(Permissions::MANAGE_ALIAS_LIST)) {
-                        if (count($_FILES) > 0) {
-                            $tmp = $_FILES['alias_file']['tmp_name'];
-                            $contents = file_get_contents($tmp);
-                            $this->add_alias_csv($contents);
-                            log_info("alias_editor", "Imported aliases from file", "Imported aliases"); # FIXME: how many?
-                            $page->set_mode(PageMode::REDIRECT);
-                            $page->set_redirect(make_link("alias/list"));
-                        } else {
-                            $this->theme->display_error(400, "No File Specified", "You have to upload a file");
-                        }
-                    } else {
-                        $this->theme->display_error(401, "Admins Only", "Only admins can edit the alias list");
-                    }
-                }
+                $this->theme->display_error(400, "No File Specified", "You have to upload a file");
             }
         }
     }
 
-    public function onAddAlias(AddAliasEvent $event)
+    public function onAddAlias(AddAliasEvent $event): void
     {
         global $database;
 
@@ -152,21 +135,21 @@ class AliasEditor extends Extension
         log_info("alias_editor", "Added alias for {$event->oldtag} -> {$event->newtag}", "Added alias");
     }
 
-    public function onDeleteAlias(DeleteAliasEvent $event)
+    public function onDeleteAlias(DeleteAliasEvent $event): void
     {
         global $database;
         $database->execute("DELETE FROM aliases WHERE oldtag=:oldtag", ["oldtag" => $event->oldtag]);
         log_info("alias_editor", "Deleted alias for {$event->oldtag}", "Deleted alias");
     }
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         if ($event->parent == "tags") {
             $event->add_nav_link("aliases", new Link('alias/list'), "Aliases", NavLink::is_active(["alias"]));
         }
     }
 
-    public function onUserBlockBuilding(UserBlockBuildingEvent $event)
+    public function onUserBlockBuilding(UserBlockBuildingEvent $event): void
     {
         global $user;
         if ($user->can(Permissions::MANAGE_ALIAS_LIST)) {
@@ -179,6 +162,7 @@ class AliasEditor extends Extension
         $csv = "";
         $aliases = $database->get_pairs("SELECT oldtag, newtag FROM aliases ORDER BY newtag");
         foreach ($aliases as $old => $new) {
+            assert(is_string($new));
             $csv .= "\"$old\",\"$new\"\n";
         }
         return $csv;
@@ -191,12 +175,8 @@ class AliasEditor extends Extension
         foreach (explode("\n", $csv) as $line) {
             $parts = str_getcsv($line);
             if (count($parts) == 2) {
-                try {
-                    send_event(new AddAliasEvent($parts[0], $parts[1]));
-                    $i++;
-                } catch (AddAliasException $ex) {
-                    $this->theme->display_error(500, "Error adding alias", $ex->getMessage());
-                }
+                send_event(new AddAliasEvent($parts[0], $parts[1]));
+                $i++;
             }
         }
         return $i;

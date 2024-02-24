@@ -11,14 +11,15 @@ class ResolutionLimit extends Extension
         return 40;
     } // early, to veto ImageUploadEvent
 
-    public function onImageAddition(ImageAdditionEvent $event)
+    public function onImageAddition(ImageAdditionEvent $event): void
     {
         global $config;
         $min_w = $config->get_int("upload_min_width", -1);
         $min_h = $config->get_int("upload_min_height", -1);
         $max_w = $config->get_int("upload_max_width", -1);
         $max_h = $config->get_int("upload_max_height", -1);
-        $ratios = explode(" ", $config->get_string("upload_ratios", ""));
+        $rs = $config->get_string("upload_ratios", "");
+        $ratios = trim($rs) ? explode(" ", $rs) : [];
 
         $image = $event->image;
 
@@ -60,7 +61,7 @@ class ResolutionLimit extends Extension
         }
     }
 
-    public function onSetupBuilding(SetupBuildingEvent $event)
+    public function onSetupBuilding(SetupBuildingEvent $event): void
     {
         $sb = $event->panel->create_new_block("Resolution Limits");
 

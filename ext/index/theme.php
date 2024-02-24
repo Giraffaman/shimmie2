@@ -13,16 +13,20 @@ class IndexTheme extends Themelet
 {
     protected int $page_number;
     protected int $total_pages;
+    /** @var string[] */
     protected array $search_terms;
 
-    public function set_page(int $page_number, int $total_pages, array $search_terms)
+    /**
+     * @param string[] $search_terms
+     */
+    public function set_page(int $page_number, int $total_pages, array $search_terms): void
     {
         $this->page_number = $page_number;
         $this->total_pages = $total_pages;
         $this->search_terms = $search_terms;
     }
 
-    public function display_intro(Page $page)
+    public function display_intro(Page $page): void
     {
         $text = "
 <div style='text-align: left;'>
@@ -44,7 +48,7 @@ and of course start organising your images :-)
     /**
      * @param Image[] $images
      */
-    public function display_page(Page $page, array $images)
+    public function display_page(Page $page, array $images): void
     {
         $this->display_shortwiki($page);
 
@@ -63,7 +67,7 @@ and of course start organising your images :-)
     /**
      * @param string[] $parts
      */
-    public function display_admin_block(array $parts)
+    public function display_admin_block(array $parts): void
     {
         global $page;
         $page->add_block(new Block("List Controls", join("<br>", $parts), "left", 50));
@@ -87,7 +91,7 @@ and of course start organising your images :-)
         $h_search = "
 			<p><form action='$h_search_link' method='GET'>
 				<input type='search' name='search' value='$h_search_string' placeholder='Search' class='autocomplete_tags' />
-				<input type='hidden' name='q' value='/post/list'>
+				<input type='hidden' name='q' value='post/list'>
 				<input type='submit' value='Find' style='display: none;' />
 			</form>
 		";
@@ -109,11 +113,11 @@ and of course start organising your images :-)
         return $table;
     }
 
-    protected function display_shortwiki(Page $page)
+    protected function display_shortwiki(Page $page): void
     {
         global $config;
 
-        if (class_exists('Shimmie2\Wiki') && $config->get_bool(WikiConfig::TAG_SHORTWIKIS)) {
+        if (Extension::is_enabled(WikiInfo::KEY) && $config->get_bool(WikiConfig::TAG_SHORTWIKIS)) {
             if (count($this->search_terms) == 1) {
                 $st = Tag::implode($this->search_terms);
 
@@ -127,7 +131,7 @@ and of course start organising your images :-)
                     $short_wiki_description = $tfe->formatted;
                 }
                 $wikiLink = make_link("wiki/$st");
-                if (class_exists('Shimmie2\TagCategories')) {
+                if (Extension::is_enabled(TagCategoriesInfo::KEY)) {
                     $tagcategories = new TagCategories();
                     $tag_category_dict = $tagcategories->getKeyedDict();
                     $st = $tagcategories->getTagHtml(html_escape($st), $tag_category_dict);
@@ -141,7 +145,7 @@ and of course start organising your images :-)
     /**
      * @param Image[] $images
      */
-    protected function display_page_header(Page $page, array $images)
+    protected function display_page_header(Page $page, array $images): void
     {
         global $config;
 
@@ -167,7 +171,7 @@ and of course start organising your images :-)
     /**
      * @param Image[] $images
      */
-    protected function display_page_images(Page $page, array $images)
+    protected function display_page_images(Page $page, array $images): void
     {
         if (count($this->search_terms) > 0) {
             if ($this->page_number > 3) {
@@ -199,8 +203,9 @@ and of course start organising your images :-)
             //
             BR(),
             P('Wildcard searches are possible as well using * for "any one, more, or none" and ? for "any one".'),
-            SHM_COMMAND_EXAMPLE("tagn*", 'Returns posts that are tagged with "tagname", "tagnot", or anything else that starts with "tagn".'),
-            SHM_COMMAND_EXAMPLE("tagn?me", 'Returns posts that are tagged with "tagname", "tagnome", or anything else that starts with "tagn", has one character, and ends with "me".'),
+            SHM_COMMAND_EXAMPLE("tag*", 'Returns posts that are tagged with "tag", "tags", "tagme", "tagname", or anything else that starts with "tag".'),
+            SHM_COMMAND_EXAMPLE("*name", 'Returns posts that are tagged with "name", "tagname", "othertagname" or anything else that ends with "name".'),
+            SHM_COMMAND_EXAMPLE("tagn?me", 'Returns posts that are tagged with "tagname", "tagnome", or anything else that starts with "tagn", then has one character, and ends with "me".'),
             //
             //
             //

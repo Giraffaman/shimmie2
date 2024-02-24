@@ -6,11 +6,11 @@ namespace Shimmie2;
 
 use MicroHTML\HTMLElement;
 
-use function MicroHTML\{A, joinHTML, TABLE, TR, TD, INPUT, emptyHTML};
+use function MicroHTML\{A, joinHTML, TABLE, TR, TD, INPUT, emptyHTML, DIV, BR};
 
 class ViewPostTheme extends Themelet
 {
-    public function display_meta_headers(Image $image)
+    public function display_meta_headers(Image $image): void
     {
         global $page;
 
@@ -22,10 +22,12 @@ class ViewPostTheme extends Themelet
         $page->add_html_header("<meta property=\"og:url\" content=\"".make_http(make_link("post/view/{$image->id}"))."\">");
     }
 
-    /*
+    /**
      * Build a page showing $image and some info about it
+     *
+     * @param HTMLElement[] $editor_parts
      */
-    public function display_page(Image $image, $editor_parts)
+    public function display_page(Image $image, array $editor_parts): void
     {
         global $page;
         $page->set_title("Post {$image->id}: ".$image->get_tag_list());
@@ -41,10 +43,13 @@ class ViewPostTheme extends Themelet
         }
     }
 
-    public function display_admin_block(Page $page, $parts)
+    /**
+     * @param HTMLElement[] $parts
+     */
+    public function display_admin_block(Page $page, array $parts): void
     {
         if (count($parts) > 0) {
-            $page->add_block(new Block("Post Controls", join("<br>", $parts), "left", 50));
+            $page->add_block(new Block("Post Controls", DIV(["class" => "post_controls"], joinHTML("", $parts)), "left", 50));
         }
     }
 
@@ -93,8 +98,8 @@ class ViewPostTheme extends Themelet
     {
         $h_pin = $this->build_pin($image);
         $h_search = "
-			<p><form action='".make_link()."' method='GET'>
-				<input type='hidden' name='q' value='/post/list'>
+			<p><form action='".search_link()."' method='GET'>
+				<input type='hidden' name='q' value='post/list'>
 				<input type='search' name='search' placeholder='Search' class='autocomplete_tags'>
 				<input type='submit' value='Find' style='display: none;'>
 			</form>
@@ -103,7 +108,10 @@ class ViewPostTheme extends Themelet
         return "$h_pin<br>$h_search";
     }
 
-    protected function build_info(Image $image, $editor_parts): HTMLElement
+    /**
+     * @param HTMLElement[] $editor_parts
+     */
+    protected function build_info(Image $image, array $editor_parts): HTMLElement
     {
         global $user;
 

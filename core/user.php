@@ -44,22 +44,20 @@ class User
      * One will very rarely construct a user directly, more common
      * would be to use User::by_id, User::by_session, etc.
      *
-     * @throws SCoreException
+     * @param array<string|int, mixed> $row
      */
     public function __construct(array $row)
     {
-        global $_shm_user_classes;
-
         $this->id = int_escape((string)$row['id']);
         $this->name = $row['name'];
         $this->email = $row['email'];
         $this->join_date = $row['joindate'];
         $this->passhash = $row['pass'];
 
-        if (array_key_exists($row["class"], $_shm_user_classes)) {
-            $this->class = $_shm_user_classes[$row["class"]];
+        if (array_key_exists($row["class"], UserClass::$known_classes)) {
+            $this->class = UserClass::$known_classes[$row["class"]];
         } else {
-            throw new SCoreException("User '{$this->name}' has invalid class '{$row["class"]}'");
+            throw new ServerError("User '{$this->name}' has invalid class '{$row["class"]}'");
         }
     }
 
@@ -126,7 +124,7 @@ class User
     {
         $u = User::by_name($name);
         if (is_null($u)) {
-            throw new UserDoesNotExist("Can't find any user named $name");
+            throw new UserNotFound("Can't find any user named $name");
         } else {
             return $u->id;
         }
@@ -190,7 +188,7 @@ class User
     {
         global $database;
         if (User::by_name($name)) {
-            throw new SCoreException("Desired username is already in use");
+            throw new InvalidInput("Desired username is already in use");
         }
         $old_name = $this->name;
         $this->name = $name;
@@ -202,13 +200,9 @@ class User
     {
         global $database;
         $hash = password_hash($password, PASSWORD_BCRYPT);
-        if (is_string($hash)) {
-            $this->passhash = $hash;
-            $database->execute("UPDATE users SET pass=:hash WHERE id=:id", ["hash" => $this->passhash, "id" => $this->id]);
-            log_info("core-user", 'Set password for '.$this->name);
-        } else {
-            throw new SCoreException("Failed to hash password");
-        }
+        $this->passhash = $hash;
+        $database->execute("UPDATE users SET pass=:hash WHERE id=:id", ["hash" => $this->passhash, "id" => $this->id]);
+        log_info("core-user", 'Set password for '.$this->name);
     }
 
     public function set_email(string $address): void
@@ -266,33 +260,5 @@ class User
         $salt = DATABASE_DSN;
         $addr = get_session_ip($config);
         return md5(md5($this->passhash . $addr) . "salty-csrf-" . $salt);
-    }
-
-    public function get_auth_html(): string
-    {
-        $at = $this->get_auth_token();
-        return '<input type="hidden" name="auth_token" value="'.$at.'">';
-    }
-
-    // Temporary? This should eventually become get_auth_html (probably with a different name?).
-    public function get_auth_microhtml(): HTMLElement
-    {
-        $at = $this->get_auth_token();
-        return INPUT(["type" => "hidden", "name" => "auth_token", "value" => $at]);
-    }
-
-    public function check_auth_token(): bool
-    {
-        if (defined("UNITTEST")) {
-            return true;
-        }
-        return (isset($_POST["auth_token"]) && $_POST["auth_token"] == $this->get_auth_token());
-    }
-
-    public function ensure_authed(): void
-    {
-        if (!$this->check_auth_token()) {
-            die("Invalid auth token");
-        }
     }
 }

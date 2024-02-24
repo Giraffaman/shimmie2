@@ -6,7 +6,10 @@ namespace Shimmie2;
 
 class CustomUserPageTheme extends UserPageTheme
 {
-    public function display_user_block(Page $page, User $user, $parts)
+    /**
+     * @param array<array{link: string, name: string}> $parts
+     */
+    public function display_user_block(Page $page, User $user, array $parts): void
     {
         $h_name = html_escape($user->name);
         $html = " | ";
@@ -16,7 +19,7 @@ class CustomUserPageTheme extends UserPageTheme
         $page->add_block(new Block("Logged in as $h_name", $html, "head", 90));
     }
 
-    public function display_login_block(Page $page)
+    public function display_login_block(Page $page): void
     {
         global $config;
         $html = "

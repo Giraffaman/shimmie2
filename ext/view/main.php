@@ -18,28 +18,25 @@ class ViewPost extends Extension
     /** @var ViewPostTheme */
     protected Themelet $theme;
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page, $user;
 
-        if ($event->page_matches("post/prev") || $event->page_matches("post/next")) {
-            $image_id = int_escape($event->get_arg(0));
+        if ($event->page_matches("post/prev/{image_id}") || $event->page_matches("post/next/{image_id}")) {
+            $image_id = $event->get_iarg('image_id');
 
-            if (isset($_GET['search'])) {
-                $search_terms = Tag::explode($_GET['search']);
-                $query = "#search=".url_escape($_GET['search']);
+            $search = $event->get_GET('search');
+            if ($search) {
+                $search_terms = Tag::explode($search);
+                $query = "#search=".url_escape($search);
             } else {
                 $search_terms = [];
                 $query = null;
             }
 
-            $image = Image::by_id($image_id);
-            if (is_null($image)) {
-                $this->theme->display_error(404, "Post not found", "Post $image_id could not be found");
-                return;
-            }
+            $image = Image::by_id_ex($image_id);
 
-            if ($event->page_matches("post/next")) {
+            if ($event->page_matches("post/next/{image_id}")) {
                 $image = $image->get_next($search_terms);
             } else {
                 $image = $image->get_prev($search_terms);
@@ -52,8 +49,8 @@ class ViewPost extends Extension
 
             $page->set_mode(PageMode::REDIRECT);
             $page->set_redirect(make_link("post/view/{$image->id}", $query));
-        } elseif ($event->page_matches("post/view")) {
-            if (!is_numeric($event->get_arg(0))) {
+        } elseif ($event->page_matches("post/view/{image_id}")) {
+            if (!is_numeric($event->get_arg('image_id'))) {
                 // For some reason there exists some very broken mobile client
                 // who follows up every request to '/post/view/123' with
                 // '/post/view/12300000000000Image 123: tags' which spams the
@@ -62,28 +59,18 @@ class ViewPost extends Extension
                 return;
             }
 
-            $image_id = int_escape($event->get_arg(0));
-
-            $image = Image::by_id($image_id);
-
-            if (!is_null($image)) {
-                send_event(new DisplayingImageEvent($image));
-            } else {
-                $this->theme->display_error(404, "Post not found", "No post in the database has the ID #$image_id");
-            }
-        } elseif ($event->page_matches("post/set")) {
-            if (!isset($_POST['image_id'])) {
-                return;
-            }
-
-            $image_id = int_escape($_POST['image_id']);
-            $image = Image::by_id($image_id);
+            $image_id = $event->get_iarg('image_id');
+            $image = Image::by_id_ex($image_id);
+            send_event(new DisplayingImageEvent($image));
+        } elseif ($event->page_matches("post/set", method: "POST")) {
+            $image_id = int_escape($event->req_POST('image_id'));
+            $image = Image::by_id_ex($image_id);
             if (!$image->is_locked() || $user->can(Permissions::EDIT_IMAGE_LOCK)) {
-                send_event(new ImageInfoSetEvent($image));
+                send_event(new ImageInfoSetEvent($image, 0, only_strings($event->POST)));
                 $page->set_mode(PageMode::REDIRECT);
 
-                if (isset($_GET['search'])) {
-                    $query = "search=" . url_escape($_GET['search']);
+                if ($event->get_GET('search')) {
+                    $query = "search=" . url_escape($event->get_GET('search'));
                 } else {
                     $query = null;
                 }
@@ -94,7 +81,7 @@ class ViewPost extends Extension
         }
     }
 
-    public function onRobotsBuilding(RobotsBuildingEvent $event)
+    public function onRobotsBuilding(RobotsBuildingEvent $event): void
     {
         // next and prev are just CPU-heavier ways of getting
         // to the same images that the index shows
@@ -102,7 +89,7 @@ class ViewPost extends Extension
         $event->add_disallow("post/prev");
     }
 
-    public function onDisplayingImage(DisplayingImageEvent $event)
+    public function onDisplayingImage(DisplayingImageEvent $event): void
     {
         global $page, $user;
         $image = $event->get_image();
@@ -118,7 +105,7 @@ class ViewPost extends Extension
         $this->theme->display_admin_block($page, $iabbe->parts);
     }
 
-    public function onImageInfoBoxBuilding(ImageInfoBoxBuildingEvent $event)
+    public function onImageInfoBoxBuilding(ImageInfoBoxBuildingEvent $event): void
     {
         global $config;
         $image_info = $config->get_string(ImageConfig::INFO);

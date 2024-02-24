@@ -11,9 +11,9 @@ class TagList extends Extension
     /** @var TagListTheme */
     protected Themelet $theme;
 
-    private $tagcategories = null;
+    private mixed $tagcategories = null;
 
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
         $config->set_default_int(TagListConfig::LENGTH, 15);
@@ -27,31 +27,45 @@ class TagList extends Extension
         $config->set_default_bool(TagListConfig::PAGES, false);
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
-        global $page, $user;
+        global $config, $page, $user;
 
-        if ($event->page_matches("tags")) {
+        if ($event->page_matches("tags/{sub}")) {
             $this->theme->set_navigation($this->build_navigation());
-            if ($event->count_args() == 0) {
-                $sub = "map";
+            $sub = $event->get_arg('sub');
+
+            if ($event->get_GET('starts_with')) {
+                $starts_with = $event->get_GET('starts_with') . "%";
             } else {
-                $sub = $event->get_arg(0);
+                if ($config->get_bool(TagListConfig::PAGES)) {
+                    $starts_with = "a%";
+                } else {
+                    $starts_with = "%";
+                }
+            }
+
+            if ($event->get_GET('mincount')) {
+                $tags_min = int_escape($event->get_GET('mincount'));
+            } else {
+                global $config;
+                $tags_min = $config->get_int(TagListConfig::TAGS_MIN);	// get the default.
             }
             if($user->is_logged_in()) {
-                switch ($sub) {
+    
+            switch ($sub) {
                     default:
                     case 'map':
                         $this->theme->set_heading("Tag Map");
-                        $this->theme->set_tag_list($this->build_tag_map());
+                        $this->theme->set_tag_list($this->build_tag_map($starts_with, $tags_min));
                         break;
                     case 'alphabetic':
                         $this->theme->set_heading("Alphabetic Tag List");
-                        $this->theme->set_tag_list($this->build_tag_alphabetic());
+                        $this->theme->set_tag_list($this->build_tag_alphabetic($starts_with, $tags_min));
                         break;
                     case 'popularity':
                         $this->theme->set_heading("Tag List by Popularity");
-                        $this->theme->set_tag_list($this->build_tag_popularity());
+                        $this->theme->set_tag_list($this->build_tag_popularity($tags_min));
                         break;
                 }
             } else {
@@ -59,10 +73,13 @@ class TagList extends Extension
                 $this->theme->display_error(401, "Unauthorized", $errMessage);
             }
             $this->theme->display_page($page);
+        } elseif ($event->page_matches("tags")) {
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("tags/map"));
         }
     }
 
-    public function onPostListBuilding(PostListBuildingEvent $event)
+    public function onPostListBuilding(PostListBuildingEvent $event): void
     {
         global $config, $page, $user;
         if($user->is_logged_in()) {
@@ -76,12 +93,12 @@ class TagList extends Extension
         }
     }
 
-    public function onPageNavBuilding(PageNavBuildingEvent $event)
+    public function onPageNavBuilding(PageNavBuildingEvent $event): void
     {
         $event->add_nav_link("tags", new Link('tags/map'), "Tags");
     }
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         if ($event->parent == "tags") {
             $event->add_nav_link("tags_map", new Link('tags/map'), "Map");
@@ -90,14 +107,14 @@ class TagList extends Extension
         }
     }
 
-    public function onDisplayingImage(DisplayingImageEvent $event)
+    public function onDisplayingImage(DisplayingImageEvent $event): void
     {
         global $config, $page, $user;
         if($user->is_logged_in()) {
             if ($config->get_int(TagListConfig::LENGTH) > 0) {
                 $type = $config->get_string(TagListConfig::IMAGE_TYPE);
                 if ($type == TagListConfig::TYPE_TAGS || $type == TagListConfig::TYPE_BOTH) {
-                    if (class_exists("Shimmie2\TagCategories") and $config->get_bool(TagCategoriesConfig::SPLIT_ON_VIEW)) {
+                    if (Extension::is_enabled(TagCategoriesInfo::KEY) and $config->get_bool(TagCategoriesConfig::SPLIT_ON_VIEW)) {
                         $this->add_split_tags_block($page, $event->image);
                     } else {
                         $this->add_tags_block($page, $event->image);
@@ -110,7 +127,7 @@ class TagList extends Extension
         }
     }
 
-    public function onSetupBuilding(SetupBuildingEvent $event)
+    public function onSetupBuilding(SetupBuildingEvent $event): void
     {
         $sb = $event->panel->create_new_block("Tag Map Options");
         $sb->add_int_option(TagListConfig::TAGS_MIN, "Only show tags used at least ");
@@ -148,19 +165,8 @@ class TagList extends Extension
     }
 
     /**
-     * Get the minimum number of times a tag needs to be used
-     * in order to be considered in the tag list.
+     * @return int[]
      */
-    private function get_tags_min(): int
-    {
-        if (isset($_GET['mincount'])) {
-            return int_escape($_GET['mincount']);
-        } else {
-            global $config;
-            return $config->get_int(TagListConfig::TAGS_MIN);	// get the default.
-        }
-    }
-
     private static function get_omitted_tags(): array
     {
         global $cache, $config, $database;
@@ -169,7 +175,7 @@ class TagList extends Extension
         $results = $cache->get("tag_list_omitted_tags:".$tags_config);
 
         if (is_null($results)) {
-            $tags = explode(" ", $tags_config);
+            $tags = Tag::explode($tags_config, false);
 
             if (count($tags) == 0) {
                 return [];
@@ -197,25 +203,9 @@ class TagList extends Extension
         return $results;
     }
 
-    private function get_starts_with(): string
-    {
-        global $config;
-        if (isset($_GET['starts_with'])) {
-            return $_GET['starts_with'] . "%";
-        } else {
-            if ($config->get_bool(TagListConfig::PAGES)) {
-                return "a%";
-            } else {
-                return "%";
-            }
-        }
-    }
-
-    private function build_az(): string
+    private function build_az(int $tags_min): string
     {
         global $database;
-
-        $tags_min = $this->get_tags_min();
 
         $tag_data = $database->get_col("
 			SELECT DISTINCT
@@ -244,12 +234,9 @@ class TagList extends Extension
         return "$h_index<br>&nbsp;<br>$h_map<br>$h_alphabetic<br>$h_popularity<br>&nbsp;<br>$h_all";
     }
 
-    private function build_tag_map(): string
+    private function build_tag_map(string $starts_with, int $tags_min): string
     {
         global $config, $database;
-
-        $tags_min = $this->get_tags_min();
-        $starts_with = $this->get_starts_with();
 
         // check if we have a cached version
         $cache_key = warehouse_path(
@@ -257,26 +244,25 @@ class TagList extends Extension
             md5("tc" . $tags_min . $starts_with . VERSION)
         );
         if (file_exists($cache_key)) {
-            return file_get_contents($cache_key);
+            return \Safe\file_get_contents($cache_key);
         }
 
-        // SHIT: PDO/pgsql has problems using the same named param twice -_-;;
         $tag_data = $database->get_all("
             SELECT
                 tag,
-                FLOOR(LOG(2.7, LOG(2.7, count - :tags_min2 + 1)+1)*1.5*100)/100 AS scaled
+                FLOOR(LN(LN(count - :tags_min + 1)+1)*1.5*100)/100 AS scaled
             FROM tags
             WHERE count >= :tags_min
             AND LOWER(tag) LIKE LOWER(:starts_with)
             ORDER BY LOWER(tag)
-        ", ["tags_min" => $tags_min, "tags_min2" => $tags_min, "starts_with" => $starts_with]);
+        ", ["tags_min" => $tags_min, "starts_with" => $starts_with]);
 
         $html = "";
         if ($config->get_bool(TagListConfig::PAGES)) {
-            $html .= $this->build_az();
+            $html .= $this->build_az($tags_min);
         }
         $tag_category_dict = [];
-        if (class_exists('Shimmie2\TagCategories')) {
+        if (Extension::is_enabled(TagCategoriesInfo::KEY)) {
             $this->tagcategories = new TagCategories();
             $tag_category_dict = $this->tagcategories->getKeyedDict();
         }
@@ -288,7 +274,7 @@ class TagList extends Extension
                 $size = 0.5;
             }
             $h_tag_no_underscores = str_replace("_", " ", $h_tag);
-            if (class_exists('Shimmie2\TagCategories')) {
+            if (Extension::is_enabled(TagCategoriesInfo::KEY)) {
                 $h_tag_no_underscores = $this->tagcategories->getTagHtml($h_tag, $tag_category_dict);
             }
             $html .= "&nbsp;<a style='font-size: {$size}em' href='$link'>$h_tag_no_underscores</a>&nbsp;\n";
@@ -301,12 +287,9 @@ class TagList extends Extension
         return $html;
     }
 
-    private function build_tag_alphabetic(): string
+    private function build_tag_alphabetic(string $starts_with, int $tags_min): string
     {
         global $config, $database;
-
-        $tags_min = $this->get_tags_min();
-        $starts_with = $this->get_starts_with();
 
         // check if we have a cached version
         $cache_key = warehouse_path(
@@ -314,7 +297,7 @@ class TagList extends Extension
             md5("ta" . $tags_min . $starts_with . VERSION)
         );
         if (file_exists($cache_key)) {
-            return file_get_contents($cache_key);
+            return \Safe\file_get_contents($cache_key);
         }
 
         $tag_data = $database->get_pairs("
@@ -327,7 +310,7 @@ class TagList extends Extension
 
         $html = "";
         if ($config->get_bool(TagListConfig::PAGES)) {
-            $html .= $this->build_az();
+            $html .= $this->build_az($tags_min);
         }
 
         /*
@@ -346,7 +329,7 @@ class TagList extends Extension
         mb_internal_encoding('UTF-8');
 
         $tag_category_dict = [];
-        if (class_exists('Shimmie2\TagCategories')) {
+        if (Extension::is_enabled(TagCategoriesInfo::KEY)) {
             $this->tagcategories = new TagCategories();
             $tag_category_dict = $this->tagcategories->getKeyedDict();
         }
@@ -365,7 +348,7 @@ class TagList extends Extension
             }
             $link = $this->theme->tag_link($tag);
             $h_tag = html_escape($tag);
-            if (class_exists('Shimmie2\TagCategories')) {
+            if (Extension::is_enabled(TagCategoriesInfo::KEY)) {
                 $h_tag = $this->tagcategories->getTagHtml($h_tag, $tag_category_dict, "&nbsp;($count)");
             }
             $html .= "<a href='$link'>$h_tag</a>\n";
@@ -378,11 +361,9 @@ class TagList extends Extension
         return $html;
     }
 
-    private function build_tag_popularity(): string
+    private function build_tag_popularity(int $tags_min): string
     {
         global $database;
-
-        $tags_min = $this->get_tags_min();
 
         // Make sure that the value of $tags_min is at least 1.
         // Otherwise the database will complain if you try to do: LOG(0)
@@ -396,11 +377,11 @@ class TagList extends Extension
             md5("tp" . $tags_min . VERSION)
         );
         if (file_exists($cache_key)) {
-            return file_get_contents($cache_key);
+            return \Safe\file_get_contents($cache_key);
         }
 
         $tag_data = $database->get_all("
-            SELECT tag, count, FLOOR(LOG(count)) AS scaled
+            SELECT tag, count, FLOOR(LOG(10, count)) AS scaled
             FROM tags
             WHERE count >= :tags_min
             ORDER BY count DESC, tag ASC
@@ -462,7 +443,7 @@ class TagList extends Extension
         }
     }
 
-    private function add_split_tags_block(Page $page, Image $image)
+    private function add_split_tags_block(Page $page, Image $image): void
     {
         global $database;
 
@@ -481,7 +462,7 @@ class TagList extends Extension
         }
     }
 
-    private function add_tags_block(Page $page, Image $image)
+    private function add_tags_block(Page $page, Image $image): void
     {
         global $database;
 
@@ -500,7 +481,7 @@ class TagList extends Extension
         }
     }
 
-    private function add_popular_block(Page $page)
+    private function add_popular_block(Page $page): void
     {
         global $cache, $database, $config;
 
@@ -541,7 +522,7 @@ class TagList extends Extension
     /**
      * @param string[] $search
      */
-    private function add_refine_block(Page $page, array $search)
+    private function add_refine_block(Page $page, array $search): void
     {
         global $config;
 
@@ -558,6 +539,10 @@ class TagList extends Extension
         }
     }
 
+    /**
+     * @param string[] $search
+     * @return array<array{tag: string, count: int}>
+     */
     public static function get_related_tags(array $search, int $limit): array
     {
         global $cache, $database;

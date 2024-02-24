@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Shimmie2;
 
+use function MicroHTML\{rawHTML};
+
 abstract class ResizeConfig
 {
     public const ENABLED = 'resize_enabled';
@@ -14,14 +16,15 @@ abstract class ResizeConfig
     public const GET_ENABLED = 'resize_get_enabled';
 }
 
+class ImageResizeException extends ServerError
+{
+}
+
 /**
  *	This class handles image resize requests.
  */
 class ResizeImage extends Extension
 {
-    /** @var ResizeImageTheme */
-    protected Themelet $theme;
-
     /**
      * Needs to be after the data processing extensions
      */
@@ -31,7 +34,7 @@ class ResizeImage extends Extension
     }
 
 
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
         $config->set_default_bool(ResizeConfig::ENABLED, true);
@@ -42,17 +45,35 @@ class ResizeImage extends Extension
         $config->set_default_int(ResizeConfig::DEFAULT_HEIGHT, 0);
     }
 
-    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event)
+    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event): void
     {
         global $user, $config;
-        if ($user->can(Permissions::EDIT_FILES) && $config->get_bool(ResizeConfig::ENABLED)
-            && $this->can_resize_mime($event->image->get_mime())) {
+        if (
+            $user->can(Permissions::EDIT_FILES) &&
+            $config->get_bool(ResizeConfig::ENABLED) &&
+            $this->can_resize_mime($event->image->get_mime())
+        ) {
             /* Add a link to resize the image */
-            $event->add_part($this->theme->get_resize_html($event->image));
+            global $config;
+
+            $default_width = $config->get_int(ResizeConfig::DEFAULT_WIDTH, $event->image->width);
+            $default_height = $config->get_int(ResizeConfig::DEFAULT_HEIGHT, $event->image->height);
+
+            $event->add_part(SHM_SIMPLE_FORM(
+                "resize/{$event->image->id}",
+                rawHTML("
+                    <input id='original_width'  name='original_width'  type='hidden' value='{$event->image->width}'>
+                    <input id='original_height' name='original_height' type='hidden' value='{$event->image->height}'>
+                    <input id='resize_width'  style='width: 70px;' name='resize_width'  type='number' min='1' value='".$default_width."'> x
+                    <input id='resize_height' style='width: 70px;' name='resize_height' type='number' min='1' value='".$default_height."'>
+                    <br><label><input type='checkbox' id='resize_aspect' name='resize_aspect' style='max-width: 20px;' checked='checked'> Keep Aspect</label>
+                    <br><input id='resizebutton' type='submit' value='Resize'>
+                ")
+            ));
         }
     }
 
-    public function onSetupBuilding(SetupBuildingEvent $event)
+    public function onSetupBuilding(SetupBuildingEvent $event): void
     {
         $sb = $event->panel->create_new_block("Image Resize");
         $sb->start_table();
@@ -73,7 +94,7 @@ class ResizeImage extends Extension
         $sb->end_table();
     }
 
-    public function onDataUpload(DataUploadEvent $event)
+    public function onDataUpload(DataUploadEvent $event): void
     {
         global $config, $page;
 
@@ -91,25 +112,20 @@ class ResizeImage extends Extension
             $isanigif = 0;
             if ($image_obj->get_mime() == MimeType::GIF) {
                 $image_filename = warehouse_path(Image::IMAGE_DIR, $image_obj->hash);
-                if (($fh = @fopen($image_filename, 'rb'))) {
-                    //check if gif is animated (via https://www.php.net/manual/en/function.imagecreatefromgif.php#104473)
-                    while (!feof($fh) && $isanigif < 2) {
-                        $chunk = fread($fh, 1024 * 100);
-                        $isanigif += preg_match_all('#\x00\x21\xF9\x04.{4}\x00[\x2C\x21]#s', $chunk, $matches);
-                    }
+                $fh = \Safe\fopen($image_filename, 'rb');
+                //check if gif is animated (via https://www.php.net/manual/en/function.imagecreatefromgif.php#104473)
+                while (!feof($fh) && $isanigif < 2) {
+                    $chunk = \Safe\fread($fh, 1024 * 100);
+                    $isanigif += preg_match_all('#\x00\x21\xF9\x04.{4}\x00[\x2C\x21]#s', $chunk, $matches);
                 }
             }
             if ($isanigif == 0) {
-                try {
-                    $this->resize_image($image_obj, $width, $height);
-                } catch (ImageResizeException $e) {
-                    $this->theme->display_resize_error($page, "Error Resizing", $e->error);
-                }
+                $this->resize_image($image_obj, $width, $height);
 
                 //Need to generate thumbnail again...
                 //This only seems to be an issue if one of the sizes was set to 0.
-                $image_obj = Image::by_id($image_obj->id); //Must be a better way to grab the new hash than setting this again..
-                send_event(new ThumbnailGenerationEvent($image_obj->hash, $image_obj->get_mime(), true));
+                $image_obj = Image::by_id_ex($image_obj->id); //Must be a better way to grab the new hash than setting this again..
+                send_event(new ThumbnailGenerationEvent($image_obj, true));
 
                 log_info("resize", ">>{$image_obj->id} has been resized to: ".$width."x".$height);
                 //TODO: Notify user that image has been resized.
@@ -117,68 +133,40 @@ class ResizeImage extends Extension
         }
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page, $user;
 
-        if ($event->page_matches("resize") && $user->can(Permissions::EDIT_FILES)) {
+        if ($event->page_matches("resize/{image_id}", method: "POST", permission: Permissions::EDIT_FILES)) {
             // Try to get the image ID
-            $image_id = int_escape($event->get_arg(0));
-            if (empty($image_id)) {
-                $image_id = isset($_POST['image_id']) ? int_escape($_POST['image_id']) : null;
-            }
-            if (empty($image_id)) {
-                throw new ImageResizeException("Can not resize Image: No valid Post ID given.");
-            }
-
-            $image = Image::by_id($image_id);
-            if (is_null($image)) {
-                $this->theme->display_error(404, "Post not found", "No image in the database has the ID #$image_id");
-            } else {
-                /* Check if options were given to resize an image. */
-                if (isset($_POST['resize_width']) || isset($_POST['resize_height'])) {
-                    /* get options */
-
-                    $width = $height = 0;
-
-                    if (isset($_POST['resize_width'])) {
-                        $width = int_escape($_POST['resize_width']);
-                    }
-                    if (isset($_POST['resize_height'])) {
-                        $height = int_escape($_POST['resize_height']);
-                    }
-
-                    /* Attempt to resize the image */
-                    try {
-                        $this->resize_image($image, $width, $height);
-
-                        //$this->theme->display_resize_page($page, $image_id);
-
-                        $page->set_mode(PageMode::REDIRECT);
-                        $page->set_redirect(make_link("post/view/".$image_id));
-                    } catch (ImageResizeException $e) {
-                        $this->theme->display_resize_error($page, "Error Resizing", $e->error);
-                    }
-                }
+            $image_id = $event->get_iarg('image_id');
+            $image = Image::by_id_ex($image_id);
+            /* Check if options were given to resize an image. */
+            $width = int_escape($event->get_POST('resize_width'));
+            $height = int_escape($event->get_POST('resize_height'));
+            if ($width || $height) {
+                $this->resize_image($image, $width, $height);
+                $page->set_mode(PageMode::REDIRECT);
+                $page->set_redirect(make_link("post/view/".$image_id));
             }
         }
     }
 
-    public function onImageDownloading(ImageDownloadingEvent $event)
+    public function onImageDownloading(ImageDownloadingEvent $event): void
     {
         global $config, $user;
 
         if ($config->get_bool(ResizeConfig::GET_ENABLED) &&
             $user->can(Permissions::EDIT_FILES) &&
             $this->can_resize_mime($event->image->get_mime())) {
-            if (isset($_GET['max_height'])) {
-                $max_height = int_escape($_GET['max_height']);
+            if (isset($event->params['max_height'])) {
+                $max_height = int_escape($event->params['max_height']);
             } else {
                 $max_height = $event->image->height;
             }
 
-            if (isset($_GET['max_width'])) {
-                $max_width = int_escape($_GET['max_width']);
+            if (isset($event->params['max_width'])) {
+                $max_width = int_escape($event->params['max_width']);
             } else {
                 $max_width = $event->image->width;
             }
@@ -186,7 +174,7 @@ class ResizeImage extends Extension
             [$new_width, $new_height] = get_scaled_by_aspect_ratio($event->image->width, $event->image->height, $max_width, $max_height);
 
             if ($new_width !== $event->image->width || $new_height !== $event->image->height) {
-                $tmp_filename = tempnam(sys_get_temp_dir(), 'shimmie_resize');
+                $tmp_filename = shm_tempnam('resize');
                 if (empty($tmp_filename)) {
                     throw new ImageResizeException("Unable to save temporary image file.");
                 }
@@ -211,7 +199,7 @@ class ResizeImage extends Extension
         }
     }
 
-    private function can_resize_mime($mime): bool
+    private function can_resize_mime(string $mime): bool
     {
         global $config;
         $engine = $config->get_string(ResizeConfig::ENGINE);
@@ -222,7 +210,7 @@ class ResizeImage extends Extension
 
     // Private functions
     /* ----------------------------- */
-    private function resize_image(Image $image_obj, int $width, int $height)
+    private function resize_image(Image $image_obj, int $width, int $height): void
     {
         global $config;
 
@@ -240,7 +228,7 @@ class ResizeImage extends Extension
         $hash = $image_obj->hash;
         $image_filename  = warehouse_path(Image::IMAGE_DIR, $hash);
 
-        $info = getimagesize($image_filename);
+        $info = \Safe\getimagesize($image_filename);
         if (($image_obj->width != $info[0]) || ($image_obj->height != $info[1])) {
             throw new ImageResizeException("The current image size does not match what is set in the database! - Aborting Resize.");
         }
@@ -248,7 +236,7 @@ class ResizeImage extends Extension
         list($new_height, $new_width) = $this->calc_new_size($image_obj, $width, $height);
 
         /* Temp storage while we resize */
-        $tmp_filename = tempnam(sys_get_temp_dir(), 'shimmie_resize');
+        $tmp_filename = shm_tempnam('resize');
         if (empty($tmp_filename)) {
             throw new ImageResizeException("Unable to save temporary image file.");
         }
@@ -263,25 +251,9 @@ class ResizeImage extends Extension
             Media::RESIZE_TYPE_STRETCH
         ));
 
-        $new_image = new Image();
-        $new_image->hash = md5_file($tmp_filename);
-        $new_image->filesize = filesize($tmp_filename);
-        $new_image->filename = 'resized-'.$image_obj->filename;
-        $new_image->width = $new_width;
-        $new_image->height = $new_height;
+        send_event(new ImageReplaceEvent($image_obj, $tmp_filename));
 
-        /* Move the new image into the main storage location */
-        $target = warehouse_path(Image::IMAGE_DIR, $new_image->hash);
-        if (!@copy($tmp_filename, $target)) {
-            throw new ImageResizeException("Failed to copy new image file from temporary location ({$tmp_filename}) to archive ($target)");
-        }
-
-        /* Remove temporary file */
-        @unlink($tmp_filename);
-
-        send_event(new ImageReplaceEvent($image_obj, $new_image));
-
-        log_info("resize", "Resized >>{$image_obj->id} - New hash: {$new_image->hash}");
+        log_info("resize", "Resized >>{$image_obj->id} - New hash: {$image_obj->hash}");
     }
 
     /**
@@ -304,8 +276,8 @@ class ResizeImage extends Extension
                 $factor = min($width / $image_obj->width, $height / $image_obj->height);
             }
 
-            $new_width = round($image_obj->width * $factor);
-            $new_height = round($image_obj->height * $factor);
+            $new_width = (int)round($image_obj->width * $factor);
+            $new_height = (int)round($image_obj->height * $factor);
             return [$new_height, $new_width];
         }
     }

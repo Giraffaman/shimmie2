@@ -6,7 +6,7 @@ namespace Shimmie2;
 
 class VarnishPurger extends Extension
 {
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
         $config->set_default_string('varnish_host', '127.0.0.1');
@@ -14,7 +14,7 @@ class VarnishPurger extends Extension
         $config->set_default_string('varnish_protocol', 'http');
     }
 
-    private function curl_purge($path)
+    private function curl_purge(string $path): void
     {
         // waiting for curl timeout adds ~5 minutes to unit tests
         if (defined("UNITTEST")) {
@@ -34,22 +34,22 @@ class VarnishPurger extends Extension
         $result = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         if ($httpCode != 200) {
-            throw new SCoreException('PURGE ' . $url . ' unsuccessful (HTTP '. $httpCode . ')');
+            throw new ServerError('PURGE ' . $url . ' unsuccessful (HTTP '. $httpCode . ')');
         }
         curl_close($ch);
     }
 
-    public function onCommentPosting(CommentPostingEvent $event)
+    public function onCommentPosting(CommentPostingEvent $event): void
     {
         $this->curl_purge("post/view/{$event->image_id}");
     }
 
-    public function onImageInfoSet(ImageInfoSetEvent $event)
+    public function onImageInfoSet(ImageInfoSetEvent $event): void
     {
         $this->curl_purge("post/view/{$event->image->id}");
     }
 
-    public function onImageDeletion(ImageDeletionEvent $event)
+    public function onImageDeletion(ImageDeletionEvent $event): void
     {
         $this->curl_purge("post/view/{$event->image->id}");
     }

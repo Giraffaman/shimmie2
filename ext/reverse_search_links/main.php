@@ -17,7 +17,7 @@ class ReverseSearchLinks extends Extension
     /**
      * Show the extension block when viewing an image
      */
-    public function onDisplayingImage(DisplayingImageEvent $event)
+    public function onDisplayingImage(DisplayingImageEvent $event): void
     {
         global $page;
 
@@ -31,6 +31,8 @@ class ReverseSearchLinks extends Extension
 
     /**
      * Supported reverse search services
+     *
+     * @var string[]
      */
     protected array $SERVICES = [
         'SauceNAO',
@@ -40,23 +42,10 @@ class ReverseSearchLinks extends Extension
         'Yandex'
     ];
 
-    private function get_options(): array
-    {
-        global $config;
-
-        $output = [];
-        $services = $this->SERVICES;
-        foreach ($services as $service) {
-            $output[$service] = $service;
-        }
-
-        return $output;
-    }
-
     /**
      * Set default config values
      */
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
         $config->set_default_array(

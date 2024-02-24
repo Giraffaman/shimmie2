@@ -1,5 +1,12 @@
 <?php
-
+/**
+ * Sets up a base test environment:
+ * - Loads the code
+ * - Runs the installer
+ * - Runs the database upgrade
+ * - Creates test users
+ * - Commits the database transaction
+ */
 declare(strict_types=1);
 
 namespace Shimmie2;
@@ -12,7 +19,10 @@ require_once "core/sys_config.php";
 require_once "core/polyfills.php";
 require_once "core/util.php";
 
+$_SERVER['SCRIPT_FILENAME'] = '/var/www/html/test/index.php';
+$_SERVER['DOCUMENT_ROOT'] = '/var/www/html';
 $_SERVER['QUERY_STRING'] = '/';
+
 if (file_exists("data/test-trace.json")) {
     unlink("data/test-trace.json");
 }
@@ -37,4 +47,13 @@ $config->set_bool("nice_urls", true);
 send_event(new DatabaseUpgradeEvent());
 send_event(new InitExtEvent());
 $user = User::by_id($config->get_int("anon_id", 0));
+$userPage = new UserPage();
+$userPage->onUserCreation(new UserCreationEvent("demo", "demo", "demo", "demo@demo.com", false));
+$userPage->onUserCreation(new UserCreationEvent("test", "test", "test", "test@test.com", false));
+// in mysql, CREATE TABLE commits transactions, so after the database
+// upgrade we may or may not be inside a transaction depending on if
+// any tables were created.
+if($database->is_transaction_open()) {
+    $database->commit();
+}
 $_tracer->end();

@@ -8,29 +8,10 @@ use MicroHTML\HTMLElement;
 
 use function MicroHTML\emptyHTML;
 
-use function MicroHTML\{BUTTON,INPUT,P};
+use function MicroHTML\{BUTTON,P};
 
 class ApprovalTheme extends Themelet
 {
-    public function get_image_admin_html(Image $image): HTMLElement
-    {
-        if ($image->approved === true) {
-            $form = SHM_SIMPLE_FORM(
-                'disapprove_image/'.$image->id,
-                INPUT(["type" => 'hidden', "name" => 'image_id', "value" => $image->id]),
-                SHM_SUBMIT("Disapprove")
-            );
-        } else {
-            $form = SHM_SIMPLE_FORM(
-                'approve_image/'.$image->id,
-                INPUT(["type" => 'hidden', "name" => 'image_id', "value" => $image->id]),
-                SHM_SUBMIT("Approve")
-            );
-        }
-
-        return $form;
-    }
-
     public function get_help_html(): HTMLElement
     {
         return emptyHTML(
@@ -40,13 +21,7 @@ class ApprovalTheme extends Themelet
         );
     }
 
-    public function display_admin_block(SetupBuildingEvent $event)
-    {
-        $sb = $event->panel->create_new_block("Approval");
-        $sb->add_bool_option(ApprovalConfig::IMAGES, "Posts: ");
-    }
-
-    public function display_admin_form()
+    public function display_admin_form(): void
     {
         global $page;
 

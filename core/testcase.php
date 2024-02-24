@@ -12,16 +12,20 @@ if(class_exists("\\PHPUnit\\Framework\\TestCase")) {
         protected static string $user_name = "test";
         protected string $wipe_time = "test";
 
+        /**
+         * Start a DB transaction for each test class
+         */
         public static function setUpBeforeClass(): void
         {
-            parent::setUpBeforeClass();
-            global $_tracer;
+            global $_tracer, $database;
             $_tracer->begin(get_called_class());
-
-            self::create_user(self::$admin_name);
-            self::create_user(self::$user_name);
+            $database->begin_transaction();
+            parent::setUpBeforeClass();
         }
 
+        /**
+         * Start a savepoint for each test
+         */
         public function setUp(): void
         {
             global $database, $_tracer;
@@ -37,6 +41,7 @@ if(class_exists("\\PHPUnit\\Framework\\TestCase")) {
             }
 
             // Set up a clean environment for each test
+            $database->execute("SAVEPOINT test_start");
             self::log_out();
             foreach ($database->get_col("SELECT id FROM images") as $image_id) {
                 send_event(new ImageDeletionEvent(Image::by_id((int)$image_id), true));
@@ -48,30 +53,27 @@ if(class_exists("\\PHPUnit\\Framework\\TestCase")) {
 
         public function tearDown(): void
         {
-            global $_tracer;
+            global $_tracer, $database;
+            $database->execute("ROLLBACK TO test_start");
             $_tracer->end();  # test
             $_tracer->end();  # $this->getName()
-            $_tracer->clear();
-            $_tracer->flush("data/test-trace.json");
         }
 
         public static function tearDownAfterClass(): void
         {
             parent::tearDownAfterClass();
-            global $_tracer;
+            global $_tracer, $database;
+            $database->rollback();
             $_tracer->end();  # get_called_class()
+            $_tracer->clear();
+            $_tracer->flush("data/test-trace.json");
         }
 
-        protected static function create_user(string $name): void
-        {
-            if (is_null(User::by_name($name))) {
-                $userPage = new UserPage();
-                $userPage->onUserCreation(new UserCreationEvent($name, $name, $name, "$name@$name.com", false));
-                assert(!is_null(User::by_name($name)), "Creation of user $name failed");
-            }
-        }
-
-        private static function check_args(?array $args): array
+        /**
+         * @param array<string, mixed> $args
+         * @return array<string, string|mixed[]>
+         */
+        private static function check_args(array $args): array
         {
             if (!$args) {
                 return [];
@@ -86,8 +88,16 @@ if(class_exists("\\PHPUnit\\Framework\\TestCase")) {
             return $args;
         }
 
-        protected static function request($method, $page_name, $get_args = null, $post_args = null): Page
-        {
+        /**
+         * @param array<string, mixed> $get_args
+         * @param array<string, mixed> $post_args
+         */
+        protected static function request(
+            string $method,
+            string $page_name,
+            array $get_args = [],
+            array $post_args = []
+        ): Page {
             // use a fresh page
             global $page;
             $get_args = self::check_args($get_args);
@@ -96,25 +106,32 @@ if(class_exists("\\PHPUnit\\Framework\\TestCase")) {
             if (str_contains($page_name, "?")) {
                 throw new \RuntimeException("Query string included in page name");
             }
+            $_SERVER['REQUEST_METHOD'] = $method;
             $_SERVER['REQUEST_URI'] = make_link($page_name, http_build_query($get_args));
             $_GET = $get_args;
             $_POST = $post_args;
             $page = new Page();
-            send_event(new PageRequestEvent($method, $page_name));
+            send_event(new PageRequestEvent($method, $page_name, $get_args, $post_args));
             if ($page->mode == PageMode::REDIRECT) {
                 $page->code = 302;
             }
             return $page;
         }
 
-        protected static function get_page($page_name, $args = null): Page
+        /**
+         * @param array<string, mixed> $args
+         */
+        protected static function get_page(string $page_name, array $args = []): Page
         {
-            return self::request("GET", $page_name, $args, null);
+            return self::request("GET", $page_name, $args, []);
         }
 
-        protected static function post_page($page_name, $args = null): Page
+        /**
+         * @param array<string, mixed> $args
+         */
+        protected static function post_page(string $page_name, array $args = []): Page
         {
-            return self::request("POST", $page_name, null, $args);
+            return self::request("POST", $page_name, [], $args);
         }
 
         // page things
@@ -124,7 +141,7 @@ if(class_exists("\\PHPUnit\\Framework\\TestCase")) {
             $this->assertStringContainsString($title, $page->title);
         }
 
-        protected function assert_title_matches($title): void
+        protected function assert_title_matches(string $title): void
         {
             global $page;
             $this->assertStringMatchesFormat($title, $page->title);
@@ -189,7 +206,11 @@ if(class_exists("\\PHPUnit\\Framework\\TestCase")) {
             $this->assertStringNotContainsString($content, $page->data);
         }
 
-        protected function assert_search_results($tags, $results): void
+        /**
+         * @param string[] $tags
+         * @param int[] $results
+         */
+        protected function assert_search_results(array $tags, array $results): void
         {
             $images = Search::find_images(0, null, $tags);
             $ids = [];
@@ -208,12 +229,12 @@ if(class_exists("\\PHPUnit\\Framework\\TestCase")) {
                 $exception = $e;
             }
 
-            if(is_a($exception, $type)) {
-                self::assertThat($exception, new \PHPUnit\Framework\Constraint\Exception($type));
-                return $exception;
-            } else {
-                throw $exception;
-            }
+            self::assertThat(
+                $exception,
+                new \PHPUnit\Framework\Constraint\Exception($type),
+                "Expected exception of type $type, but got " . ($exception ? get_class($exception) : "none")
+            );
+            return $exception;
         }
 
         // user things
@@ -236,10 +257,9 @@ if(class_exists("\\PHPUnit\\Framework\\TestCase")) {
         // post things
         protected function post_image(string $filename, string $tags): int
         {
-            $dae = send_event(new DataUploadEvent($filename, [
+            $dae = send_event(new DataUploadEvent($filename, basename($filename), 0, [
                 "filename" => $filename,
-                "tags" => Tag::explode($tags),
-                "source" => null,
+                "tags" => $tags,
             ]));
             if(count($dae->images) == 0) {
                 throw new \Exception("Upload failed :(");

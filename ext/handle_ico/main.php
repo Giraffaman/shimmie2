@@ -15,10 +15,10 @@ class IcoFileHandler extends DataHandlerExtension
         $event->image->audio = false;
         $event->image->image = ($event->image->get_mime() != MimeType::ANI);
 
-        $fp = fopen($event->image->get_image_filename(), "r");
+        $fp = \Safe\fopen($event->image->get_image_filename(), "r");
         try {
-            unpack("Snull/Stype/Scount", fread($fp, 6));
-            $subheader = unpack("Cwidth/Cheight/Ccolours/Cnull/Splanes/Sbpp/Lsize/loffset", fread($fp, 16));
+            fseek($fp, 6); // skip header
+            $subheader = \Safe\unpack("Cwidth/Cheight/Ccolours/Cnull/Splanes/Sbpp/Lsize/loffset", \Safe\fread($fp, 16));
             $width = $subheader['width'];
             $height = $subheader['height'];
             $event->image->width = $width == 0 ? 256 : $width;
@@ -28,10 +28,10 @@ class IcoFileHandler extends DataHandlerExtension
         }
     }
 
-    protected function create_thumb(string $hash, string $mime): bool
+    protected function create_thumb(Image $image): bool
     {
         try {
-            create_image_thumb($hash, $mime, MediaEngine::IMAGICK);
+            create_image_thumb($image, MediaEngine::IMAGICK);
             return true;
         } catch (MediaException $e) {
             log_warning("handle_ico", "Could not generate thumbnail. " . $e->getMessage());
@@ -41,8 +41,8 @@ class IcoFileHandler extends DataHandlerExtension
 
     protected function check_contents(string $tmpname): bool
     {
-        $fp = fopen($tmpname, "r");
-        $header = unpack("Snull/Stype/Scount", fread($fp, 6));
+        $fp = \Safe\fopen($tmpname, "r");
+        $header = \Safe\unpack("Snull/Stype/Scount", \Safe\fread($fp, 6));
         fclose($fp);
         return ($header['null'] == 0 && ($header['type'] == 0 || $header['type'] == 1));
     }

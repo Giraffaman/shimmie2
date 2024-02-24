@@ -6,9 +6,7 @@ namespace Shimmie2;
 
 use MicroHTML\HTMLElement;
 
-use function MicroHTML\TABLE;
-use function MicroHTML\TR;
-use function MicroHTML\TD;
+use function MicroHTML\{TABLE,TR,TH,TD};
 use function MicroHTML\SMALL;
 use function MicroHTML\rawHTML;
 use function MicroHTML\INPUT;
@@ -42,20 +40,20 @@ class UploadTheme extends Themelet
         $tl_enabled = ($config->get_string(UploadConfig::TRANSLOAD_ENGINE, "none") != "none");
         $max_size = $config->get_int(UploadConfig::SIZE);
         $max_kb = to_shorthand_int($max_size);
-        $max_total_size = parse_shorthand_int(ini_get('post_max_size'));
+        $max_total_size = parse_shorthand_int(ini_get('post_max_size') ?: "0");
         $max_total_kb = to_shorthand_int($max_total_size);
         $upload_list = $this->build_upload_list();
 
-        $form = SHM_FORM("upload", "POST", true, "file_upload");
+        $form = SHM_FORM("upload", multipart: true, form_id: "file_upload");
         $form->appendChild(
             TABLE(
-                ["id" => "large_upload_form"],
+                ["id" => "large_upload_form", "class" => "form"],
                 TR(
-                    TD(["width" => "20"], rawHTML("Common&nbsp;Tags")),
+                    TH(["width" => "20"], "Common Tags"),
                     TD(["colspan" => "6"], INPUT(["name" => "tags", "type" => "text", "placeholder" => "tagme", "class" => "autocomplete_tags"]))
                 ),
                 TR(
-                    TD(["width" => "20"], rawHTML("Common&nbsp;Source")),
+                    TH(["width" => "20"], "Common Source"),
                     TD(["colspan" => "6"], INPUT(["name" => "source", "type" => "text", "placeholder" => "https://..."]))
                 ),
                 $upload_list,
@@ -68,9 +66,10 @@ class UploadTheme extends Themelet
             $form,
             SMALL(
                 "(",
-                $max_size > 0 ? "Per-file limit: $max_kb" : null,
-                $max_total_size > 0 ? " / Total limit: $max_total_kb" : null,
-                " / Current total: ",
+                $max_size > 0 ? "File limit $max_kb" : null,
+                $max_size > 0 && $max_total_size > 0 ? " / " : null,
+                $max_total_size > 0 ? "Total limit $max_total_kb" : null,
+                " / Current total ",
                 SPAN(["id" => "upload_size_tracker"], "0KB"),
                 ")"
             ),
@@ -99,10 +98,11 @@ class UploadTheme extends Themelet
 
         $upload_list->appendChild(
             TR(
-                TD(["colspan" => 2], "Select File"),
-                TD($tl_enabled ? "or URL" : null),
-                TD("Post-Specific Tags"),
-                TD("Post-Specific Source"),
+                ["class" => "header"],
+                TH(["colspan" => 2], "Select File"),
+                TH($tl_enabled ? "or URL" : null),
+                TH("Post-Specific Tags"),
+                TH("Post-Specific Source"),
             )
         );
 
@@ -161,7 +161,7 @@ class UploadTheme extends Themelet
         $title = $config->get_string(SetupConfig::TITLE);
         $max_size = $config->get_int(UploadConfig::SIZE);
         $max_kb = to_shorthand_int($max_size);
-        $delimiter = $config->get_bool('nice_urls') ? '?' : '&amp;';
+        $delimiter = $config->get_bool(SetupConfig::NICE_URLS) ? '?' : '&amp;';
 
         $js = 'javascript:(
             function() {
@@ -210,64 +210,6 @@ class UploadTheme extends Themelet
     }
 
     /**
-     * Only allows 1 file to be uploaded - for replacing another image file.
-     */
-    public function display_replace_page(Page $page, int $image_id)
-    {
-        global $config, $page;
-        $tl_enabled = ($config->get_string(UploadConfig::TRANSLOAD_ENGINE, "none") != "none");
-        $accept = $this->get_accept();
-
-        $upload_list = emptyHTML(
-            TR(
-                TD("File"),
-                TD(INPUT(["name" => "data[]", "type" => "file", "accept" => $accept]))
-            )
-        );
-        if ($tl_enabled) {
-            $upload_list->appendChild(
-                TR(
-                    TD("or URL"),
-                    TD(INPUT(["name" => "url", "type" => "text", "value" => @$_GET['url']]))
-                )
-            );
-        }
-
-        $max_size = $config->get_int(UploadConfig::SIZE);
-        $max_kb = to_shorthand_int($max_size);
-
-        $image = Image::by_id($image_id);
-        $thumbnail = $this->build_thumb_html($image);
-
-        $form = SHM_FORM("replace/".$image_id, "POST", true);
-        $form->appendChild(emptyHTML(
-            TABLE(
-                ["id" => "large_upload_form"],
-                $upload_list,
-                TR(TD("Source"), TD(["colspan" => 3], INPUT(["name" => "source", "type" => "text"]))),
-                TR(TD(["colspan" => 4], INPUT(["id" => "uploadbutton", "type" => "submit", "value" => "Post"]))),
-            )
-        ));
-
-        $html = emptyHTML(
-            P(
-                "Replacing Post ID $image_id",
-                BR(),
-                "Please note: You will have to refresh the post page, or empty your browser cache."
-            ),
-            $thumbnail,
-            BR(),
-            $form,
-            $max_size > 0 ? SMALL("(Max file size is $max_kb)") : null,
-        );
-
-        $page->set_title("Replace Post");
-        $page->set_heading("Replace Post");
-        $page->add_block(new NavBlock());
-        $page->add_block(new Block("Upload Replacement Post", $html, "main", 20));
-    }
-
-    /**
      * @param UploadResult[] $results
      */
     public function display_upload_status(Page $page, array $results): void
@@ -311,11 +253,11 @@ class UploadTheme extends Themelet
 
         $max_size = $config->get_int(UploadConfig::SIZE);
         $max_kb = to_shorthand_int($max_size);
-        $max_total_size = parse_shorthand_int(ini_get('post_max_size')) - 102400; //leave room for http request data
+        $max_total_size = parse_shorthand_int(ini_get('post_max_size') ?: "0");
         $max_total_kb = to_shorthand_int($max_total_size);
 
         // <input type='hidden' name='max_file_size' value='$max_size' />
-        $form = SHM_FORM("upload", "POST", true);
+        $form = SHM_FORM("upload", multipart: true);
         $form->appendChild(
             emptyHTML(
                 INPUT(["id" => "data[]", "name" => "data[]", "size" => "16", "type" => "file", "accept" => $accept, "multiple" => true]),
@@ -327,12 +269,16 @@ class UploadTheme extends Themelet
         return DIV(
             ["class" => 'mini_upload'],
             $form,
-            $max_size > 0 ? SMALL("(Max file size is $max_kb)") : null,
-            $max_total_size > 0 ? SMALL(BR(), "(Max total size is $max_total_kb)") : null,
+            SMALL(
+                "(",
+                $max_size > 0 ? "File limit $max_kb" : null,
+                $max_size > 0 && $max_total_size > 0 ? " / " : null,
+                $max_total_size > 0 ? "Total limit $max_total_kb" : null,
+                ")",
+            ),
             NOSCRIPT(BR(), A(["href" => make_link("upload")], "Larger Form"))
         );
     }
-
     protected function get_accept(): string
     {
         return ".".join(",.", DataHandlerExtension::get_all_supported_exts());

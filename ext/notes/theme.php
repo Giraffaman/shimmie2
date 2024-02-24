@@ -8,6 +8,10 @@ use MicroHTML\HTMLElement;
 
 use function MicroHTML\INPUT;
 
+/**
+ * @phpstan-type NoteHistory array{image_id:int,note_id:int,review_id:int,user_name:string,note:string,date:string}
+ * @phpstan-type Note array{id:int,x1:int,y1:int,height:int,width:int,note:string}
+ */
 class NotesTheme extends Themelet
 {
     public function note_button(int $image_id): HTMLElement
@@ -39,20 +43,11 @@ class NotesTheme extends Themelet
         );
     }
 
-    public function search_notes_page(Page $page): void
-    { //IN DEVELOPMENT, NOT FULLY WORKING
-        $html = '<form method="GET" action="'.search_link(["note="]).'">
-		<input placeholder="Search Notes" type="text" name="search"/>
-		<input type="submit" style="display: none;" value="Find"/>
-		</form>';
-
-        $page->set_title(html_escape("Search Note"));
-        $page->set_heading(html_escape("Search Note"));
-        $page->add_block(new Block("Search Note", $html, "main", 10));
-    }
-
     // check action POST on form
-    public function display_note_system(Page $page, int $image_id, array $recovered_notes, bool $adminOptions): void
+    /**
+     * @param Note[] $recovered_notes
+     */
+    public function display_note_system(Page $page, int $image_id, array $recovered_notes, bool $adminOptions, bool $editOptions): void
     {
         $to_json = [];
         foreach ($recovered_notes as $note) {
@@ -67,20 +62,21 @@ class NotesTheme extends Themelet
             ];
         }
         $page->add_html_header("<script type='text/javascript'>
-        window.notes = ".json_encode($to_json).";
+        window.notes = ".\Safe\json_encode($to_json).";
         window.notes_image_id = $image_id;
         window.notes_admin = ".($adminOptions ? "true" : "false").";
+        window.notes_edit = ".($editOptions ? "true" : "false").";
         </script>");
     }
 
-
-    public function display_note_list($images, $pageNumber, $totalPages)
+    /**
+     * @param array<Image> $images
+     */
+    public function display_note_list(array $images, int $pageNumber, int $totalPages): void
     {
         global $page;
         $pool_images = '';
-        foreach ($images as $pair) {
-            $image = $pair[0];
-
+        foreach ($images as $image) {
             $thumb_html = $this->build_thumb_html($image);
 
             $pool_images .= '<span class="thumb">'.
@@ -94,16 +90,16 @@ class NotesTheme extends Themelet
         $page->add_block(new Block("Notes", $pool_images, "main", 20));
     }
 
-    public function display_note_requests($images, $pageNumber, $totalPages)
+    /**
+     * @param array<Image> $images
+     */
+    public function display_note_requests(array $images, int $pageNumber, int $totalPages): void
     {
         global $page;
 
         $pool_images = '';
-        foreach ($images as $pair) {
-            $image = $pair[0];
-
+        foreach ($images as $image) {
             $thumb_html = $this->build_thumb_html($image);
-
             $pool_images .= '<span class="thumb">'.
                             '    <a href="$image_link">'.$thumb_html.'</a>'.
                             '</span>';
@@ -115,6 +111,9 @@ class NotesTheme extends Themelet
         $page->add_block(new Block("Note Requests", $pool_images, "main", 20));
     }
 
+    /**
+     * @param NoteHistory[] $histories
+     */
     private function get_history(array $histories): string
     {
         global $user;
@@ -157,7 +156,10 @@ class NotesTheme extends Themelet
         return $html;
     }
 
-    public function display_histories($histories, $pageNumber, $totalPages)
+    /**
+     * @param NoteHistory[] $histories
+     */
+    public function display_histories(array $histories, int $pageNumber, int $totalPages): void
     {
         global $page;
 
@@ -170,7 +172,10 @@ class NotesTheme extends Themelet
         $this->display_paginator($page, "note/updated", null, $pageNumber, $totalPages);
     }
 
-    public function display_history($histories, $pageNumber, $totalPages)
+    /**
+     * @param NoteHistory[] $histories
+     */
+    public function display_history(array $histories, int $pageNumber, int $totalPages): void
     {
         global $page;
 

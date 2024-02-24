@@ -19,6 +19,22 @@ enum PageMode: string
     case MANUAL = 'manual';
 }
 
+class Cookie
+{
+    public string $name;
+    public string $value;
+    public int $time;
+    public string $path;
+
+    public function __construct(string $name, string $value, int $time, string $path)
+    {
+        $this->name = $name;
+        $this->value = $value;
+        $this->time = $time;
+        $this->path = $path;
+    }
+}
+
 /**
  * Class Page
  *
@@ -121,7 +137,7 @@ class BasePage
     /** @var string[] */
     public array $http_headers = [];
 
-    /** @var string[][] */
+    /** @var Cookie[] */
     public array $cookies = [];
 
     /** @var Block[] */
@@ -158,7 +174,7 @@ class BasePage
         $this->flash[] = $message;
     }
 
-    public function disable_left()
+    public function disable_left(): void
     {
         $this->left_enabled = false;
     }
@@ -193,7 +209,7 @@ class BasePage
     public function add_cookie(string $name, string $value, int $time, string $path): void
     {
         $full_name = COOKIE_PREFIX . "_" . $name;
-        $this->cookies[] = [$full_name, $value, $time, $path];
+        $this->cookies[] = new Cookie($full_name, $value, $time, $path);
     }
 
     public function get_cookie(string $name): ?string
@@ -254,7 +270,7 @@ class BasePage
                 header($head);
             }
             foreach ($this->cookies as $c) {
-                setcookie($c[0], $c[1], $c[2], $c[3]);
+                setcookie($c->name, $c->value, $c->time, $c->path);
             }
         } else {
             print "Error: Headers have already been sent to the client.";
@@ -292,7 +308,7 @@ class BasePage
                 assert($this->file, "file should not be null with PageMode::FILE");
 
                 // https://gist.github.com/codler/3906826
-                $size = filesize($this->file); // File size
+                $size = \Safe\filesize($this->file); // File size
                 $length = $size;           // Content length
                 $start = 0;               // Start byte
                 $end = $size - 1;       // End byte
@@ -367,8 +383,6 @@ class BasePage
         $data_href = get_base_href();
         $theme_name = $config->get_string(SetupConfig::THEME, 'default');
 
-        $this->add_html_header("<script type='text/javascript'>base_href = '$data_href';</script>", 40);
-
         # static handler will map these to themes/foo/static/bar.ico or ext/static_files/static/bar.ico
         $this->add_html_header("<link rel='icon' type='image/x-icon' href='$data_href/favicon.ico'>", 41);
         $this->add_html_header("<link rel='apple-touch-icon' href='$data_href/apple-touch-icon.png'>", 42);
@@ -404,7 +418,7 @@ class BasePage
         if (!file_exists($css_cache_file)) {
             $mcss = new \MicroBundler\MicroBundler();
             foreach($css_files as $css) {
-                $mcss->addSource($css, file_get_contents($css));
+                $mcss->addSource($css);
             }
             $mcss->save($css_cache_file);
         }
@@ -427,7 +441,7 @@ class BasePage
         if (!file_exists($js_cache_file)) {
             $mcss = new \MicroBundler\MicroBundler();
             foreach($js_files as $js) {
-                $mcss->addSource($js, file_get_contents($js));
+                $mcss->addSource($js);
             }
             $mcss->save($js_cache_file);
         }
@@ -455,7 +469,7 @@ class BasePage
         if (!file_exists($js_cache_file)) {
             $mcss = new \MicroBundler\MicroBundler();
             foreach($js_files as $js) {
-                $mcss->addSource($js, file_get_contents($js));
+                $mcss->addSource($js);
             }
             $mcss->save($js_cache_file);
         }
@@ -464,7 +478,7 @@ class BasePage
     }
 
     /**
-     * @return array A list of stylesheets relative to the theme root.
+     * @return string[] A list of stylesheets relative to the theme root.
      */
     protected function get_theme_stylesheets(): array
     {
@@ -473,13 +487,16 @@ class BasePage
 
 
     /**
-     * @return array A list of script files relative to the theme root.
+     * @return string[] A list of script files relative to the theme root.
      */
     protected function get_theme_scripts(): array
     {
         return ["script.js"];
     }
 
+    /**
+     * @return array{0: NavLink[], 1: NavLink[]}
+     */
     protected function get_nav_links(): array
     {
         $pnbe = send_event(new PageNavBuildingEvent());
@@ -530,7 +547,7 @@ class BasePage
     /**
      * turns the Page into HTML
      */
-    public function render()
+    public function render(): void
     {
         global $config, $user;
 
@@ -539,6 +556,7 @@ class BasePage
 
         $body_attrs = [
             "data-userclass" => $user->class->name,
+            "data-base-href" => get_base_href(),
         ];
 
         print emptyHTML(
@@ -584,16 +602,11 @@ class BasePage
             }
         }
 
-        $wrapper = "";
-        if (strlen($this->heading) > 100) {
-            $wrapper = ' style="height: 3em; overflow: auto;"';
-        }
-
         $footer_html = $this->footer_html();
         $flash_html = $this->flash ? "<b id='flash'>".nl2br(html_escape(implode("\n", $this->flash)))."</b>" : "";
         return "
             <header>
-                <h1$wrapper>{$this->heading}</h1>
+                <h1>{$this->heading}</h1>
                 $sub_block_html
             </header>
             <nav>
@@ -630,9 +643,10 @@ class BasePage
 
 class PageNavBuildingEvent extends Event
 {
+    /** @var NavLink[] */
     public array $links = [];
 
-    public function add_nav_link(string $name, Link $link, string $desc, ?bool $active = null, int $order = 50)
+    public function add_nav_link(string $name, Link $link, string $desc, ?bool $active = null, int $order = 50): void
     {
         $this->links[]  = new NavLink($name, $link, $desc, $active, $order);
     }
@@ -642,6 +656,7 @@ class PageSubNavBuildingEvent extends Event
 {
     public string $parent;
 
+    /** @var NavLink[] */
     public array $links = [];
 
     public function __construct(string $parent)
@@ -650,7 +665,7 @@ class PageSubNavBuildingEvent extends Event
         $this->parent = $parent;
     }
 
-    public function add_nav_link(string $name, Link $link, string|HTMLElement $desc, ?bool $active = null, int $order = 50)
+    public function add_nav_link(string $name, Link $link, string|HTMLElement $desc, ?bool $active = null, int $order = 50): void
     {
         $this->links[]  = new NavLink($name, $link, $desc, $active, $order);
     }
@@ -673,7 +688,7 @@ class NavLink
         $this->description = $description;
         $this->order = $order;
         if ($active == null) {
-            $query = ltrim(_get_query(), "/");
+            $query = _get_query();
             if ($query === "") {
                 // This indicates the front page, so we check what's set as the front page
                 $front_page = trim($config->get_string(SetupConfig::FRONT_PAGE), "/");
@@ -693,12 +708,15 @@ class NavLink
         }
     }
 
+    /**
+     * @param string[] $pages_matched
+     */
     public static function is_active(array $pages_matched, string $url = null): bool
     {
         /**
          * Woo! We can actually SEE THE CURRENT PAGE!! (well... see it highlighted in the menu.)
          */
-        $url = $url ?? ltrim(_get_query(), "/");
+        $url = $url ?? _get_query();
 
         $re1 = '.*?';
         $re2 = '((?:[a-z][a-z_]+))';

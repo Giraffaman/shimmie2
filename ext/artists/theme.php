@@ -9,6 +9,12 @@ use MicroHTML\HTMLElement;
 use function MicroHTML\emptyHTML;
 use function MicroHTML\{INPUT,P};
 
+/**
+ * @phpstan-type ArtistArtist array{id:int,artist_id:int,user_name:string,name:string,notes:string,type:string,posts:int}
+ * @phpstan-type ArtistAlias array{id:int,alias_id:int,alias_name:string,alias:string}
+ * @phpstan-type ArtistMember array{id:int,name:string}
+ * @phpstan-type ArtistUrl array{id:int,url:string}
+ */
 class ArtistsTheme extends Themelet
 {
     public function get_author_editor_html(string $author): HTMLElement
@@ -16,57 +22,50 @@ class ArtistsTheme extends Themelet
         return SHM_POST_INFO(
             "Author",
             $author,
-            INPUT(["type" => "text", "name" => "tag_edit__author", "value" => $author])
+            INPUT(["type" => "text", "name" => "author", "value" => $author])
         );
     }
 
-    public function sidebar_options(string $mode, ?int $artistID = null, $is_admin = false): void
+    public function sidebar_options(string $mode, ?int $artistID = null, bool $is_admin = false): void
     {
         global $page, $user;
 
         $html = "";
 
         if ($mode == "neutral") {
-            $html = "<form method='post' action='".make_link("artist/new_artist")."'>
-						".$user->get_auth_html()."
+            $html = make_form(make_link("artist/new_artist"))."
 						<input type='submit' name='edit' id='edit' value='New Artist'/>
 					</form>";
         }
 
         if ($mode == "editor") {
-            $html = "<form method='post' action='".make_link("artist/new_artist")."'>
-						".$user->get_auth_html()."
+            $html = make_form(make_link("artist/new_artist"))."
 						<input type='submit' name='edit' value='New Artist'/>
 					</form>
 
-					<form method='post' action='".make_link("artist/edit_artist")."'>
-						".$user->get_auth_html()."
+					".make_form(make_link("artist/edit_artist"))."
 						<input type='submit' name='edit' value='Edit Artist'/>
 						<input type='hidden' name='artist_id' value='".$artistID."'>
 					</form>";
 
             if ($is_admin) {
-                $html .= "<form method='post' action='".make_link("artist/nuke_artist")."'>
-							".$user->get_auth_html()."
+                $html .= make_form(make_link("artist/nuke_artist"))."
 							<input type='submit' name='edit' value='Delete Artist'/>
 							<input type='hidden' name='artist_id' value='".$artistID."'>
 						</form>";
             }
 
-            $html .= "<form method='post' action='".make_link("artist/add_alias")."'>
-							".$user->get_auth_html()."
+            $html .= make_form(make_link("artist/add_alias"))."
 							<input type='submit' name='edit' value='Add Alias'/>
 							<input type='hidden' name='artist_id' value='".$artistID."'>
 						</form>
 
-						<form method='post' action='".make_link("artist/add_member")."'>
-							".$user->get_auth_html()."
+						".make_form(make_link("artist/add_member"))."
 							<input type='submit' name='edit' value='Add Member'/>
 							<input type='hidden' name='artist_id' value='".$artistID."'>
 						</form>
 
-						<form method='post' action='".make_link("artist/add_url")."'>
-							".$user->get_auth_html()."
+						".make_form(make_link("artist/add_url"))."
 							<input type='submit' name='edit' value='Add Url'/>
 							<input type='hidden' name='artist_id' value='".$artistID."'>
 						</form>";
@@ -77,7 +76,13 @@ class ArtistsTheme extends Themelet
         }
     }
 
-    public function show_artist_editor($artist, $aliases, $members, $urls)
+    /**
+     * @param ArtistArtist $artist
+     * @param ArtistAlias[] $aliases
+     * @param ArtistMember[] $members
+     * @param ArtistUrl[] $urls
+     */
+    public function show_artist_editor(array $artist, array $aliases, array $members, array $urls): void
     {
         global $user;
 
@@ -115,9 +120,7 @@ class ArtistsTheme extends Themelet
         $urlsString = substr($urlsString, 0, strlen($urlsString) - 1);
         $urlsIDsString = rtrim($urlsIDsString);
 
-        $html = '
-			<form method="POST" action="'.make_link("artist/edited/".$artist['id']).'">
-				'.$user->get_auth_html().'
+        $html = make_form(make_link("artist/edited/".$artist['id'])).'
 				<table>
 					<tr><td>Name:</td><td><input type="text" name="name" value="'.$artistName.'" />
 										  <input type="hidden" name="id" value="'.$artistID.'" /></td></tr>
@@ -137,12 +140,11 @@ class ArtistsTheme extends Themelet
         $page->add_block(new Block("Edit artist", $html, "main", 10));
     }
 
-    public function new_artist_composer()
+    public function new_artist_composer(): void
     {
         global $page, $user;
 
-        $html = "<form action=".make_link("artist/create")." method='POST'>
-			".$user->get_auth_html()."
+        $html = make_form(make_link("artist/create"))."
 			<table>
 				<tr><td>Name:</td><td><input type='text' name='name' /></td></tr>
 				<tr><td>Aliases:</td><td><input type='text' name='aliases' /></td></tr>
@@ -158,7 +160,10 @@ class ArtistsTheme extends Themelet
         $page->add_block(new Block("Artists", $html, "main", 10));
     }
 
-    public function list_artists($artists, $pageNumber, $totalPages)
+    /**
+    * @param ArtistArtist[] $artists
+    */
+    public function list_artists(array $artists, int $pageNumber, int $totalPages): void
     {
         global $user, $page;
 
@@ -237,13 +242,11 @@ class ArtistsTheme extends Themelet
         $this->display_paginator($page, "artist/list", null, $pageNumber, $totalPages);
     }
 
-    public function show_new_alias_composer($artistID)
+    public function show_new_alias_composer(int $artistID): void
     {
         global $user;
 
-        $html = '
-			<form method="POST" action='.make_link("artist/alias/add").'>
-				'.$user->get_auth_html().'
+        $html = make_form(make_link("artist/alias/add")).'
 				  <table>
 					<tr><td>Alias:</td><td><input type="text" name="aliases" />
 										   <input type="hidden" name="artistID" value='.$artistID.' /></td></tr>
@@ -256,13 +259,11 @@ class ArtistsTheme extends Themelet
         $page->add_block(new Block("Artist Aliases", $html, "main", 20));
     }
 
-    public function show_new_member_composer($artistID)
+    public function show_new_member_composer(int $artistID): void
     {
         global $user;
 
-        $html = '
-			<form method="POST" action='.make_link("artist/member/add").'>
-				'.$user->get_auth_html().'
+        $html = make_form(make_link("artist/member/add")).'
 				<table>
 					<tr><td>Members:</td><td><input type="text" name="members" />
 										   <input type="hidden" name="artistID" value='.$artistID.' /></td></tr>
@@ -275,13 +276,11 @@ class ArtistsTheme extends Themelet
         $page->add_block(new Block("Artist members", $html, "main", 30));
     }
 
-    public function show_new_url_composer($artistID)
+    public function show_new_url_composer(int $artistID): void
     {
         global $user;
 
-        $html = '
-			<form method="POST" action='.make_link("artist/url/add").'>
-				'.$user->get_auth_html().'
+        $html = make_form(make_link("artist/url/add")).'
 				<table>
 					<tr><td>URL:</td><td><textarea name="urls"></textarea>
 									   <input type="hidden" name="artistID" value='.$artistID.' /></td></tr>
@@ -294,13 +293,14 @@ class ArtistsTheme extends Themelet
         $page->add_block(new Block("Artist URLs", $html, "main", 40));
     }
 
-    public function show_alias_editor($alias)
+    /**
+     * @param ArtistAlias $alias
+     */
+    public function show_alias_editor(array $alias): void
     {
         global $user;
 
-        $html = '
-			<form method="POST" action="'.make_link("artist/alias/edited/".$alias['id']).'">
-				'.$user->get_auth_html().'
+        $html = make_form(make_link("artist/alias/edited/".$alias['id'])).'
 				<label for="alias">Alias:</label>
 				<input type="text" name="alias" id="alias" value="'.$alias['alias'].'" />
 				<input type="hidden" name="aliasID" value="'.$alias['id'].'" />
@@ -312,13 +312,14 @@ class ArtistsTheme extends Themelet
         $page->add_block(new Block("Edit Alias", $html, "main", 10));
     }
 
-    public function show_url_editor($url)
+    /**
+     * @param ArtistUrl $url
+     */
+    public function show_url_editor(array $url): void
     {
         global $user;
 
-        $html = '
-			<form method="POST" action="'.make_link("artist/url/edited/".$url['id']).'">
-				'.$user->get_auth_html().'
+        $html = make_form(make_link("artist/url/edited/".$url['id'])).'
 				<label for="url">URL:</label>
 				<input type="text" name="url" id="url" value="'.$url['url'].'" />
 				<input type="hidden" name="urlID" value="'.$url['id'].'" />
@@ -330,13 +331,14 @@ class ArtistsTheme extends Themelet
         $page->add_block(new Block("Edit URL", $html, "main", 10));
     }
 
-    public function show_member_editor($member)
+    /**
+     * @param ArtistMember $member
+     */
+    public function show_member_editor(array $member): void
     {
         global $user;
 
-        $html = '
-			<form method="POST" action="'.make_link("artist/member/edited/".$member['id']).'">
-				'.$user->get_auth_html().'
+        $html = make_form(make_link("artist/member/edited/".$member['id'])).'
 				<label for="name">Member name:</label>
 				<input type="text" name="name" id="name" value="'.$member['name'].'" />
 				<input type="hidden" name="memberID" value="'.$member['id'].'" />
@@ -348,7 +350,14 @@ class ArtistsTheme extends Themelet
         $page->add_block(new Block("Edit Member", $html, "main", 10));
     }
 
-    public function show_artist($artist, $aliases, $members, $urls, $images, $userIsLogged, $userIsAdmin)
+    /**
+     * @param ArtistArtist $artist
+     * @param ArtistAlias[] $aliases
+     * @param ArtistMember[] $members
+     * @param ArtistUrl[] $urls
+     * @param Image[] $images
+     */
+    public function show_artist(array $artist, array $aliases, array $members, array $urls, array $images, bool $userIsLogged, bool $userIsAdmin): void
     {
         global $page;
 
@@ -416,6 +425,9 @@ class ArtistsTheme extends Themelet
         $page->add_block(new Block("Artist Posts", $artist_images, "main", 20));
     }
 
+    /**
+     * @param ArtistAlias[] $aliases
+     */
     private function render_aliases(array $aliases, bool $userIsLogged, bool $userIsAdmin): string
     {
         $html = "";
@@ -462,6 +474,9 @@ class ArtistsTheme extends Themelet
         return $html;
     }
 
+    /**
+     * @param ArtistMember[] $members
+     */
     private function render_members(array $members, bool $userIsLogged, bool $userIsAdmin): string
     {
         $html = "";
@@ -506,6 +521,9 @@ class ArtistsTheme extends Themelet
         return $html;
     }
 
+    /**
+     * @param ArtistUrl[] $urls
+     */
     private function render_urls(array $urls, bool $userIsLogged, bool $userIsAdmin): string
     {
         $html = "";

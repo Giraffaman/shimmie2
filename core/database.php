@@ -19,8 +19,12 @@ enum DatabaseDriverID: string
 class DatabaseException extends SCoreException
 {
     public string $query;
+    /** @var array<string, mixed> */
     public array $args;
 
+    /**
+     * @param array<string, mixed> $args
+     */
     public function __construct(string $msg, string $query, array $args)
     {
         parent::__construct($msg);
@@ -32,6 +36,8 @@ class DatabaseException extends SCoreException
 
 /**
  * A class for controlled database access
+ *
+ * @phpstan-type QueryArgs array<string, string|int|bool|null>
  */
 class Database
 {
@@ -52,6 +58,7 @@ class Database
      * How many queries this DB object has run
      */
     public int $query_count = 0;
+    /** @var string[] */
     public array $queries = [];
 
     public function __construct(string $dsn)
@@ -75,7 +82,7 @@ class Database
         if (preg_match("/^([^:]*)/", $this->dsn, $matches)) {
             $db_proto = $matches[1];
         } else {
-            throw new SCoreException("Can't figure out database engine");
+            throw new ServerError("Can't figure out database engine");
         }
 
         if ($db_proto === DatabaseDriverID::MYSQL->value) {
@@ -109,7 +116,7 @@ class Database
         if ($this->is_transaction_open()) {
             return $this->get_db()->commit();
         } else {
-            throw new SCoreException("Unable to call commit() as there is no transaction currently open.");
+            throw new ServerError("Unable to call commit() as there is no transaction currently open.");
         }
     }
 
@@ -118,7 +125,29 @@ class Database
         if ($this->is_transaction_open()) {
             return $this->get_db()->rollback();
         } else {
-            throw new SCoreException("Unable to call rollback() as there is no transaction currently open.");
+            throw new ServerError("Unable to call rollback() as there is no transaction currently open.");
+        }
+    }
+
+    /**
+     * @template T
+     * @param callable():T $callback
+     * @return T
+     */
+    public function with_savepoint(callable $callback, string $name = "sp"): mixed
+    {
+        global $_tracer;
+        try {
+            $_tracer->begin("Savepoint $name");
+            $this->execute("SAVEPOINT $name");
+            $ret = $callback();
+            $this->execute("RELEASE SAVEPOINT $name");
+            $_tracer->end();
+            return $ret;
+        } catch (\Exception $e) {
+            $this->execute("ROLLBACK TO SAVEPOINT $name");
+            $_tracer->end();
+            throw $e;
         }
     }
 
@@ -145,13 +174,15 @@ class Database
         return $this->get_engine()->get_version($this->get_db());
     }
 
+    /**
+     * @param QueryArgs $args
+     */
     private function count_time(string $method, float $start, string $query, ?array $args): void
     {
         global $_tracer, $tracer_enabled;
         $dur = ftime() - $start;
         // trim whitespace
-        $query = preg_replace('/[\n\t ]/m', ' ', $query);
-        $query = preg_replace('/  +/m', ' ', $query);
+        $query = preg_replace('/[\n\t ]+/m', ' ', $query);
         $query = trim($query);
         if ($tracer_enabled) {
             $_tracer->complete($start * 1000000, $dur * 1000000, "DB Query", ["query" => $query, "args" => $args, "method" => $method]);
@@ -171,11 +202,15 @@ class Database
         $this->get_engine()->notify($this->get_db(), $channel, $data);
     }
 
+    /**
+     * @param QueryArgs $args
+     */
     public function _execute(string $query, array $args = []): PDOStatement
     {
         try {
+            $uri = $_SERVER['REQUEST_URI'] ?? "unknown uri";
             return $this->get_db()->execute(
-                "-- " . str_replace("%2F", "/", urlencode($_GET['q'] ?? '')). "\n" .
+                "-- $uri\n" .
                 $query,
                 $args
             );
@@ -186,6 +221,8 @@ class Database
 
     /**
      * Execute an SQL query with no return
+     *
+     * @param QueryArgs $args
      */
     public function execute(string $query, array $args = []): PDOStatement
     {
@@ -197,6 +234,9 @@ class Database
 
     /**
      * Execute an SQL query and return a 2D array.
+     *
+     * @param QueryArgs $args
+     * @return array<array<string, mixed>>
      */
     public function get_all(string $query, array $args = []): array
     {
@@ -208,6 +248,8 @@ class Database
 
     /**
      * Execute an SQL query and return a iterable object for use with generators.
+     *
+     * @param QueryArgs $args
      */
     public function get_all_iterable(string $query, array $args = []): PDOStatement
     {
@@ -219,6 +261,9 @@ class Database
 
     /**
      * Execute an SQL query and return a single row.
+     *
+     * @param QueryArgs $args
+     * @return array<string, mixed>
      */
     public function get_row(string $query, array $args = []): ?array
     {
@@ -230,6 +275,9 @@ class Database
 
     /**
      * Execute an SQL query and return the first column of each row.
+     *
+     * @param QueryArgs $args
+     * @return array<mixed>
      */
     public function get_col(string $query, array $args = []): array
     {
@@ -241,6 +289,8 @@ class Database
 
     /**
      * Execute an SQL query and return the first column of each row as a single iterable object.
+     *
+     * @param QueryArgs $args
      */
     public function get_col_iterable(string $query, array $args = []): \Generator
     {
@@ -254,6 +304,9 @@ class Database
 
     /**
      * Execute an SQL query and return the the first column => the second column.
+     *
+     * @param QueryArgs $args
+     * @return array<string, mixed>
      */
     public function get_pairs(string $query, array $args = []): array
     {
@@ -266,6 +319,8 @@ class Database
 
     /**
      * Execute an SQL query and return the the first column => the second column as an iterable object.
+     *
+     * @param QueryArgs $args
      */
     public function get_pairs_iterable(string $query, array $args = []): \Generator
     {
@@ -279,8 +334,10 @@ class Database
 
     /**
      * Execute an SQL query and return a single value, or null.
+     *
+     * @param QueryArgs $args
      */
-    public function get_one(string $query, array $args = [])
+    public function get_one(string $query, array $args = []): mixed
     {
         $_start = ftime();
         $row = $this->_execute($query, $args)->fetch();
@@ -290,6 +347,8 @@ class Database
 
     /**
      * Execute an SQL query and returns a bool indicating if any data was returned
+     *
+     * @param QueryArgs $args
      */
     public function exists(string $query, array $args = []): bool
     {
@@ -330,8 +389,6 @@ class Database
 
     /**
      * Returns the number of tables present in the current database.
-     *
-     * @throws SCoreException
      */
     public function count_tables(): int
     {
@@ -348,7 +405,8 @@ class Database
                 $this->get_all("SELECT name FROM sqlite_master WHERE type = 'table'")
             );
         } else {
-            throw new SCoreException("Can't count tables for database type {$this->get_engine()->id}");
+            $did = (string)$this->get_engine()->id;
+            throw new ServerError("Can't count tables for database type {$did}");
         }
     }
 
@@ -380,5 +438,20 @@ class Database
             $this->execute("ALTER TABLE $table DROP COLUMN $column");
             $this->execute("ALTER TABLE $table RENAME COLUMN {$column}_b TO $column");
         }
+    }
+
+    /**
+     * Generates a deterministic pseudorandom order based on a seed and a column ID
+     */
+    public function seeded_random(int $seed, string $id_column): string
+    {
+        $d = $this->get_driver_id();
+        if ($d == DatabaseDriverID::MYSQL) {
+            // MySQL supports RAND(n), where n is a random seed. Use that.
+            return "RAND($seed)";
+        }
+
+        // As fallback, use MD5 as a DRBG.
+        return "MD5(CONCAT($seed, CONCAT('+', $id_column)))";
     }
 }

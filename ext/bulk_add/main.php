@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Shimmie2;
 
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\{InputInterface,InputArgument};
+use Symfony\Component\Console\Output\OutputInterface;
+
 class BulkAddEvent extends Event
 {
     public string $dir;
@@ -23,45 +27,42 @@ class BulkAdd extends Extension
     /** @var BulkAddTheme */
     protected Themelet $theme;
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page, $user;
-        if ($event->page_matches("bulk_add")) {
-            if ($user->can(Permissions::BULK_ADD) && $user->check_auth_token() && isset($_POST['dir'])) {
-                shm_set_timeout(null);
-                $bae = send_event(new BulkAddEvent($_POST['dir']));
-                $this->theme->display_upload_results($page, $bae->results);
-            }
+        if ($event->page_matches("bulk_add", method: "POST", permission: Permissions::BULK_ADD)) {
+            $dir = $event->req_POST('dir');
+            shm_set_timeout(null);
+            $bae = send_event(new BulkAddEvent($dir));
+            $this->theme->display_upload_results($page, $bae->results);
         }
     }
 
-    public function onCommand(CommandEvent $event)
+    public function onCliGen(CliGenEvent $event): void
     {
-        if ($event->cmd == "help") {
-            print "\tbulk-add [directory]\n";
-            print "\t\tImport this directory\n\n";
-        }
-        if ($event->cmd == "bulk-add") {
-            if (count($event->args) == 1) {
-                $bae = send_event(new BulkAddEvent($event->args[0]));
+        $event->app->register('bulk-add')
+            ->addArgument('directory', InputArgument::REQUIRED)
+            ->setDescription('Import a directory of images')
+            ->setCode(function (InputInterface $input, OutputInterface $output): int {
+                $dir = $input->getArgument('directory');
+                $bae = send_event(new BulkAddEvent($dir));
                 foreach ($bae->results as $r) {
                     if(is_a($r, UploadError::class)) {
-                        print($r->name." failed: ".$r->error."\n");
+                        $output->writeln($r->name." failed: ".$r->error);
                     } else {
-                        print($r->name." ok\n");
+                        $output->writeln($r->name." ok");
                     }
                 }
-                print(implode("\n", $bae->results));
-            }
-        }
+                return Command::SUCCESS;
+            });
     }
 
-    public function onAdminBuilding(AdminBuildingEvent $event)
+    public function onAdminBuilding(AdminBuildingEvent $event): void
     {
         $this->theme->display_admin_block();
     }
 
-    public function onBulkAdd(BulkAddEvent $event)
+    public function onBulkAdd(BulkAddEvent $event): void
     {
         if (is_dir($event->dir) && is_readable($event->dir)) {
             $event->results = add_dir($event->dir);

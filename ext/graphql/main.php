@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Shimmie2;
 
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\{InputInterface,InputArgument};
+use Symfony\Component\Console\Output\OutputInterface;
+
 use GraphQL\GraphQL as GQL;
 use GraphQL\Server\StandardServer;
 use GraphQL\Error\DebugFlag;
@@ -25,13 +29,14 @@ class MetadataInput
     public static function update_post_metadata(int $post_id, MetadataInput $metadata): Image
     {
         global $user;
-        $_POST['tag_edit__tags'] = $metadata->tags;
-        $_POST['tag_edit__source'] = $metadata->source;
-        $image = Image::by_id($post_id);
+        $image = Image::by_id_ex($post_id);
         if (!$image->is_locked() || $user->can(Permissions::EDIT_IMAGE_LOCK)) {
-            send_event(new ImageInfoSetEvent($image));
+            send_event(new ImageInfoSetEvent($image, 0, [
+                'tags' => $metadata->tags,
+                'source' => $metadata->source,
+            ]));
         }
-        return Image::by_id($post_id);
+        return Image::by_id_ex($post_id);
     }
 }
 
@@ -70,14 +75,14 @@ class GraphQL extends Extension
         }
     }
 
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
         $config->set_default_string('graphql_cors_pattern', "");
         $config->set_default_bool('graphql_debug', false);
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $config, $page;
         if ($event->page_matches("graphql")) {
@@ -88,6 +93,8 @@ class GraphQL extends Extension
             ]);
             $t2 = ftime();
             $resp = $server->executeRequest();
+            assert(!is_array($resp));
+            assert(is_a($resp, \GraphQL\Executor\ExecutionResult::class));
             if ($config->get_bool("graphql_debug")) {
                 $debug = DebugFlag::INCLUDE_DEBUG_MESSAGE | DebugFlag::RETHROW_INTERNAL_EXCEPTIONS;
                 $body = $resp->toArray($debug);
@@ -101,16 +108,19 @@ class GraphQL extends Extension
             // sleep(1);
             $page->set_mode(PageMode::DATA);
             $page->set_mime("application/json");
-            $page->set_data(\json_encode($body, JSON_UNESCAPED_UNICODE));
+            $page->set_data(\Safe\json_encode($body, JSON_UNESCAPED_UNICODE));
         }
         if ($event->page_matches("graphql_upload")) {
             $this->cors();
             $page->set_mode(PageMode::DATA);
             $page->set_mime("application/json");
-            $page->set_data(\json_encode(self::handle_uploads()));
+            $page->set_data(\Safe\json_encode(self::handle_uploads()));
         }
     }
 
+    /**
+     * @return array{error?:string,results?:array<array{error?:string,image_ids?:int[]}>}
+     */
     private static function handle_uploads(): array
     {
         global $user;
@@ -131,7 +141,7 @@ class GraphQL extends Extension
                 break;
             }
             try {
-                $results[] = self::handle_upload($n, $common_tags, $common_source);
+                $results[] = ["image_ids" => self::handle_upload($n, $common_tags, $common_source)];
             } catch(\Exception $e) {
                 $results[] = ["error" => $e->getMessage()];
             }
@@ -139,12 +149,14 @@ class GraphQL extends Extension
         return ["results" => $results];
     }
 
+    /**
+     * @return int[]
+     */
     private static function handle_upload(int $n, string $common_tags, string $common_source): array
     {
+        global $database;
         if (!empty($_POST["url$n"])) {
-            return ["error" => "URLs not handled yet"];
-            $tmpname = "...";
-            $filename = "...";
+            throw new UploadException("URLs not handled yet");
         } else {
             $ec = $_FILES["data$n"]["error"];
             switch($ec) {
@@ -153,9 +165,9 @@ class GraphQL extends Extension
                     $filename = $_FILES["data$n"]["name"];
                     break;
                 case UPLOAD_ERR_INI_SIZE:
-                    return ["error" => "File larger than PHP can handle"];
+                    throw new UploadException("File larger than PHP can handle");
                 default:
-                    return ["error" => "Mystery error: $ec"];
+                    throw new UploadException("Mystery error: $ec");
             }
         }
 
@@ -164,38 +176,41 @@ class GraphQL extends Extension
         if (!empty($_POST["source$n"])) {
             $source = $_POST["source$n"];
         }
-        $event = send_event(new DataUploadEvent($tmpname, [
-            'filename' => $filename,
-            'tags' => Tag::explode($tags),
-            'source' => $source,
-        ]));
+        $event = $database->with_savepoint(function () use ($tmpname, $filename, $n, $tags, $source) {
+            return send_event(new DataUploadEvent($tmpname, $filename, $n, [
+                'tags' => Tag::explode($tags),
+                'source' => $source,
+            ]));
+        });
 
-        return ["image_ids" => array_map(fn ($im) => $im->id, $event->images)];
+        return array_map(fn ($im) => $im->id, $event->images);
     }
 
-    public function onCommand(CommandEvent $event)
+    public function onCliGen(CliGenEvent $event): void
     {
-        if ($event->cmd == "help") {
-            print "\tgraphql <query string>\n";
-            print "\t\teg 'graphql \"{ post(id: 18) { id, hash } }\"'\n\n";
-            print "\tgraphql-schema\n";
-            print "\t\tdump the schema\n\n";
-        }
-        if ($event->cmd == "graphql") {
-            $t1 = ftime();
-            $schema = $this->get_schema();
-            $t2 = ftime();
-            $debug = DebugFlag::INCLUDE_DEBUG_MESSAGE | DebugFlag::RETHROW_INTERNAL_EXCEPTIONS;
-            $body = GQL::executeQuery($schema, $event->args[0])->toArray($debug);
-            $t3 = ftime();
-            $body['stats'] = get_debug_info_arr();
-            $body['stats']['graphql_schema_time'] = round($t2 - $t1, 2);
-            $body['stats']['graphql_execute_time'] = round($t3 - $t2, 2);
-            echo \json_encode($body, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-        }
-        if ($event->cmd == "graphql-schema") {
-            $schema = $this->get_schema();
-            echo(SchemaPrinter::doPrint($schema));
-        }
+        $event->app->register('graphql:query')
+            ->addArgument('query', InputArgument::REQUIRED)
+            ->setDescription('Run a GraphQL query')
+            ->setCode(function (InputInterface $input, OutputInterface $output): int {
+                $query = $input->getArgument('query');
+                $t1 = ftime();
+                $schema = $this->get_schema();
+                $t2 = ftime();
+                $debug = DebugFlag::INCLUDE_DEBUG_MESSAGE | DebugFlag::RETHROW_INTERNAL_EXCEPTIONS;
+                $body = GQL::executeQuery($schema, $query)->toArray($debug);
+                $t3 = ftime();
+                $body['stats'] = get_debug_info_arr();
+                $body['stats']['graphql_schema_time'] = round($t2 - $t1, 2);
+                $body['stats']['graphql_execute_time'] = round($t3 - $t2, 2);
+                echo \Safe\json_encode($body, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+                return Command::SUCCESS;
+            });
+        $event->app->register('graphql:schema')
+            ->setDescription('Print out the GraphQL schema')
+            ->setCode(function (InputInterface $input, OutputInterface $output): int {
+                $schema = $this->get_schema();
+                echo(SchemaPrinter::doPrint($schema));
+                return Command::SUCCESS;
+            });
     }
 }

@@ -36,13 +36,14 @@ function updateCompletions(element) {
 		clearTimeout(element.completer_timeout);
 		element.completer_timeout = null;
 	}
-	if(word === '') {
+	if(word === '' || word === '-') {
 		element.completions = {};
 		renderCompletions(element);
 	}
 	else {
 		element.completer_timeout = setTimeout(() => {
-			fetch(base_href + '/api/internal/autocomplete?s=' + word).then(
+			const wordWithoutMinus = word.replace(/^-/, '');
+			fetch((document.body.getAttribute("data-base-href") ?? "") + '/api/internal/autocomplete?s=' + wordWithoutMinus).then(
 				(response) => response.json()
 			).then((json) => {
 				if(element.selected_completion !== -1) {
@@ -97,13 +98,14 @@ function renderCompletions(element) {
 	Object.keys(completions).filter(
 		(key) => {
 			let k = key.toLowerCase();
-			let w = word.toLowerCase();
-			return k.split(':').some((k) => k.startsWith(w))
+			let w = word.replace(/^-/, '').toLowerCase();
+			return (k.startsWith(w) || k.split(':').some((k) => k.startsWith(w)))
 		}
 	).slice(0, 100).forEach((key, i) => {
-		let value = completions[key];
 		let li = document.createElement('li');
-		li.innerText = key + ' (' + value + ')';
+		li.innerText = completions[key].newtag ?
+			`${key} → ${completions[key].newtag} (${completions[key].count})` :
+			`${key} (${completions[key].count})` ;
 		if(i === selected_completion) {
 			li.className = 'selected';
 		}
@@ -162,6 +164,11 @@ function setCompletion(element, new_word) {
 	let text = element.value;
 	let pos = element.selectionStart;
 
+	// resolve alias before setting the word
+	if(element.completions[new_word].newtag) {
+		new_word = element.completions[new_word].newtag;
+	}
+
 	// get the word before the cursor
 	var start = text.lastIndexOf(' ', pos-1);
 	if(start === -1) {
@@ -176,6 +183,9 @@ function setCompletion(element, new_word) {
 	}
 
 	// replace the word with the completion
+	if(text[start] === '-') {
+		new_word = '-' + new_word;
+	}
 	new_word += ' ';
 	element.value = text.substring(0, start) + new_word + text.substring(end);
 	element.selectionStart = start + new_word.length;
@@ -200,6 +210,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 		// disable built-in autocomplete
 		element.setAttribute('autocomplete', 'off');
+
+		// safari treats spellcheck as a form of autocomplete
+		element.setAttribute('spellcheck', 'off');
 	
 		// when element is focused, add completion block
 		element.addEventListener('focus', () => {
@@ -225,17 +238,18 @@ document.addEventListener('DOMContentLoaded', () => {
 				event.preventDefault();
 				highlightCompletion(element, element.selected_completion-1);
 			}
-			if(event.code === "ArrowDown") {
+			else if(event.code === "ArrowDown") {
 				event.preventDefault();
 				highlightCompletion(element, element.selected_completion+1);
 			}
-			// if enter or right are pressed, add the selected completion
-			if((event.code === "Enter" || event.code == "ArrowRight") && element.selected_completion !== -1) {
+			// if enter or right are pressed while a completion is selected, add the selected completion
+			else if((event.code === "Enter" || event.code == "ArrowRight") && element.selected_completion !== -1) {
 				event.preventDefault();
-				setCompletion(element, Object.keys(element.completions)[element.selected_completion]);
+				const key = Object.keys(element.completions)[element.selected_completion]
+				setCompletion(element, key);
 			}
 			// if escape is pressed, hide the completion block
-			if(event.code === "Escape") {
+			else if(event.code === "Escape") {
 				event.preventDefault();
 				hideCompletions();
 			}

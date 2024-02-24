@@ -8,14 +8,14 @@ class ImageBanTest extends ShimmiePHPUnitTestCase
 {
     private string $hash = "feb01bab5698a11dd87416724c7a89e3";
 
-    public function testPages()
+    public function testPages(): void
     {
         $this->log_in_as_admin();
         $page = $this->get_page("image_hash_ban/list");
         $this->assertEquals(200, $page->code);
     }
 
-    public function testBan()
+    public function testBan(): void
     {
         $this->log_in_as_admin();
 
@@ -26,19 +26,17 @@ class ImageBanTest extends ShimmiePHPUnitTestCase
 
         // Ban & delete
         send_event(new AddImageHashBanEvent($this->hash, "test hash ban"));
-        send_event(new ImageDeletionEvent(Image::by_id($image_id), true));
+        send_event(new ImageDeletionEvent(Image::by_id_ex($image_id), true));
 
         // Check deleted
-        $page = $this->get_page("post/view/$image_id");
-        $this->assertEquals(404, $page->code);
+        $this->assertException(ImageNotFound::class, function () use ($image_id) {
+            $this->get_page("post/view/$image_id");
+        });
 
         // Can't repost
-        try {
+        $this->assertException(UploadException::class, function () {
             $this->post_image("tests/pbx_screenshot.jpg", "pbx");
-            $this->fail();
-        } catch (UploadException $e) {
-            $this->assertTrue(true);
-        }
+        });
 
         // Remove ban
         send_event(new RemoveImageHashBanEvent($this->hash));

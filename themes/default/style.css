@@ -1,4 +1,6 @@
 :root {
+	color-scheme: light dark;
+
 	--page: #EEE;
 	--text: #000;
 	--link-default: #0000EE;
@@ -50,6 +52,10 @@
 	font-family: sans-serif;
 }
 
+HEADER H1 {
+	max-height: 3em;
+	overflow: hidden;
+}
 BODY {
 	background: var(--page);
 	color: var(--text);
@@ -140,11 +146,9 @@ NAV TABLE {
 }
 NAV INPUT {
 	width: 100%;
-	padding: 0;
 }
 NAV SELECT {
 	width: 100%;
-	padding: 0;
 }
 
 TABLE.tag_list {

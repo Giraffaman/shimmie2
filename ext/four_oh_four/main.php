@@ -6,22 +6,24 @@ namespace Shimmie2;
 
 class FourOhFour extends Extension
 {
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page;
         // hax.
         if ($page->mode == PageMode::PAGE && (!isset($page->blocks) || $this->count_main($page->blocks) == 0)) {
-            $h_pagename = html_escape(implode('/', $event->args));
-            log_debug("four_oh_four", "Hit 404: $h_pagename");
+            log_debug("four_oh_four", "Hit 404: {$event->path}");
             $page->set_code(404);
             $page->set_title("404");
             $page->set_heading("404 - No Handler Found");
             $page->add_block(new NavBlock());
-            $page->add_block(new Block("Explanation", "No handler could be found for the page '$h_pagename'"));
+            $page->add_block(new Block("Explanation", "No handler could be found for the page '{$event->path}'"));
         }
     }
 
-    private function count_main($blocks): int
+    /**
+     * @param Block[] $blocks
+     */
+    private function count_main(array $blocks): int
     {
         $n = 0;
         foreach ($blocks as $block) {

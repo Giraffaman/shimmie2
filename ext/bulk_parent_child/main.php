@@ -7,15 +7,12 @@ namespace Shimmie2;
 class BulkParentChildConfig
 {
 }
-class BulkParentChildException extends BulkActionException
-{
-}
 
 class BulkParentChild extends Extension
 {
     private const PARENT_CHILD_ACTION_NAME = "bulk_parent_child";
 
-    public function onBulkActionBlockBuilding(BulkActionBlockBuildingEvent $event)
+    public function onBulkActionBlockBuilding(BulkActionBlockBuildingEvent $event): void
     {
         global $user;
 
@@ -24,7 +21,7 @@ class BulkParentChild extends Extension
         }
     }
 
-    public function onBulkAction(BulkActionEvent $event)
+    public function onBulkAction(BulkActionEvent $event): void
     {
         global $user, $page, $config;
         if ($user->can(Permissions::BULK_PARENT_CHILD) &&

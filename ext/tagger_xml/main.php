@@ -12,7 +12,7 @@ class TaggerXML extends Extension
         return 10;
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         if ($event->page_matches("tagger/tags")) {
             global $page;
@@ -20,12 +20,12 @@ class TaggerXML extends Extension
             //$match_tags = null;
             //$image_tags = null;
             $tags = null;
-            if (isset($_GET['s'])) { // tagger/tags[/...]?s=$string
+            if ($event->get_GET('s')) { // tagger/tags[/...]?s=$string
                 // return matching tags in XML form
-                $tags = $this->match_tag_list($_GET['s']);
-            } elseif ($event->get_arg(0)) { // tagger/tags/$int
+                $tags = $this->match_tag_list($event->get_GET('s'));
+            } elseif ($event->page_matches("tagger/tags/{image_id}")) { // tagger/tags/$int
                 // return arg[1] AS image_id's tag list in XML form
-                $tags = $this->image_tag_list(int_escape($event->get_arg(0)));
+                $tags = $this->image_tag_list($event->get_iarg('image_id'));
             }
 
             $xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".
@@ -55,7 +55,7 @@ class TaggerXML extends Extension
         // Match
         $match = "concat(:p, tag) LIKE :sq";
         // Exclude
-        //		$exclude = $event->get_arg(1)? "AND NOT IN ".$this->image_tags($event->get_arg(1)) : null;
+        //		$exclude = $event->get_arg('exclude')? "AND NOT IN ".$this->image_tags($event->get_arg('exclude')) : null;
 
         // Hidden Tags
         $hidden = $config->get_string('ext-tagger_show-hidden', 'N') == 'N' ?
@@ -97,6 +97,9 @@ class TaggerXML extends Extension
         return $this->list_to_xml($tags, "image", (string)$image_id);
     }
 
+    /**
+     * @param array<string, mixed> $misc
+     */
     private function list_to_xml(\FFSPHP\PDOStatement $tags, string $type, string $query, ?array $misc = []): string
     {
         $props = [
@@ -119,12 +122,12 @@ class TaggerXML extends Extension
         return (string)($list);
     }
 
-    private function count(string $query, $values)
+    /**
+     * @param array<string, string> $values
+     */
+    private function count(string $query, array $values): int
     {
         global $database;
-        return $database->execute(
-            "SELECT COUNT(*) FROM `tags` $query",
-            $values
-        )->fields['COUNT(*)'];
+        return $database->get_one("SELECT COUNT(*) FROM `tags` $query", $values);
     }
 }

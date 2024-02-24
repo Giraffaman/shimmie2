@@ -40,40 +40,132 @@ class InitExtEvent extends Event
  * A signal that a page has been requested.
  *
  * User requests /view/42 -> an event is generated with $args = array("view",
- * "42"); when an event handler asks $event->page_matches("view"), it returns
- * true and ignores the matched part, such that $event->count_args() = 1 and
- * $event->get_arg(0) = "42"
+ * "42"); when an event handler asks $event->page_matches("view/{id}"), it returns
+ * true and sets $event->get_arg('id') = "42"
  */
 class PageRequestEvent extends Event
 {
-    public string $method;
+    private string $method;
+    public string $path;
+    /** @var array<string, string|string[]> */
+    public array $GET;
+    /** @var array<string, string|string[]> */
+    public array $POST;
+
     /**
      * @var string[]
      */
-    public $args;
-    public int $arg_count;
-    public int $part_count;
+    public array $args;
+    /**
+     * @var array<string, string>
+     */
+    private array $named_args = [];
+    public int $page_num;
+    private bool $is_authed;
 
-    public function __construct(string $method, string $path)
+    /**
+     * @param string $method The HTTP method used to make the request
+     * @param string $path The path of the request
+     * @param array<string, string|string[]> $get The GET parameters
+     * @param array<string, string|string[]> $post The POST parameters
+     */
+    public function __construct(string $method, string $path, array $get, array $post)
     {
+        global $user;
         parent::__construct();
         global $config;
 
         $this->method = $method;
 
-        // trim starting slashes
-        $path = ltrim($path, "/");
-
-        // if path is not specified, use the default front page
-        if (empty($path)) {   /* empty is faster than strlen */
+        // if we're looking at the root of the install,
+        // use the default front page
+        if ($path == "") {
             $path = $config->get_string(SetupConfig::FRONT_PAGE);
         }
+        $this->path = $path;
+        $this->GET = $get;
+        $this->POST = $post;
+        $this->is_authed = (
+            defined("UNITTEST")
+            || (isset($_POST["auth_token"]) && $_POST["auth_token"] == $user->get_auth_token())
+        );
 
         // break the path into parts
-        $args = explode('/', $path);
+        $this->args = explode('/', $path);
+    }
 
-        $this->args = $args;
-        $this->arg_count = count($args);
+    public function get_GET(string $key): ?string
+    {
+        if(array_key_exists($key, $this->GET)) {
+            if(is_array($this->GET[$key])) {
+                throw new UserError("GET parameter {$key} is an array, expected single value");
+            }
+            return $this->GET[$key];
+        } else {
+            return null;
+        }
+    }
+
+    public function req_GET(string $key): string
+    {
+        $value = $this->get_GET($key);
+        if($value === null) {
+            throw new UserError("Missing GET parameter {$key}");
+        }
+        return $value;
+    }
+
+    public function get_POST(string $key): ?string
+    {
+        if(array_key_exists($key, $this->POST)) {
+            if(is_array($this->POST[$key])) {
+                throw new UserError("POST parameter {$key} is an array, expected single value");
+            }
+            return $this->POST[$key];
+        } else {
+            return null;
+        }
+    }
+
+    public function req_POST(string $key): string
+    {
+        $value = $this->get_POST($key);
+        if($value === null) {
+            throw new UserError("Missing POST parameter {$key}");
+        }
+        return $value;
+    }
+
+    /**
+     * @return string[]|null
+     */
+    public function get_POST_array(string $key): ?array
+    {
+        if(array_key_exists($key, $this->POST)) {
+            if(!is_array($this->POST[$key])) {
+                throw new UserError("POST parameter {$key} is a single value, expected array");
+            }
+            return $this->POST[$key];
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * @return string[]
+     */
+    public function req_POST_array(string $key): array
+    {
+        $value = $this->get_POST_array($key);
+        if($value === null) {
+            throw new UserError("Missing POST parameter {$key}");
+        }
+        return $value;
+    }
+
+    public function page_starts_with(string $name): bool
+    {
+        return (count($this->args) >= 1) && ($this->args[0] == $name);
     }
 
     /**
@@ -81,19 +173,54 @@ class PageRequestEvent extends Event
      *
      * If it matches, store the remaining path elements in $args
      */
-    public function page_matches(string $name): bool
-    {
-        $parts = explode("/", $name);
-        $this->part_count = count($parts);
+    public function page_matches(
+        string $name,
+        ?string $method = null,
+        ?bool $authed = null,
+        ?string $permission = null,
+        bool $paged = false,
+    ): bool {
+        global $user;
 
-        if ($this->part_count > $this->arg_count) {
+        if($paged) {
+            if($this->page_matches("$name/{page_num}", $method, $authed, $permission, false)) {
+                $pn = $this->get_arg("page_num");
+                if(is_numberish($pn)) {
+                    return true;
+                }
+            }
+        }
+
+        assert($method === null || in_array($method, ["GET", "POST", "OPTIONS"]));
+        $authed = $authed ?? $method == "POST";
+
+        // method check is fast so do that first
+        if($method !== null && $this->method !== $method) {
             return false;
         }
 
-        for ($i = 0; $i < $this->part_count; $i++) {
-            if ($parts[$i] != $this->args[$i]) {
+        // check if the path matches
+        $parts = explode("/", $name);
+        $part_count = count($parts);
+        if ($part_count != count($this->args)) {
+            return false;
+        }
+        $this->named_args = [];
+        for ($i = 0; $i < $part_count; $i++) {
+            if (str_starts_with($parts[$i], "{")) {
+                $this->named_args[substr($parts[$i], 1, -1)] = $this->args[$i];
+            } elseif ($parts[$i] != $this->args[$i]) {
                 return false;
             }
+        }
+
+        // if we matched the method and the path, but the page requires
+        // authentication and the user is not authenticated, then complain
+        if($authed && $this->is_authed === false) {
+            throw new PermissionDenied("Permission Denied");
+        }
+        if($permission !== null && !$user->can($permission)) {
+            throw new PermissionDenied("Permission Denied");
         }
 
         return true;
@@ -102,171 +229,39 @@ class PageRequestEvent extends Event
     /**
      * Get the n th argument of the page request (if it exists.)
      */
-    public function get_arg(int $n): string
+    public function get_arg(string $n, ?string $default = null): string
     {
-        $offset = $this->part_count + $n;
-        if ($offset >= 0 && $offset < $this->arg_count) {
-            return rawurldecode($this->args[$offset]);
+        if(array_key_exists($n, $this->named_args)) {
+            return rawurldecode($this->named_args[$n]);
+        } elseif($default !== null) {
+            return $default;
         } else {
-            $nm1 = $this->arg_count - 1;
-            throw new UserErrorException("Requested an invalid page argument {$offset} / {$nm1}");
+            throw new UserError("Page argument {$n} is missing");
         }
     }
 
-    /**
-     * If page arg $n is set, then treat that as a 1-indexed page number
-     * and return a 0-indexed page number less than $max; else return 0
-     */
-    public function try_page_num(int $n, ?int $max = null): int
+    public function get_iarg(string $n, ?int $default = null): int
     {
-        if ($this->count_args() > $n) {
-            $i = $this->get_arg($n);
-            if (is_numeric($i) && int_escape($i) > 0) {
-                return page_number($i, $max);
-            } else {
-                return 0;
+        if(array_key_exists($n, $this->named_args)) {
+            if(is_numberish($this->named_args[$n]) === false) {
+                throw new UserError("Page argument {$n} exists but is not numeric");
             }
+            return int_escape($this->named_args[$n]);
+        } elseif($default !== null) {
+            return $default;
         } else {
-            return 0;
+            throw new UserError("Page argument {$n} is missing");
         }
-    }
-
-    /**
-     * Returns the number of arguments the page request has.
-     */
-    public function count_args(): int
-    {
-        return $this->arg_count - $this->part_count;
-    }
-
-    /*
-     * Many things use these functions
-     */
-
-    public function get_search_terms(): array
-    {
-        $search_terms = [];
-        if ($this->count_args() === 2) {
-            $str = $this->get_arg(0);
-
-            // decode legacy caret-encoding just in case
-            // somebody has bookmarked such a URL
-            $from_caret = [
-                "^" => "^",
-                "s" => "/",
-                "b" => "\\",
-                "q" => "?",
-                "a" => "&",
-                "d" => ".",
-            ];
-            $out = "";
-            $length = strlen($str);
-            for ($i = 0; $i < $length; $i++) {
-                if ($str[$i] == "^") {
-                    $i++;
-                    $out .= $from_caret[$str[$i]] ?? '';
-                } else {
-                    $out .= $str[$i];
-                }
-            }
-            $str = $out;
-            // end legacy
-
-
-            $search_terms = Tag::explode($str);
-        }
-        return $search_terms;
-    }
-
-    public function get_page_number(): int
-    {
-        $page_number = 1;
-        if ($this->count_args() === 1) {
-            $page_number = int_escape($this->get_arg(0));
-        } elseif ($this->count_args() === 2) {
-            $page_number = int_escape($this->get_arg(1));
-        }
-        if ($page_number === 0) {
-            $page_number = 1;
-        } // invalid -> 0
-        return $page_number;
-    }
-
-    public function get_page_size(): int
-    {
-        global $config;
-        return $config->get_int(IndexConfig::IMAGES);
     }
 }
 
 
-/**
- * Sent when index.php is called from the command line
- */
-class CommandEvent extends Event
+class CliGenEvent extends Event
 {
-    public string $cmd = "help";
-
-    /**
-     * @var string[]
-     */
-    public array $args = [];
-
-    /**
-     * @param string[] $args
-     */
-    public function __construct(array $args)
-    {
+    public function __construct(
+        public \Symfony\Component\Console\Application $app
+    ) {
         parent::__construct();
-        global $user;
-
-        $opts = [];
-        $log_level = SCORE_LOG_WARNING;
-        $arg_count = count($args);
-
-        for ($i = 1; $i < $arg_count; $i++) {
-            switch ($args[$i]) {
-                case '-u':
-                    $user = User::by_name($args[++$i]);
-                    if (is_null($user)) {
-                        die("Unknown user");
-                    } else {
-                        send_event(new UserLoginEvent($user));
-                    }
-                    break;
-                case '-q':
-                    $log_level += 10;
-                    break;
-                case '-v':
-                    $log_level -= 10;
-                    break;
-                default:
-                    $opts[] = $args[$i];
-                    break;
-            }
-        }
-
-        if (!defined("CLI_LOG_LEVEL")) {
-            define("CLI_LOG_LEVEL", $log_level);
-        }
-
-        if (count($opts) > 0) {
-            $this->cmd = $opts[0];
-            $this->args = array_slice($opts, 1);
-        } else {
-            print "\n";
-            print "Usage: php {$args[0]} [flags] [command]\n";
-            print "\n";
-            print "Flags:\n";
-            print "\t-u [username]\n";
-            print "\t\tLog in as the specified user\n";
-            print "\t-q / -v\n";
-            print "\t\tBe quieter / more verbose\n";
-            print "\t\tScale is debug - info - warning - error - critical\n";
-            print "\t\tDefault is to show warnings and above\n";
-            print "\n";
-            print "Currently known commands:\n";
-        }
     }
 }
 

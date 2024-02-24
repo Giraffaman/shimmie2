@@ -10,7 +10,9 @@ namespace Shimmie2;
 class CommandBuilder
 {
     private string $executable;
+    /** @var string[] */
     private array $args = [];
+    /** @var string[] */
     public array $output;
 
     public function __construct(string $executable)
@@ -62,7 +64,7 @@ class CommandBuilder
         log_debug('command_builder', "Command `$cmd` returned $ret and outputted $output");
 
         if ($fail_on_non_zero_return && (int)$ret !== (int)0) {
-            throw new SCoreException("Command `$cmd` failed, returning $ret and outputting $output");
+            throw new ServerError("Command `$cmd` failed, returning $ret and outputting $output");
         }
         return $ret;
     }

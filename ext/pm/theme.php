@@ -6,7 +6,10 @@ namespace Shimmie2;
 
 class PrivMsgTheme extends Themelet
 {
-    public function display_pms(Page $page, $pms)
+    /**
+     * @param PM[] $pms
+     */
+    public function display_pms(Page $page, array $pms): void
     {
         global $user;
 
@@ -44,9 +47,8 @@ class PrivMsgTheme extends Themelet
 			<td><a href='$pm_url'>$h_subject</a></td>
 			<td><a href='$from_url'>$h_from</a></td>
 			<td>$h_date</td>
-			<td><form action='$del_url' method='POST'>
-				<input type='hidden' name='pm_id' value='{$pm->id}'>
-				".$user->get_auth_html()."
+			<td>".make_form($del_url)."
+                <input type='hidden' name='pm_id' value='{$pm->id}'>
 				<input type='submit' value='Delete'>
 			</form></td>
 			</tr>";
@@ -58,16 +60,15 @@ class PrivMsgTheme extends Themelet
         $page->add_block(new Block("Private Messages", $html, "main", 40, "private-messages"));
     }
 
-    public function display_composer(Page $page, User $from, User $to, $subject = "")
+    public function display_composer(Page $page, User $from, User $to, string $subject = ""): void
     {
         global $user;
         $post_url = make_link("pm/send");
         $h_subject = html_escape($subject);
         $to_id = $to->id;
-        $auth = $user->get_auth_html();
+        $form = make_form($post_url);
         $html = <<<EOD
-<form action="$post_url" method="POST">
-$auth
+$form
 <input type="hidden" name="to_id" value="$to_id">
 <table style="width: 400px;" class="form">
 <tr><th>Subject:</th><td><input type="text" name="subject" value="$h_subject"></td></tr>
@@ -79,7 +80,7 @@ EOD;
         $page->add_block(new Block("Write a PM", $html, "main", 50));
     }
 
-    public function display_message(Page $page, User $from, User $to, PM $pm)
+    public function display_message(Page $page, User $from, User $to, PM $pm): void
     {
         $page->set_title("Private Message");
         $page->set_heading(html_escape($pm->subject));

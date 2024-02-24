@@ -22,9 +22,10 @@ abstract class Extension
     protected Themelet $theme;
     public ExtensionInfo $info;
 
+    /** @var string[] */
     private static array $enabled_extensions = [];
 
-    public function __construct($class = null)
+    public function __construct(?string $class = null)
     {
         $class = $class ?? get_called_class();
         $this->theme = $this->get_theme_object($class);
@@ -42,9 +43,13 @@ abstract class Extension
         $normal = "Shimmie2\\{$base}Theme";
 
         if (class_exists($custom)) {
-            return new $custom();
+            $c = new $custom();
+            assert(is_a($c, Themelet::class));
+            return $c;
         } elseif (class_exists($normal)) {
-            return new $normal();
+            $n = new $normal();
+            assert(is_a($n, Themelet::class));
+            return $n;
         } else {
             return new Themelet();
         }
@@ -82,11 +87,14 @@ abstract class Extension
         }
     }
 
-    public static function is_enabled(string $key): ?bool
+    public static function is_enabled(string $key): bool
     {
         return in_array($key, self::$enabled_extensions);
     }
 
+    /**
+     * @return string[]
+     */
     public static function get_enabled_extensions(): array
     {
         return self::$enabled_extensions;
@@ -102,7 +110,7 @@ abstract class Extension
         return $config->get_int($name, 0);
     }
 
-    protected function set_version(string $name, int $ver)
+    protected function set_version(string $name, int $ver): void
     {
         global $config;
         $config->set_int($name, $ver);
@@ -119,6 +127,18 @@ enum ExtensionVisibility
     case DEFAULT;
     case ADMIN;
     case HIDDEN;
+}
+
+enum ExtensionCategory: string
+{
+    case GENERAL = "General";
+    case ADMIN = "Admin";
+    case MODERATION = "Moderation";
+    case FILE_HANDLING = "File Handling";
+    case OBSERVABILITY = "Observability";
+    case INTEGRATION = "Integration";
+    case FEATURE = "Feature";
+    case METADATA = "Metadata";
 }
 
 abstract class ExtensionInfo
@@ -141,12 +161,15 @@ abstract class ExtensionInfo
     public string $name;
     public string $license;
     public string $description;
+    /** @var array<string, string|null> */
     public array $authors = [];
+    /** @var string[] */
     public array $dependencies = [];
+    /** @var string[] */
     public array $conflicts = [];
     public ExtensionVisibility $visibility = ExtensionVisibility::DEFAULT;
+    public ExtensionCategory $category = ExtensionCategory::GENERAL;
     public ?string $link = null;
-    public ?string $version = null;
     public ?string $documentation = null;
 
     /** @var DatabaseDriverID[] which DBs this ext supports (blank for 'all') */
@@ -170,8 +193,11 @@ abstract class ExtensionInfo
         return $this->support_info;
     }
 
+    /** @var array<string, ExtensionInfo> */
     private static array $all_info_by_key = [];
+    /** @var array<string, ExtensionInfo> */
     private static array $all_info_by_class = [];
+    /** @var string[] */
     private static array $core_extensions = [];
 
     protected function __construct()
@@ -188,7 +214,7 @@ abstract class ExtensionInfo
         return Extension::is_enabled($this->key);
     }
 
-    private function check_support()
+    private function check_support(): void
     {
         global $database;
         $this->support_info  = "";
@@ -207,16 +233,25 @@ abstract class ExtensionInfo
         $this->supported = empty($this->support_info);
     }
 
+    /**
+     * @return ExtensionInfo[]
+     */
     public static function get_all(): array
     {
         return array_values(self::$all_info_by_key);
     }
 
+    /**
+     * @return string[]
+     */
     public static function get_all_keys(): array
     {
         return array_keys(self::$all_info_by_key);
     }
 
+    /**
+     * @return string[]
+     */
     public static function get_core_extensions(): array
     {
         return self::$core_extensions;
@@ -243,12 +278,13 @@ abstract class ExtensionInfo
         }
     }
 
-    public static function load_all_extension_info()
+    public static function load_all_extension_info(): void
     {
-        foreach (get_subclasses_of("Shimmie2\ExtensionInfo") as $class) {
+        foreach (get_subclasses_of(ExtensionInfo::class) as $class) {
             $extension_info = new $class();
+            assert(is_a($extension_info, ExtensionInfo::class));
             if (array_key_exists($extension_info->key, self::$all_info_by_key)) {
-                throw new SCoreException("Extension Info $class with key $extension_info->key has already been loaded");
+                throw new ServerError("Extension Info $class with key $extension_info->key has already been loaded");
             }
 
             self::$all_info_by_key[$extension_info->key] = $extension_info;
@@ -267,7 +303,7 @@ abstract class ExtensionInfo
  */
 abstract class FormatterExtension extends Extension
 {
-    public function onTextFormatting(TextFormattingEvent $event)
+    public function onTextFormatting(TextFormattingEvent $event): void
     {
         $event->formatted = $this->format($event->formatted);
         $event->stripped  = $this->strip($event->stripped);
@@ -285,88 +321,82 @@ abstract class FormatterExtension extends Extension
  */
 abstract class DataHandlerExtension extends Extension
 {
+    /** @var string[] */
     protected array $SUPPORTED_MIME = [];
 
-    protected function move_upload_to_archive(DataUploadEvent $event)
+    public function onDataUpload(DataUploadEvent $event): void
     {
-        $target = warehouse_path(Image::IMAGE_DIR, $event->hash);
-        if (!@copy($event->tmpname, $target)) {
-            $errors = error_get_last();
-            throw new UploadException(
-                "Failed to copy file from uploads ({$event->tmpname}) to archive ($target): ".
-                "{$errors['type']} / {$errors['message']}"
-            );
-        }
-    }
+        global $config;
 
-    public function onDataUpload(DataUploadEvent $event)
-    {
-        $supported_mime = $this->supported_mime($event->mime);
-        $check_contents = $this->check_contents($event->tmpname);
-        if ($supported_mime && $check_contents) {
-            $this->move_upload_to_archive($event);
-            send_event(new ThumbnailGenerationEvent($event->hash, $event->mime));
+        if ($this->supported_mime($event->mime)) {
+            if (!$this->check_contents($event->tmpname)) {
+                // We DO support this extension - but the file looks corrupt
+                throw new UploadException("Invalid or corrupted file");
+            }
 
-            /* Check if we are replacing an image */
-            if (!is_null($event->replace_id)) {
-                /* hax: This seems like such a dirty way to do this.. */
-
-                /* Check to make sure the image exists. */
-                $existing = Image::by_id($event->replace_id);
-
-                if (is_null($existing)) {
-                    throw new UploadException("Post to replace does not exist!");
-                }
-                if ($existing->hash === $event->hash) {
-                    throw new UploadException("The uploaded post is the same as the one to replace.");
-                }
-
-                $replacement = $this->create_image_from_data(warehouse_path(Image::IMAGE_DIR, $event->hash), $event->metadata);
-                send_event(new ImageReplaceEvent($existing, $replacement));
-                $event->images[] = $replacement;
-                if(!empty($event->metadata['source'])) {
-                    send_event(new SourceSetEvent($existing, $event->metadata['source']));
-                }
-            } else {
-                $image = $this->create_image_from_data(warehouse_path(Image::IMAGE_DIR, $event->hash), $event->metadata);
-                $iae = send_event(new ImageAdditionEvent($image));
-                $event->images[] = $iae->image;
-                $event->merged = $iae->merged;
-
-                if(!empty($event->metadata['tags'])) {
-                    if($iae->merged) {
-                        $event->metadata['tags'] = array_merge($iae->image->get_tag_array(), $event->metadata['tags']);
+            $existing = Image::by_hash(\Safe\md5_file($event->tmpname));
+            if (!is_null($existing)) {
+                if ($config->get_string(ImageConfig::UPLOAD_COLLISION_HANDLER) == ImageConfig::COLLISION_MERGE) {
+                    // Right now tags are the only thing that get merged, so
+                    // we can just send a TagSetEvent - in the future we might
+                    // want a dedicated MergeEvent?
+                    if(!empty($event->metadata['tags'])) {
+                        $tags = Tag::explode($existing->get_tag_list() . " " . $event->metadata['tags']);
+                        send_event(new TagSetEvent($existing, $tags));
                     }
-                    send_event(new TagSetEvent($image, $event->metadata['tags']));
-                }
-                if(!empty($event->metadata['source'])) {
-                    send_event(new SourceSetEvent($image, $event->metadata['source']));
-                }
-                if (!empty($event->metadata['rating'])) {
-                    send_event(new RatingSetEvent($image, $event->metadata['rating']));
-                }
-                if (!empty($event->metadata['locked'])) {
-                    send_event(new LockSetEvent($image, $event->metadata['locked']));
+                    $event->images[] = $existing;
+                    return;
+                } else {
+                    throw new UploadException(">>{$existing->id} already has hash {$existing->hash}");
                 }
             }
-        } elseif ($supported_mime && !$check_contents) {
-            // We DO support this extension - but the file looks corrupt
-            throw new UploadException("Invalid or corrupted file");
+
+            // Create a new Image object
+            $filename = $event->tmpname;
+            assert(is_readable($filename));
+            $image = new Image();
+            $image->tmp_file = $filename;
+            $image->filesize = \Safe\filesize($filename);
+            $image->hash = \Safe\md5_file($filename);
+            // DB limits to 255 char filenames
+            $image->filename = substr($event->filename, -250);
+            $image->set_mime($event->mime);
+            try {
+                send_event(new MediaCheckPropertiesEvent($image));
+            } catch (MediaException $e) {
+                throw new UploadException("Unable to scan media properties $filename / $image->filename / $image->hash: ".$e->getMessage());
+            }
+            $image->save_to_db(); // Ensure the image has a DB-assigned ID
+
+            $iae = send_event(new ImageAdditionEvent($image));
+            send_event(new ImageInfoSetEvent($image, $event->slot, $event->metadata));
+
+            // If everything is OK, then move the file to the archive
+            $filename = warehouse_path(Image::IMAGE_DIR, $event->hash);
+            if (!@copy($event->tmpname, $filename)) {
+                $errors = error_get_last();
+                throw new UploadException(
+                    "Failed to copy file from uploads ({$event->tmpname}) to archive ($filename): ".
+                    "{$errors['type']} / {$errors['message']}"
+                );
+            }
+
+            $event->images[] = $iae->image;
         }
     }
 
-    public function onThumbnailGeneration(ThumbnailGenerationEvent $event)
+    public function onThumbnailGeneration(ThumbnailGenerationEvent $event): void
     {
         $result = false;
-        if ($this->supported_mime($event->mime)) {
+        if ($this->supported_mime($event->image->get_mime())) {
             if ($event->force) {
-                $result = $this->create_thumb($event->hash, $event->mime);
+                $result = $this->create_thumb($event->image);
             } else {
-                $outname = warehouse_path(Image::THUMBNAIL_DIR, $event->hash);
+                $outname = $event->image->get_thumb_filename();
                 if (file_exists($outname)) {
                     return;
                 }
-                $result = $this->create_thumb($event->hash, $event->mime);
+                $result = $this->create_thumb($event->image);
             }
         }
         if ($result) {
@@ -374,7 +404,7 @@ abstract class DataHandlerExtension extends Extension
         }
     }
 
-    public function onDisplayingImage(DisplayingImageEvent $event)
+    public function onDisplayingImage(DisplayingImageEvent $event): void
     {
         global $config, $page;
         if ($this->supported_mime($event->image->get_mime())) {
@@ -386,54 +416,36 @@ abstract class DataHandlerExtension extends Extension
         }
     }
 
-    public function onMediaCheckProperties(MediaCheckPropertiesEvent $event)
+    public function onMediaCheckProperties(MediaCheckPropertiesEvent $event): void
     {
         if ($this->supported_mime($event->image->get_mime())) {
             $this->media_check_properties($event);
         }
     }
 
-    protected function create_image_from_data(string $filename, array $metadata): Image
-    {
-        $image = new Image();
-
-        assert(is_readable($filename));
-        $image->filesize = filesize($filename);
-        $image->hash = md5_file($filename);
-        $image->filename = (($pos = strpos($metadata['filename'], '?')) !== false) ? substr($metadata['filename'], 0, $pos) : $metadata['filename'];
-        $image->set_mime(MimeType::get_for_file($filename, get_file_ext($metadata["filename"]) ?? null));
-
-        if (empty($image->get_mime())) {
-            throw new UploadException("Unable to determine MIME for $filename");
-        }
-        try {
-            send_event(new MediaCheckPropertiesEvent($image));
-        } catch (MediaException $e) {
-            throw new UploadException("Unable to scan media properties $filename / $image->filename / $image->hash: ".$e->getMessage());
-        }
-
-        return $image;
-    }
-
     abstract protected function media_check_properties(MediaCheckPropertiesEvent $event): void;
     abstract protected function check_contents(string $tmpname): bool;
-    abstract protected function create_thumb(string $hash, string $mime): bool;
+    abstract protected function create_thumb(Image $image): bool;
 
     protected function supported_mime(string $mime): bool
     {
         return MimeType::matches_array($mime, $this->SUPPORTED_MIME);
     }
 
+    /**
+     * @return string[]
+     */
     public static function get_all_supported_mimes(): array
     {
         $arr = [];
-        foreach (get_subclasses_of("Shimmie2\DataHandlerExtension") as $handler) {
+        foreach (get_subclasses_of(DataHandlerExtension::class) as $handler) {
             $handler = (new $handler());
+            assert(is_a($handler, DataHandlerExtension::class));
             $arr = array_merge($arr, $handler->SUPPORTED_MIME);
         }
 
         // Not sure how to handle this otherwise, don't want to set up a whole other event for this one class
-        if (class_exists("Shimmie2\TranscodeImage")) {
+        if (Extension::is_enabled(TranscodeImageInfo::KEY)) {
             $arr = array_merge($arr, TranscodeImage::get_enabled_mimes());
         }
 
@@ -441,6 +453,9 @@ abstract class DataHandlerExtension extends Extension
         return $arr;
     }
 
+    /**
+     * @return string[]
+     */
     public static function get_all_supported_exts(): array
     {
         $arr = [];

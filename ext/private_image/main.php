@@ -16,18 +16,18 @@ class PrivateImage extends Extension
     /** @var PrivateImageTheme */
     protected Themelet $theme;
 
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
-        Image::$bool_props[] = "private";
+        Image::$prop_types["private"] = ImagePropType::BOOL;
     }
 
-    public function onInitUserConfig(InitUserConfigEvent $event)
+    public function onInitUserConfig(InitUserConfigEvent $event): void
     {
         $event->user_config->set_default_bool(PrivateImageConfig::USER_SET_DEFAULT, false);
         $event->user_config->set_default_bool(PrivateImageConfig::USER_VIEW_DEFAULT, true);
     }
 
-    public function onUserOptionsBuilding(UserOptionsBuildingEvent $event)
+    public function onUserOptionsBuilding(UserOptionsBuildingEvent $event): void
     {
         global $user;
         $sb = $event->panel->create_new_block("Private Posts");
@@ -39,25 +39,15 @@ class PrivateImage extends Extension
         $sb->end_table();
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page, $user, $user_config;
 
-        if ($event->page_matches("privatize_image") && $user->can(Permissions::SET_PRIVATE_IMAGE)) {
-            // Try to get the image ID
-            $image_id = int_escape($event->get_arg(0));
-            if (empty($image_id)) {
-                $image_id = isset($_POST['image_id']) ? $_POST['image_id'] : null;
-            }
-            if (empty($image_id)) {
-                throw new SCoreException("Can not make image private: No valid Post ID given.");
-            }
-            $image = Image::by_id($image_id);
-            if ($image == null) {
-                throw new SCoreException("Post not found.");
-            }
+        if ($event->page_matches("privatize_image/{image_id}", method: "POST", permission: Permissions::SET_PRIVATE_IMAGE)) {
+            $image_id = $event->get_iarg('image_id');
+            $image = Image::by_id_ex($image_id);
             if ($image->owner_id != $user->can(Permissions::SET_OTHERS_PRIVATE_IMAGES)) {
-                throw new SCoreException("Cannot set another user's image to private.");
+                throw new PermissionDenied("Cannot set another user's image to private.");
             }
 
             self::privatize_image($image_id);
@@ -65,21 +55,11 @@ class PrivateImage extends Extension
             $page->set_redirect(make_link("post/view/" . $image_id));
         }
 
-        if ($event->page_matches("publicize_image")) {
-            // Try to get the image ID
-            $image_id = int_escape($event->get_arg(0));
-            if (empty($image_id)) {
-                $image_id = isset($_POST['image_id']) ? $_POST['image_id'] : null;
-            }
-            if (empty($image_id)) {
-                throw new SCoreException("Can not make image public: No valid Post ID given.");
-            }
-            $image = Image::by_id($image_id);
-            if ($image == null) {
-                throw new SCoreException("Post not found.");
-            }
+        if ($event->page_matches("publicize_image/{image_id}", method: "POST")) {
+            $image_id = $event->get_iarg('image_id');
+            $image = Image::by_id_ex($image_id);
             if ($image->owner_id != $user->can(Permissions::SET_OTHERS_PRIVATE_IMAGES)) {
-                throw new SCoreException("Cannot set another user's image to public.");
+                throw new PermissionDenied("Cannot set another user's image to public.");
             }
 
             self::publicize_image($image_id);
@@ -87,45 +67,34 @@ class PrivateImage extends Extension
             $page->set_redirect(make_link("post/view/".$image_id));
         }
 
-        if ($event->page_matches("user_admin")) {
-            if (!$user->check_auth_token()) {
-                return;
+        if ($event->page_matches("user_admin/private_image", method: "POST")) {
+            $id = int_escape($event->req_POST('id'));
+            if ($id != $user->id) {
+                throw new PermissionDenied("Cannot change another user's settings");
             }
-            switch ($event->get_arg(0)) {
-                case "private_image":
-                    if (!array_key_exists("id", $_POST) || empty($_POST["id"])) {
-                        return;
-                    }
-                    $id = intval($_POST["id"]);
-                    if ($id != $user->id) {
-                        throw new SCoreException("Cannot change another user's settings");
-                    }
-                    $set_default = array_key_exists("set_default", $_POST);
-                    $view_default = array_key_exists("view_default", $_POST);
+            $set_default = array_key_exists("set_default", $event->POST);
+            $view_default = array_key_exists("view_default", $event->POST);
 
-                    $user_config->set_bool(PrivateImageConfig::USER_SET_DEFAULT, $set_default);
-                    $user_config->set_bool(PrivateImageConfig::USER_VIEW_DEFAULT, $view_default);
+            $user_config->set_bool(PrivateImageConfig::USER_SET_DEFAULT, $set_default);
+            $user_config->set_bool(PrivateImageConfig::USER_VIEW_DEFAULT, $view_default);
 
-                    $page->set_mode(PageMode::REDIRECT);
-                    $page->set_redirect(make_link("user"));
-
-                    break;
-            }
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("user"));
         }
     }
-    public function onDisplayingImage(DisplayingImageEvent $event)
+
+    public function onDisplayingImage(DisplayingImageEvent $event): void
     {
         global $user, $page;
 
-        if ($event->image->private === true && $event->image->owner_id != $user->id && !$user->can(Permissions::SET_OTHERS_PRIVATE_IMAGES)) {
+        if ($event->image['private'] === true && $event->image->owner_id != $user->id && !$user->can(Permissions::SET_OTHERS_PRIVATE_IMAGES)) {
             $page->set_mode(PageMode::REDIRECT);
             $page->set_redirect(make_link());
         }
     }
 
-
     public const SEARCH_REGEXP = "/^private:(yes|no|any)/";
-    public function onSearchTermParse(SearchTermParseEvent $event)
+    public function onSearchTermParse(SearchTermParseEvent $event): void
     {
         global $user, $user_config;
         $show_private = $user_config->get_bool(PrivateImageConfig::USER_VIEW_DEFAULT);
@@ -180,7 +149,7 @@ class PrivateImage extends Extension
         }
     }
 
-    public function onHelpPageBuilding(HelpPageBuildingEvent $event)
+    public function onHelpPageBuilding(HelpPageBuildingEvent $event): void
     {
         if ($event->key === HelpPages::SEARCH) {
             $block = new Block();
@@ -190,7 +159,9 @@ class PrivateImage extends Extension
         }
     }
 
-
+    /**
+     * @param string[] $context
+     */
     private function no_private_query(array $context): bool
     {
         foreach ($context as $term) {
@@ -201,7 +172,7 @@ class PrivateImage extends Extension
         return true;
     }
 
-    public static function privatize_image($image_id)
+    public static function privatize_image(int $image_id): void
     {
         global $database;
 
@@ -211,7 +182,7 @@ class PrivateImage extends Extension
         );
     }
 
-    public static function publicize_image($image_id)
+    public static function publicize_image(int $image_id): void
     {
         global $database;
 
@@ -221,15 +192,19 @@ class PrivateImage extends Extension
         );
     }
 
-    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event)
+    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event): void
     {
         global $user;
         if (($user->can(Permissions::SET_PRIVATE_IMAGE) && $user->id == $event->image->owner_id) || $user->can(Permissions::SET_OTHERS_PRIVATE_IMAGES)) {
-            $event->add_part($this->theme->get_image_admin_html($event->image));
+            if ($event->image['private'] === false) {
+                $event->add_button("Make Private", "privatize_image/".$event->image->id);
+            } else {
+                $event->add_button("Make Public", "publicize_image/".$event->image->id);
+            }
         }
     }
 
-    public function onImageAddition(ImageAdditionEvent $event)
+    public function onImageAddition(ImageAdditionEvent $event): void
     {
         global $user, $user_config;
         if ($user_config->get_bool(PrivateImageConfig::USER_SET_DEFAULT) && $user->can(Permissions::SET_PRIVATE_IMAGE)) {
@@ -237,7 +212,7 @@ class PrivateImage extends Extension
         }
     }
 
-    public function onBulkActionBlockBuilding(BulkActionBlockBuildingEvent $event)
+    public function onBulkActionBlockBuilding(BulkActionBlockBuildingEvent $event): void
     {
         global $user;
 
@@ -247,7 +222,7 @@ class PrivateImage extends Extension
         }
     }
 
-    public function onBulkAction(BulkActionEvent $event)
+    public function onBulkAction(BulkActionEvent $event): void
     {
         global $page, $user;
 
@@ -278,7 +253,7 @@ class PrivateImage extends Extension
                 break;
         }
     }
-    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event)
+    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event): void
     {
         global $database;
 

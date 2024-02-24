@@ -6,54 +6,40 @@ namespace Shimmie2;
 
 class WikiTest extends ShimmiePHPUnitTestCase
 {
-    public function testIndex()
+    public function testIndex(): void
     {
-        $this->get_page("wiki");
-        $this->assert_title("Index");
+        $page = $this->get_page("wiki");
+        $this->assertEquals(PageMode::REDIRECT, $page->mode);
+    }
+
+    // By default users are read-only
+    public function testAccessUser(): void
+    {
+        $this->log_in_as_user();
+
+        $this->get_page("wiki/test");
+        $this->assert_title("test");
         $this->assert_text("This is a default page");
+
+        $this->assertException(PermissionDenied::class, function () {
+            $this->get_page("wiki/test/edit");
+        });
     }
 
-    public function testAccess()
+    // Admins can edit
+    public function testAccessAdmin(): void
     {
-        global $config;
-        foreach (["anon", "user", "admin"] as $user) {
-            foreach ([false, true] as $allowed) {
-                // admin has no settings to set
-                if ($user != "admin") {
-                    $config->set_bool("wiki_edit_$user", $allowed);
-                }
+        $this->log_in_as_admin();
 
-                if ($user == "user") {
-                    $this->log_in_as_user();
-                }
-                if ($user == "admin") {
-                    $this->log_in_as_admin();
-                }
+        $this->get_page("wiki/test");
+        $this->assert_title("test");
+        $this->assert_text("This is a default page");
 
-                $this->get_page("wiki/test");
-                $this->assert_title("test");
-                $this->assert_text("This is a default page");
-
-                if ($allowed || $user == "admin") {
-                    $this->post_page("wiki_admin/edit", ["title" => "test"]);
-                    $this->assert_text("Editor");
-                }
-                /*
-                // Everyone can see the editor
-                else {
-                    $this->post_page("wiki_admin/edit", ["title"=>"test"]);
-                    $this->assert_no_text("Editor");
-                }
-                */
-
-                if ($user == "user" || $user == "admin") {
-                    $this->log_out();
-                }
-            }
-        }
+        $this->get_page("wiki/test/edit");
+        $this->assert_text("Editor");
     }
 
-    public function testDefault()
+    public function testDefault(): void
     {
         global $user;
         $this->log_in_as_admin();
@@ -82,7 +68,7 @@ class WikiTest extends ShimmiePHPUnitTestCase
         $this->assert_text("This is a default page");
     }
 
-    public function testRevisions()
+    public function testRevisions(): void
     {
         global $user;
         $this->log_in_as_admin();
@@ -106,6 +92,10 @@ class WikiTest extends ShimmiePHPUnitTestCase
         $this->get_page("wiki/test");
         $this->assert_text("Mooooo 2");
         $this->assert_text("Revision 2");
+
+        $this->get_page("wiki/test/history");
+        $this->assert_title("test");
+        $this->assert_text("2");
 
         send_event(new WikiDeleteRevisionEvent("test", 2));
         $this->get_page("wiki/test");

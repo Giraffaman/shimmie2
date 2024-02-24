@@ -8,9 +8,10 @@ _d("STATSD_HOST", null);
 
 class StatsDInterface extends Extension
 {
+    /** @var array<string, string> */
     public static array $stats = [];
 
-    private function _stats(string $type)
+    private function _stats(string $type): void
     {
         global $_shm_event_count, $cache, $database, $_shm_load_start;
         $time = ftime() - $_shm_load_start;
@@ -25,7 +26,7 @@ class StatsDInterface extends Extension
         StatsDInterface::$stats["shimmie.$type.cache-misses"] = $cache->get("__etc_cache_misses", -1)."|c";
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         $this->_stats("overall");
 
@@ -45,26 +46,30 @@ class StatsDInterface extends Extension
             $this->_stats("other");
         }
 
-        $this->send(StatsDInterface::$stats, 1.0);
+        // @phpstan-ignore-next-line
+        if (STATSD_HOST) {
+            $this->send(STATSD_HOST, StatsDInterface::$stats, 1.0);
+        }
+
         StatsDInterface::$stats = [];
     }
 
-    public function onUserCreation(UserCreationEvent $event)
+    public function onUserCreation(UserCreationEvent $event): void
     {
         StatsDInterface::$stats["shimmie_events.user_creations"] = "1|c";
     }
 
-    public function onDataUpload(DataUploadEvent $event)
+    public function onDataUpload(DataUploadEvent $event): void
     {
         StatsDInterface::$stats["shimmie_events.uploads"] = "1|c";
     }
 
-    public function onCommentPosting(CommentPostingEvent $event)
+    public function onCommentPosting(CommentPostingEvent $event): void
     {
         StatsDInterface::$stats["shimmie_events.comments"] = "1|c";
     }
 
-    public function onImageInfoSet(ImageInfoSetEvent $event)
+    public function onImageInfoSet(ImageInfoSetEvent $event): void
     {
         StatsDInterface::$stats["shimmie_events.info-sets"] = "1|c";
     }
@@ -74,12 +79,11 @@ class StatsDInterface extends Extension
         return 99;
     }
 
-    private function send(array $data, float $sampleRate = 1)
+    /**
+     * @param array<string, string> $data
+     */
+    private function send(string $host, array $data, float $sampleRate = 1): void
     {
-        if (!STATSD_HOST) {
-            return;
-        }
-
         // sampling
         $sampledData = [];
 
@@ -99,7 +103,7 @@ class StatsDInterface extends Extension
 
         // Wrap this in a try/catch - failures in any of this should be silently ignored
         try {
-            $parts = explode(":", STATSD_HOST);
+            $parts = explode(":", $host);
             $host = $parts[0];
             $port = (int)$parts[1];
             $fp = fsockopen("udp://$host", $port, $errno, $errstr);

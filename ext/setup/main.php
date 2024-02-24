@@ -4,20 +4,29 @@ declare(strict_types=1);
 
 namespace Shimmie2;
 
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\{InputInterface,InputArgument};
+use Symfony\Component\Console\Output\OutputInterface;
+
 require_once "config.php";
 
 /*
- * Sent when the setup screen's 'set' button has been
- * activated; new config options are in $_POST
+ * Sent when the setup screen's 'set' button has been activated
  */
 class ConfigSaveEvent extends Event
 {
     public Config $config;
+    /** @var array<string, mixed> $values */
+    public array $values;
 
-    public function __construct(Config $config)
+    /**
+     * @param array<string, mixed> $values
+     */
+    public function __construct(Config $config, array $values)
     {
         parent::__construct();
         $this->config = $config;
+        $this->values = $values;
     }
 }
 
@@ -67,36 +76,36 @@ class SetupBlock extends Block
         $this->config = $config;
     }
 
-    public function add_label(string $text)
+    public function add_label(string $text): void
     {
         $this->body .= $text;
     }
 
-    public function start_table()
+    public function start_table(): void
     {
         $this->body .= "<table class='form'>";
     }
-    public function end_table()
+    public function end_table(): void
     {
         $this->body .= "</table>";
     }
-    public function start_table_row()
+    public function start_table_row(): void
     {
         $this->body .= "<tr>";
     }
-    public function end_table_row()
+    public function end_table_row(): void
     {
         $this->body .= "</tr>";
     }
-    public function start_table_head()
+    public function start_table_head(): void
     {
         $this->body .= "<thead>";
     }
-    public function end_table_head()
+    public function end_table_head(): void
     {
         $this->body .= "</thead>";
     }
-    public function add_table_header($content, int $colspan = 2)
+    public function add_table_header(string $content, int $colspan = 2): void
     {
         $this->start_table_head();
         $this->start_table_row();
@@ -105,29 +114,29 @@ class SetupBlock extends Block
         $this->end_table_head();
     }
 
-    public function start_table_cell(int $colspan = 1)
+    public function start_table_cell(int $colspan = 1): void
     {
         $this->body .= "<td colspan='$colspan'>";
     }
-    public function end_table_cell()
+    public function end_table_cell(): void
     {
         $this->body .= "</td>";
     }
-    public function add_table_cell($content, int $colspan = 1)
+    public function add_table_cell(string $content, int $colspan = 1): void
     {
         $this->start_table_cell($colspan);
         $this->body .= $content;
         $this->end_table_cell();
     }
-    public function start_table_header_cell(int $colspan = 1, string $align = 'right')
+    public function start_table_header_cell(int $colspan = 1, string $align = 'right'): void
     {
         $this->body .= "<th colspan='$colspan' style='text-align: $align'>";
     }
-    public function end_table_header_cell()
+    public function end_table_header_cell(): void
     {
         $this->body .= "</th>";
     }
-    public function add_table_header_cell($content, int $colspan = 1)
+    public function add_table_header_cell(string $content, int $colspan = 1): void
     {
         $this->start_table_header_cell($colspan);
         $this->body .= $content;
@@ -136,11 +145,11 @@ class SetupBlock extends Block
 
     private function format_option(
         string $name,
-        $html,
+        string $html,
         ?string $label,
         bool $table_row,
         bool $label_row = false
-    ) {
+    ): void {
         if ($table_row) {
             $this->start_table_row();
         }
@@ -172,7 +181,7 @@ class SetupBlock extends Block
         }
     }
 
-    public function add_text_option(string $name, string $label = null, bool $table_row = false)
+    public function add_text_option(string $name, string $label = null, bool $table_row = false): void
     {
         $val = html_escape($this->config->get_string($name));
 
@@ -182,7 +191,7 @@ class SetupBlock extends Block
         $this->format_option($name, $html, $label, $table_row);
     }
 
-    public function add_longtext_option(string $name, string $label = null, bool $table_row = false)
+    public function add_longtext_option(string $name, string $label = null, bool $table_row = false): void
     {
         $val = html_escape($this->config->get_string($name));
 
@@ -193,7 +202,7 @@ class SetupBlock extends Block
         $this->format_option($name, $html, $label, $table_row, true);
     }
 
-    public function add_bool_option(string $name, string $label = null, bool $table_row = false)
+    public function add_bool_option(string $name, string $label = null, bool $table_row = false): void
     {
         $checked = $this->config->get_bool($name) ? " checked" : "";
 
@@ -218,7 +227,7 @@ class SetupBlock extends Block
     //		$this->body .= "<input type='hidden' id='$name' name='$name' value='$val'>";
     //	}
 
-    public function add_int_option(string $name, string $label = null, bool $table_row = false)
+    public function add_int_option(string $name, string $label = null, bool $table_row = false): void
     {
         $val = $this->config->get_int($name);
 
@@ -228,7 +237,7 @@ class SetupBlock extends Block
         $this->format_option($name, $html, $label, $table_row);
     }
 
-    public function add_shorthand_int_option(string $name, string $label = null, bool $table_row = false)
+    public function add_shorthand_int_option(string $name, string $label = null, bool $table_row = false): void
     {
         $val = to_shorthand_int($this->config->get_int($name));
         $html = "<input type='text' id='$name' name='_config_$name' value='$val' size='6'>\n";
@@ -237,7 +246,10 @@ class SetupBlock extends Block
         $this->format_option($name, $html, $label, $table_row);
     }
 
-    public function add_choice_option(string $name, array $options, string $label = null, bool $table_row = false)
+    /**
+     * @param array<string,string|int> $options
+     */
+    public function add_choice_option(string $name, array $options, string $label = null, bool $table_row = false): void
     {
         if (is_int(array_values($options)[0])) {
             $current = $this->config->get_int($name);
@@ -260,9 +272,12 @@ class SetupBlock extends Block
         $this->format_option($name, $html, $label, $table_row);
     }
 
-    public function add_multichoice_option(string $name, array $options, string $label = null, bool $table_row = false)
+    /**
+     * @param array<string,string> $options
+     */
+    public function add_multichoice_option(string $name, array $options, string $label = null, bool $table_row = false): void
     {
-        $current = $this->config->get_array($name);
+        $current = $this->config->get_array($name, []);
 
         $html = "<select id='$name' name='_config_{$name}[]' multiple size='5'>";
         foreach ($options as $optname => $optval) {
@@ -275,12 +290,11 @@ class SetupBlock extends Block
         }
         $html .= "</select>";
         $html .= "<input type='hidden' name='_type_$name' value='array'>\n";
-        $html .= "<!--<br><br><br><br>-->\n"; // setup page auto-layout counts <br> tags
 
         $this->format_option($name, $html, $label, $table_row);
     }
 
-    public function add_color_option(string $name, string $label = null, bool $table_row = false)
+    public function add_color_option(string $name, string $label = null, bool $table_row = false): void
     {
         $val = html_escape($this->config->get_string($name));
 
@@ -296,7 +310,7 @@ class Setup extends Extension
     /** @var SetupTheme */
     protected Themelet $theme;
 
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
         $config->set_default_string(SetupConfig::TITLE, "Shimmie");
@@ -306,70 +320,50 @@ class Setup extends Extension
         $config->set_default_bool(SetupConfig::WORD_WRAP, true);
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $config, $page, $user;
+
+        if ($event->page_starts_with("nicedebug")) {
+            $page->set_mode(PageMode::DATA);
+            $page->set_data(\Safe\json_encode([
+                "args" => $event->args,
+            ]));
+        }
 
         if ($event->page_matches("nicetest")) {
             $page->set_mode(PageMode::DATA);
             $page->set_data("ok");
         }
 
-        if ($event->page_matches("setup")) {
-            if (!$user->can(Permissions::CHANGE_SETTING)) {
-                $this->theme->display_permission_denied();
-            } else {
-                if ($event->count_args() == 0) {
-                    $panel = new SetupPanel($config);
-                    send_event(new SetupBuildingEvent($panel));
-                    $this->theme->display_page($page, $panel);
-                } elseif ($event->get_arg(0) == "save" && $user->check_auth_token()) {
-                    send_event(new ConfigSaveEvent($config));
-                    $config->save();
-                    $page->flash("Config saved");
-                    $page->set_mode(PageMode::REDIRECT);
-                    $page->set_redirect(make_link("setup"));
-                } elseif ($event->get_arg(0) == "advanced") {
-                    $this->theme->display_advanced($page, $config->values);
-                }
-            }
+        if ($event->page_matches("setup/advanced", method: "GET", permission: Permissions::CHANGE_SETTING)) {
+            $this->theme->display_advanced($page, $config->values);
+        } elseif ($event->page_matches("setup", method: "GET", permission: Permissions::CHANGE_SETTING)) {
+            $panel = new SetupPanel($config);
+            send_event(new SetupBuildingEvent($panel));
+            $this->theme->display_page($page, $panel);
+        } elseif ($event->page_matches("setup/save", method: "POST", permission: Permissions::CHANGE_SETTING)) {
+            send_event(new ConfigSaveEvent($config, $event->POST));
+            $config->save();
+            $page->flash("Config saved");
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("setup"));
         }
     }
 
-    public function onSetupBuilding(SetupBuildingEvent $event)
+    public function onSetupBuilding(SetupBuildingEvent $event): void
     {
         $themes = [];
-        foreach (glob("themes/*") as $theme_dirname) {
+        foreach (\Safe\glob("themes/*") as $theme_dirname) {
             $name = str_replace("themes/", "", $theme_dirname);
             $human = str_replace("_", " ", $name);
+            // while phpstan-safe-rule isn't enabled, phpstan can't tell
+            // that \Safe\glob() returns string[]
+            // @phpstan-ignore-next-line
             $human = ucwords($human);
             $themes[$human] = $name;
         }
 
-        $test_url = str_replace("/index.php", "/nicetest", $_SERVER["SCRIPT_NAME"]);
-
-        $nicescript = "<script type='text/javascript'>
-			checkbox = document.getElementById('nice_urls');
-			out_span = document.getElementById('nicetest');
-
-			checkbox.disabled = true;
-			out_span.innerHTML = '(testing...)';
-
-			document.addEventListener('DOMContentLoaded', () => {
-				var http_request = new XMLHttpRequest();
-				http_request.open('GET', '$test_url', false);
-				http_request.send(null);
-
-				if(http_request.status === 200 && http_request.responseText === 'ok') {
-					checkbox.disabled = false;
-					out_span.innerHTML = '(tested ok)';
-				}
-				else {
-					checkbox.disabled = true;
-					out_span.innerHTML = '(test failed)';
-				}
-			});
-		</script>";
         $sb = $event->panel->create_new_block("General");
         $sb->position = 0;
         $sb->add_text_option(SetupConfig::TITLE, "Site title: ");
@@ -378,8 +372,8 @@ class Setup extends Extension
         $sb->add_text_option("contact_link", "<br>Contact URL: ");
         $sb->add_choice_option(SetupConfig::THEME, $themes, "<br>Theme: ");
         //$sb->add_multichoice_option("testarray", array("a" => "b", "c" => "d"), "<br>Test Array: ");
-        $sb->add_bool_option("nice_urls", "<br>Nice URLs: ");
-        $sb->add_label("<span title='$test_url' id='nicetest'>(Javascript inactive, can't test!)</span>$nicescript");
+        $sb->add_bool_option(SetupConfig::NICE_URLS, "<br>Nice URLs: ");
+        $sb->add_label("<span id='nicetest'>(Javascript inactive, can't test!)</span>");
 
         $sb = $event->panel->create_new_block("Remote API Integration");
         $sb->add_label("<a href='https://akismet.com/'>Akismet</a>");
@@ -389,14 +383,14 @@ class Setup extends Extension
         $sb->add_text_option("api_recaptcha_pubkey", "<br>Site key: ");
     }
 
-    public function onConfigSave(ConfigSaveEvent $event)
+    public function onConfigSave(ConfigSaveEvent $event): void
     {
         $config = $event->config;
-        foreach ($_POST as $_name => $junk) {
+        foreach ($event->values as $_name => $junk) {
             if (substr($_name, 0, 6) == "_type_") {
                 $name = substr($_name, 6);
-                $type = $_POST["_type_$name"];
-                $value = isset($_POST["_config_$name"]) ? $_POST["_config_$name"] : null;
+                $type = $event->values["_type_$name"];
+                $value = isset($event->values["_config_$name"]) ? $event->values["_config_$name"] : null;
                 switch ($type) {
                     case "string":
                         $config->set_string($name, $value);
@@ -414,35 +408,35 @@ class Setup extends Extension
             }
         }
         log_warning("setup", "Configuration updated");
-        foreach (glob("data/cache/*.css") as $css_cache) {
+        foreach (\Safe\glob("data/cache/*.css") as $css_cache) {
             unlink($css_cache);
         }
         log_warning("setup", "Cache cleared");
     }
 
-    public function onCommand(CommandEvent $event)
+    public function onCliGen(CliGenEvent $event): void
     {
-        if ($event->cmd == "help") {
-            print "\tconfig [get|set] <args>\n";
-            print "\t\teg 'config get db_version'\n\n";
-        }
-        if ($event->cmd == "config") {
-            global $cache, $config;
-            $cmd = $event->args[0];
-            $key = $event->args[1];
-            switch ($cmd) {
-                case "get":
-                    print($config->get_string($key) . "\n");
-                    break;
-                case "set":
-                    $config->set_string($key, $event->args[2]);
-                    break;
-            }
-            $cache->delete("config");
-        }
+        $event->app->register('config:get')
+            ->addArgument('key', InputArgument::REQUIRED)
+            ->setDescription('Get a config value')
+            ->setCode(function (InputInterface $input, OutputInterface $output): int {
+                global $config;
+                $output->writeln($config->get_string($input->getArgument('key')));
+                return Command::SUCCESS;
+            });
+        $event->app->register('config:set')
+            ->addArgument('key', InputArgument::REQUIRED)
+            ->addArgument('value', InputArgument::REQUIRED)
+            ->setDescription('Set a config value')
+            ->setCode(function (InputInterface $input, OutputInterface $output): int {
+                global $cache, $config;
+                $config->set_string($input->getArgument('key'), $input->getArgument('value'));
+                $cache->delete("config");
+                return Command::SUCCESS;
+            });
     }
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         global $user;
         if ($event->parent === "system") {
@@ -452,7 +446,7 @@ class Setup extends Extension
         }
     }
 
-    public function onUserBlockBuilding(UserBlockBuildingEvent $event)
+    public function onUserBlockBuilding(UserBlockBuildingEvent $event): void
     {
         global $user;
         if ($user->can(Permissions::CHANGE_SETTING)) {
@@ -460,7 +454,7 @@ class Setup extends Extension
         }
     }
 
-    public function onParseLinkTemplate(ParseLinkTemplateEvent $event)
+    public function onParseLinkTemplate(ParseLinkTemplateEvent $event): void
     {
         global $config;
         $event->replace('$base', $config->get_string('base_href'));

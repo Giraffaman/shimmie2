@@ -12,7 +12,7 @@ class ViewPostTest extends ShimmiePHPUnitTestCase
         // FIXME: upload images
     }
 
-    public function testViewPage()
+    public function testViewPage(): void
     {
         $this->log_in_as_user();
         $image_id_1 = $this->post_image("tests/pbx_screenshot.jpg", "test");
@@ -21,7 +21,7 @@ class ViewPostTest extends ShimmiePHPUnitTestCase
         $this->assert_title("Post $image_id_1: test");
     }
 
-    public function testViewInfo()
+    public function testViewInfo(): void
     {
         global $config;
 
@@ -30,10 +30,10 @@ class ViewPostTest extends ShimmiePHPUnitTestCase
 
         $config->set_string(ImageConfig::INFO, '$size // $filesize // $ext');
         $this->get_page("post/view/$image_id_1");
-        $this->assert_text("640x480 // 19.3KB // jpg");
+        $this->assert_text("640x480 // 19KB // jpg");
     }
 
-    public function testPrevNext()
+    public function testPrevNext(): void
     {
         $this->log_in_as_user();
         $image_id_1 = $this->post_image("tests/pbx_screenshot.jpg", "test");
@@ -66,7 +66,7 @@ class ViewPostTest extends ShimmiePHPUnitTestCase
         $this->assertEquals(404, $page->code);
     }
 
-    public function testPrevNextDisabledWhenOrdered()
+    public function testPrevNextDisabledWhenOrdered(): void
     {
         $this->log_in_as_user();
         $image_id = $this->post_image("tests/pbx_screenshot.jpg", "test");
@@ -84,16 +84,17 @@ class ViewPostTest extends ShimmiePHPUnitTestCase
         $this->assert_no_text("Prev");
     }
 
-    public function testView404()
+    public function testView404(): void
     {
         $this->log_in_as_user();
         $image_id_1 = $this->post_image("tests/favicon.png", "test");
         $idp1 = $image_id_1 + 1;
 
-        $this->get_page("post/view/$idp1");
-        $this->assert_title('Post not found');
-
-        $this->get_page('post/view/-1');
-        $this->assert_title('Post not found');
+        $this->assertException(ImageNotFound::class, function () use ($idp1) {
+            $this->get_page("post/view/$idp1");
+        });
+        $this->assertException(ImageNotFound::class, function () {
+            $this->get_page('post/view/-1');
+        });
     }
 }

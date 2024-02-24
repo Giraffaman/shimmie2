@@ -8,6 +8,10 @@ use GQLA\Query;
 
 class Querylet
 {
+    /**
+     * @param string $sql
+     * @param array<string, mixed> $variables
+     */
     public function __construct(
         public string $sql,
         public array $variables = [],
@@ -18,16 +22,6 @@ class Querylet
     {
         $this->sql .= $querylet->sql;
         $this->variables = array_merge($this->variables, $querylet->variables);
-    }
-
-    public function append_sql(string $sql): void
-    {
-        $this->sql .= $sql;
-    }
-
-    public function add_variable($var): void
-    {
-        $this->variables[] = $var;
     }
 }
 
@@ -51,9 +45,13 @@ class ImgCondition
 
 class Search
 {
+    /** @var list<string> */
     public static array $_search_path = [];
 
-    private static function find_images_internal(int $start = 0, ?int $limit = null, array $tags = []): iterable
+    /**
+     * @param list<string> $tags
+     */
+    private static function find_images_internal(int $start = 0, ?int $limit = null, array $tags = []): \FFSPHP\PDOStatement
     {
         global $database, $user;
 
@@ -66,7 +64,7 @@ class Search
 
         if (SPEED_HAX) {
             if (!$user->can(Permissions::BIG_SEARCH) and count($tags) > 3) {
-                throw new PermissionDeniedException("Anonymous users may only search for up to 3 tags at a time");
+                throw new PermissionDenied("Anonymous users may only search for up to 3 tags at a time");
             }
         }
 
@@ -78,7 +76,7 @@ class Search
     /**
      * Search for an array of images
      *
-     * @param string[] $tags
+     * @param list<string> $tags
      * @return Image[]
      */
     #[Query(name: "posts", type: "[Post!]!", args: ["tags" => "[string!]"])]
@@ -95,6 +93,9 @@ class Search
 
     /**
      * Search for an array of images, returning a iterable object of Image
+     *
+     * @param list<string> $tags
+     * @return \Generator<Image>
      */
     public static function find_images_iterable(int $start = 0, ?int $limit = null, array $tags = []): \Generator
     {
@@ -146,7 +147,7 @@ class Search
     /**
      * Count the number of image results for a given search
      *
-     * @param string[] $tags
+     * @param list<string> $tags
      */
     public static function count_images(array $tags = []): int
     {
@@ -173,7 +174,7 @@ class Search
             $total = $cache->get($cache_key);
             if (is_null($total)) {
                 [$tag_conditions, $img_conditions, $order] = self::terms_to_conditions($tags);
-                $querylet = self::build_search_querylet($tag_conditions, $img_conditions, $order);
+                $querylet = self::build_search_querylet($tag_conditions, $img_conditions, null);
                 $total = (int)$database->get_one("SELECT COUNT(*) AS cnt FROM ($querylet->sql) AS tbl", $querylet->variables);
                 if (SPEED_HAX && $total > 5000) {
                     // when we have a ton of images, the count
@@ -182,13 +183,13 @@ class Search
                 }
             }
         }
-        if (is_null($total)) {
-            return 0;
-        }
         return $total;
     }
 
 
+    /**
+     * @return list<int>
+     */
     private static function tag_or_wildcard_to_ids(string $tag): array
     {
         global $database;
@@ -239,7 +240,7 @@ class Search
     private static function build_search_querylet(
         array $tag_conditions,
         array $img_conditions,
-        string $order,
+        ?string $order = null,
         ?int $limit = null,
         ?int $offset = null
     ): Querylet {
@@ -335,7 +336,7 @@ class Search
                 }
             }
 
-            assert($positive_tag_id_array || $positive_wildcard_id_array || $negative_tag_id_array || $all_nonexistent_negatives, @$_GET['q']);
+            assert($positive_tag_id_array || $positive_wildcard_id_array || $negative_tag_id_array || $all_nonexistent_negatives, _get_query());
 
             if ($all_nonexistent_negatives) {
                 static::$_search_path[] = "all_nonexistent_negatives";
@@ -387,7 +388,7 @@ class Search
                     WHERE negative.image_id IS NULL
                 ");
             } else {
-                throw new SCoreException("No criteria specified");
+                throw new InvalidInput("No criteria specified");
             }
         }
 
@@ -409,11 +410,13 @@ class Search
                 $img_sql .= " (" . $iq->qlet->sql . ")";
                 $img_vars = array_merge($img_vars, $iq->qlet->variables);
             }
-            $query->append_sql(" AND ");
+            $query->append(new Querylet(" AND "));
             $query->append(new Querylet($img_sql, $img_vars));
         }
 
-        $query->append(new Querylet(" ORDER BY ".$order));
+        if(!is_null($order)) {
+            $query->append(new Querylet(" ORDER BY ".$order));
+        }
 
         if (!is_null($limit)) {
             $query->append(new Querylet(" LIMIT :limit ", ["limit" => $limit]));

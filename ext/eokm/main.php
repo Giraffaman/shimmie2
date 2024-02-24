@@ -11,14 +11,14 @@ class Eokm extends Extension
         return 40;
     } // early, to veto ImageUploadEvent
 
-    public function onImageAddition(ImageAdditionEvent $event)
+    public function onImageAddition(ImageAdditionEvent $event): void
     {
         global $config;
         $username = $config->get_string("eokm_username");
         $password = $config->get_string("eokm_password");
 
         if ($username && $password) {
-            $ch = curl_init("https://api.eokmhashdb.nl/v1/check/md5");
+            $ch = \Safe\curl_init("https://api.eokmhashdb.nl/v1/check/md5");
             // curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/xml', $additionalHeaders));
             curl_setopt($ch, CURLOPT_HEADER, 0);
             curl_setopt($ch, CURLOPT_USERPWD, $username . ":" . $password);
@@ -41,7 +41,7 @@ class Eokm extends Extension
         }
     }
 
-    public function onSetupBuilding(SetupBuildingEvent $event)
+    public function onSetupBuilding(SetupBuildingEvent $event): void
     {
         $sb = $event->panel->create_new_block("EOKM Filter");
 

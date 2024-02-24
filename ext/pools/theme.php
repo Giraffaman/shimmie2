@@ -10,13 +10,18 @@ use function MicroHTML\emptyHTML;
 use function MicroHTML\rawHTML;
 use function MicroHTML\{A,BR,DIV,INPUT,P,SCRIPT,SPAN,TABLE,TBODY,TD,TEXTAREA,TH,THEAD,TR};
 
+/**
+ * @phpstan-type PoolHistory array{id:int,pool_id:int,title:string,user_name:string,action:string,images:string,count:int,date:string}
+ */
 class PoolsTheme extends Themelet
 {
     /**
      * Adds a block to the panel with information on the pool(s) the image is in.
      * $navIDs = Multidimensional array containing pool id, info & nav IDs.
+     *
+     * @param array<int,array{info:Pool,nav:array{prev:?int,next:?int}|null}> $navIDs
      */
-    public function pool_info(array $navIDs)
+    public function pool_info(array $navIDs): void
     {
         global $page;
 
@@ -25,7 +30,7 @@ class PoolsTheme extends Themelet
         foreach ($navIDs as $poolID => $poolInfo) {
             $div = DIV(SHM_A("pool/view/" . $poolID, $poolInfo["info"]->title));
 
-            if (!empty($poolInfo["nav"])) {
+            if(!empty($poolInfo["nav"])) {
                 if (!empty($poolInfo["nav"]["prev"])) {
                     $div->appendChild(SHM_A("post/view/" . $poolInfo["nav"]["prev"], "Prev", class: "pools_prev_img"));
                 }
@@ -42,20 +47,12 @@ class PoolsTheme extends Themelet
         }
     }
 
-    public function get_adder_html(Image $image, array $pools): HTMLElement
-    {
-        return SHM_SIMPLE_FORM(
-            "pool/add_post",
-            SHM_SELECT("pool_id", $pools),
-            INPUT(["type" => "hidden", "name" => "image_id", "value" => $image->id]),
-            SHM_SUBMIT("Add Post to Pool")
-        );
-    }
-
     /**
      * HERE WE SHOWS THE LIST OF POOLS.
+     *
+     * @param Pool[] $pools
      */
-    public function list_pools(Page $page, array $pools, string $search, int $pageNumber, int $totalPages)
+    public function list_pools(Page $page, array $pools, string $search, int $pageNumber, int $totalPages): void
     {
         // Build up the list of pools.
         $pool_rows = [];
@@ -95,7 +92,7 @@ class PoolsTheme extends Themelet
     /*
      * HERE WE DISPLAY THE NEW POOL COMPOSER
      */
-    public function new_pool_composer(Page $page)
+    public function new_pool_composer(Page $page): void
     {
         $form = SHM_SIMPLE_FORM("pool/create", TABLE(
             TR(TD("Title:"), TD(INPUT(["type" => "text", "name" => "title"]))),
@@ -108,7 +105,7 @@ class PoolsTheme extends Themelet
         $page->add_block(new Block("Create Pool", $form, position: 20));
     }
 
-    private function display_top(?Pool $pool, string $heading, bool $check_all = false)
+    private function display_top(?Pool $pool, string $heading, bool $check_all = false): void
     {
         global $page, $user;
 
@@ -123,10 +120,9 @@ class PoolsTheme extends Themelet
             SHM_A("pool/updated", "Pool Changes")
         );
 
-        $search = "<form action='".make_link('pool/list')."' method='GET'>
+        $search = "<form action='".make_link('pool/list')."' method='POST'>
 				<input name='search' type='text'  style='width:75%'>
 				<input type='submit' value='Go' style='width:20%'>
-				<input type='hidden' name='q' value='pool/list'>
 			</form>";
 
         $page->add_block(new NavBlock());
@@ -146,19 +142,21 @@ class PoolsTheme extends Themelet
 
     /**
      * HERE WE DISPLAY THE POOL WITH TITLE DESCRIPTION AND IMAGES WITH PAGINATION.
+     *
+     * @param Image[] $images
      */
-    public function view_pool(Pool $pool, array $images, int $pageNumber, int $totalPages)
+    public function view_pool(Pool $pool, array $images, int $pageNumber, int $totalPages): void
     {
         global $page;
 
         $this->display_top($pool, "Pool: " . html_escape($pool->title));
 
-        $pool_images = emptyHTML();
+        $image_list = DIV(["class" => "shm-image-list"]);
         foreach ($images as $image) {
-            $pool_images->appendChild($this->build_thumb_html($image));
+            $image_list->appendChild($this->build_thumb_html($image));
         }
 
-        $page->add_block(new Block("Viewing Posts", $pool_images, "main", 30));
+        $page->add_block(new Block("Viewing Posts", $image_list, "main", 30));
         $this->display_paginator($page, "pool/view/" . $pool->id, null, $pageNumber, $totalPages);
     }
 
@@ -166,40 +164,26 @@ class PoolsTheme extends Themelet
     /**
      * HERE WE DISPLAY THE POOL OPTIONS ON SIDEBAR BUT WE HIDE REMOVE OPTION IF THE USER IS NOT THE OWNER OR ADMIN.
      */
-    public function sidebar_options(Page $page, Pool $pool, bool $check_all)
+    public function sidebar_options(Page $page, Pool $pool, bool $check_all): void
     {
         global $user;
 
-        // This could become a SHM_INPUT function that also accepts 'type' and other attributes.
-        $_hidden = function (string $name, $value) {
-            return INPUT(["type" => "hidden", "name" => $name, "value" => $value]);
-        };
-
-        $_input_id = $_hidden("pool_id", $pool->id);
-
         $editor = emptyHTML(
             SHM_SIMPLE_FORM(
-                "pool/import",
-                INPUT(["type" => "text", "name" => "pool_tag", "id" => "edit_pool_tag", "placeholder" => "Please enter a tag"]),
-                $_input_id,
+                "pool/import/{$pool->id}",
+                INPUT(["type" => "text", "name" => "pool_tag", "id" => "edit_pool_tag", "placeholder" => "Please enter a tag", "class" => "autocomplete_tags"]),
                 SHM_SUBMIT("Import", ["name" => "edit", "id" => "edit_pool_import_btn"])
             ),
             SHM_SIMPLE_FORM(
-                "pool/edit",
-                $_hidden("edit_pool", "yes"),
-                $_input_id,
+                "pool/edit/{$pool->id}",
                 SHM_SUBMIT("Edit Pool", ["name" => "edit", "id" => "edit_pool_btn"]),
             ),
             SHM_SIMPLE_FORM(
-                "pool/order",
-                $_hidden("order_view", "yes"),
-                $_input_id,
+                "pool/order/{$pool->id}",
                 SHM_SUBMIT("Order Pool", ["name" => "edit", "id" => "edit_pool_order_btn"])
             ),
             SHM_SIMPLE_FORM(
-                "pool/reverse",
-                $_hidden("reverse_view", "yes"),
-                $_input_id,
+                "pool/reverse/{$pool->id}",
                 SHM_SUBMIT("Reverse Order", ["name" => "edit", "id" => "reverse_pool_order_btn"])
             ),
             SHM_SIMPLE_FORM(
@@ -219,8 +203,7 @@ class PoolsTheme extends Themelet
                     //-->")
                 ),
                 SHM_SIMPLE_FORM(
-                    "pool/nuke",
-                    $_input_id,
+                    "pool/nuke/{$pool->id}",
                     SHM_SUBMIT("Delete Pool", ["name" => "delete", "id" => "delete_pool_btn", "onclick" => "return confirm_action()"])
                 )
             );
@@ -246,8 +229,10 @@ class PoolsTheme extends Themelet
 
     /**
      * HERE WE DISPLAY THE RESULT OF THE SEARCH ON IMPORT.
+     *
+     * @param Image[] $images
      */
-    public function pool_result(Page $page, array $images, Pool $pool)
+    public function pool_result(Page $page, array $images, Pool $pool): void
     {
         $this->display_top($pool, "Importing Posts", true);
 
@@ -261,17 +246,18 @@ class PoolsTheme extends Themelet
             )
         );
 
-        $form = SHM_FORM("pool/add_posts", name: "checks");
+        $form = SHM_FORM("pool/add_posts/{$pool->id}", name: "checks");
+        $image_list = DIV(["class" => "shm-image-list"]);
         foreach ($images as $image) {
-            $form->appendChild(
+            $image_list->appendChild(
                 SPAN(["class" => "thumb"], $this->build_thumb_html($image), BR(), INPUT(["type" => "checkbox", "name" => "check[]", "value" => $image->id])),
             );
         }
+        $form->appendChild($image_list);
 
         $form->appendChild(
             BR(),
             SHM_SUBMIT("Add Selected", ["name" => "edit", "id" => "edit_pool_add_btn", "onclick" => "return confirm_action()"]),
-            INPUT(["type" => "hidden", "name" => "pool_id", "value" => $pool->id])
         );
 
         $import->appendChild($form);
@@ -283,23 +269,25 @@ class PoolsTheme extends Themelet
     /**
      * HERE WE DISPLAY THE POOL ORDERER.
      * WE LIST ALL IMAGES ON POOL WITHOUT PAGINATION AND WITH A TEXT INPUT TO SET A NUMBER AND CHANGE THE ORDER
+     *
+     * @param Image[] $images
      */
-    public function edit_order(Page $page, Pool $pool, array $images)
+    public function edit_order(Page $page, Pool $pool, array $images): void
     {
         $this->display_top($pool, "Sorting Pool");
 
-        $form = SHM_FORM("pool/order", name: "checks");
+        $form = SHM_FORM("pool/save_order/{$pool->id}", name: "checks");
+        $image_list = DIV(["class" => "shm-image-list"]);
         foreach ($images as $i => $image) {
-            $form->appendChild(SPAN(
+            $image_list->appendChild(SPAN(
                 ["class" => "thumb"],
                 $this->build_thumb_html($image),
-                INPUT(["type" => "number", "name" => "imgs[$i][]", "value" => $image->image_order, "style" => "max-width: 50px;"]),
-                INPUT(["type" => "hidden", "name" => "imgs[$i][]", "value" => $image->id])
+                INPUT(["type" => "number", "name" => "order_{$image->id}", "value" => $image['image_order'], "style" => "max-width: 50px;"]),
             ));
         }
+        $form->appendChild($image_list);
 
         $form->appendChild(
-            INPUT(["type" => "hidden", "name" => "pool_id", "value" => $pool->id]),
             SHM_SUBMIT("Order", ["name" => "edit", "id" => "edit_pool_order"])
         );
 
@@ -311,31 +299,31 @@ class PoolsTheme extends Themelet
      *
      * WE LIST ALL IMAGES ON POOL WITHOUT PAGINATION AND WITH
      * A CHECKBOX TO SELECT WHICH IMAGE WE WANT TO REMOVE
+     *
+     * @param Image[] $images
      */
-    public function edit_pool(Page $page, Pool $pool, array $images)
+    public function edit_pool(Page $page, Pool $pool, array $images): void
     {
-        $_input_id = INPUT(["type" => "hidden", "name" => "pool_id", "value" => $pool->id]);
-
         $desc_form = SHM_SIMPLE_FORM(
-            "pool/edit/description",
+            "pool/edit_description/{$pool->id}",
             TEXTAREA(["name" => "description"], $pool->description),
             BR(),
-            $_input_id,
             SHM_SUBMIT("Change Description")
         );
 
-        $images_form = SHM_FORM("pool/remove_posts", name: "checks");
+        $images_form = SHM_FORM("pool/remove_posts/{$pool->id}", name: "checks");
+        $image_list = DIV(["class" => "shm-image-list"]);
         foreach ($images as $image) {
-            $images_form->appendChild(SPAN(
+            $image_list->appendChild(SPAN(
                 ["class" => "thumb"],
                 $this->build_thumb_html($image),
                 INPUT(["type" => "checkbox", "name" => "check[]", "value" => $image->id])
             ));
         }
+        $images_form->appendChild($image_list);
 
         $images_form->appendChild(
             BR(),
-            $_input_id,
             SHM_SUBMIT("Remove Selected", ["name" => "edit", "id" => "edit_pool_remove_sel"])
         );
 
@@ -347,8 +335,10 @@ class PoolsTheme extends Themelet
 
     /**
      * HERE WE DISPLAY THE HISTORY LIST.
+     *
+     * @param PoolHistory[] $histories
      */
-    public function show_history(array $histories, int $pageNumber, int $totalPages)
+    public function show_history(array $histories, int $pageNumber, int $totalPages): void
     {
         global $page;
 
@@ -397,11 +387,17 @@ class PoolsTheme extends Themelet
         $this->display_paginator($page, "pool/updated", null, $pageNumber, $totalPages);
     }
 
+    /**
+     * @param array<int,string> $options
+     */
     public function get_bulk_pool_selector(array $options): HTMLElement
     {
         return SHM_SELECT("bulk_pool_select", $options, required: true, empty_option: true);
     }
 
+    /**
+     * @param string[] $search_terms
+     */
     public function get_bulk_pool_input(array $search_terms): HTMLElement
     {
         return INPUT(
@@ -410,7 +406,7 @@ class PoolsTheme extends Themelet
                 "name" => "bulk_pool_new",
                 "placeholder" => "New Pool",
                 "required" => "",
-                "value" => implode(" ", $search_terms)
+                "value" => Tag::implode($search_terms)
             ]
         );
     }

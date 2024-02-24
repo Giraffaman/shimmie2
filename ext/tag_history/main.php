@@ -4,65 +4,51 @@ declare(strict_types=1);
 
 namespace Shimmie2;
 
+use function MicroHTML\rawHTML;
+
 class TagHistory extends Extension
 {
     /** @var TagHistoryTheme */
     protected Themelet $theme;
 
-    // in before tags are actually set, so that "get current tags" works
-    public function get_priority(): int
-    {
-        return 40;
-    }
-
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
         $config->set_default_int("history_limit", -1);
     }
 
-    public function onAdminBuilding(AdminBuildingEvent $event)
+    public function onAdminBuilding(AdminBuildingEvent $event): void
     {
         $this->theme->display_admin_block();
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page, $user;
 
-        if ($event->page_matches("tag_history/revert")) {
+        if ($event->page_matches("tag_history/revert", method: "POST", permission: Permissions::EDIT_IMAGE_TAG)) {
             // this is a request to revert to a previous version of the tags
-            if ($user->can(Permissions::EDIT_IMAGE_TAG)) {
-                if (isset($_POST['revert'])) {
-                    $this->process_revert_request((int)$_POST['revert']);
-                }
-            }
-        } elseif ($event->page_matches("tag_history/bulk_revert")) {
-            if ($user->can(Permissions::BULK_EDIT_IMAGE_TAG) && $user->check_auth_token()) {
-                $this->process_bulk_revert_request();
-            }
-        } elseif ($event->page_matches("tag_history/all")) {
-            $page_id = int_escape($event->get_arg(0));
+            $this->process_revert_request((int)$event->req_POST('revert'));
+        } elseif ($event->page_matches("tag_history/bulk_revert", method: "POST", permission: Permissions::BULK_EDIT_IMAGE_TAG)) {
+            $this->process_bulk_revert_request();
+        } elseif ($event->page_matches("tag_history/all/{page}")) {
+            $page_id = $event->get_iarg('page');
             $this->theme->display_global_page($page, $this->get_global_tag_history($page_id), $page_id);
-        } elseif ($event->page_matches("tag_history") && $event->count_args() == 1) {
+        } elseif ($event->page_matches("tag_history/{image_id}")) {
             // must be an attempt to view a tag history
-            $image_id = int_escape($event->get_arg(0));
+            $image_id = $event->get_iarg('image_id');
             $this->theme->display_history_page($page, $image_id, $this->get_tag_history_from_id($image_id));
         }
     }
 
-    public function onRobotsBuilding(RobotsBuildingEvent $event)
+    public function onRobotsBuilding(RobotsBuildingEvent $event): void
     {
         $event->add_disallow("tag_history");
     }
 
-    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event)
+    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event): void
     {
-        $event->add_part("
-			<form action='".make_link("tag_history/{$event->image->id}")."' method='GET'>
-				<input type='submit' value='View Tag History'>
-			</form>
-		", 20);
+        $event->add_button("View Tag History", "tag_history/{$event->image->id}", 20);
     }
 
     /*
@@ -78,12 +64,69 @@ class TagHistory extends Extension
     }
     */
 
-    public function onTagSet(TagSetEvent $event)
+    public function onTagSet(TagSetEvent $event): void
     {
-        $this->add_tag_history($event->image, $event->tags);
+        global $database, $config, $user;
+
+        $new_tags = Tag::implode($event->new_tags);
+        $old_tags = Tag::implode($event->old_tags);
+
+        if ($new_tags == $old_tags) {
+            return;
+        }
+
+        if (empty($old_tags)) {
+            /* no old tags, so we are probably adding the image for the first time */
+            log_debug("tag_history", "adding new tag history: [$new_tags]");
+        } else {
+            log_debug("tag_history", "adding tag history: [$old_tags] -> [$new_tags]");
+        }
+
+        $allowed = $config->get_int("history_limit");
+        if ($allowed == 0) {
+            return;
+        }
+
+        // if the image has no history, make one with the old tags
+        $entries = $database->get_one("SELECT COUNT(*) FROM tag_histories WHERE image_id = :id", ["id" => $event->image->id]);
+        if ($entries == 0 && !empty($old_tags)) {
+            $database->execute(
+                "
+				INSERT INTO tag_histories(image_id, tags, user_id, user_ip, date_set)
+				VALUES (:image_id, :tags, :user_id, :user_ip, now())",
+                ["image_id" => $event->image->id, "tags" => $old_tags, "user_id" => $config->get_int('anon_id'), "user_ip" => '127.0.0.1']
+            );
+            $entries++;
+        }
+
+        // add a history entry
+        $database->execute(
+            "
+				INSERT INTO tag_histories(image_id, tags, user_id, user_ip, date_set)
+				VALUES (:image_id, :tags, :user_id, :user_ip, now())",
+            ["image_id" => $event->image->id, "tags" => $new_tags, "user_id" => $user->id, "user_ip" => get_real_ip()]
+        );
+        $entries++;
+
+        // if needed remove oldest one
+        if ($allowed == -1) {
+            return;
+        }
+        if ($entries > $allowed) {
+            // TODO: Make these queries better
+            /*
+                MySQL does NOT allow you to modify the same table which you use in the SELECT part.
+                Which means that these will probably have to stay as TWO separate queries...
+
+                https://dev.mysql.com/doc/refman/5.1/en/subquery-restrictions.html
+                https://stackoverflow.com/questions/45494/mysql-error-1093-cant-specify-target-table-for-update-in-from-clause
+            */
+            $min_id = $database->get_one("SELECT MIN(id) FROM tag_histories WHERE image_id = :image_id", ["image_id" => $event->image->id]);
+            $database->execute("DELETE FROM tag_histories WHERE id = :id", ["id" => $min_id]);
+        }
     }
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         global $user;
         if ($event->parent === "system") {
@@ -94,7 +137,7 @@ class TagHistory extends Extension
     }
 
 
-    public function onUserBlockBuilding(UserBlockBuildingEvent $event)
+    public function onUserBlockBuilding(UserBlockBuildingEvent $event): void
     {
         global $user;
         if ($user->can(Permissions::BULK_EDIT_IMAGE_TAG)) {
@@ -102,7 +145,7 @@ class TagHistory extends Extension
         }
     }
 
-    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event)
+    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event): void
     {
         global $database;
 
@@ -136,7 +179,7 @@ class TagHistory extends Extension
     /**
      * This function is called when a revert request is received.
      */
-    private function process_revert_request(int $revert_id)
+    private function process_revert_request(int $revert_id): void
     {
         global $page;
 
@@ -162,10 +205,7 @@ class TagHistory extends Extension
         $stored_image_id = (int)$result['image_id'];
         $stored_tags = $result['tags'];
 
-        $image = Image::by_id($stored_image_id);
-        if (!$image instanceof Image) {
-            throw new ImageDoesNotExist("Error: cannot find any image with the ID = ". $stored_image_id);
-        }
+        $image = Image::by_id_ex($stored_image_id);
 
         log_debug("tag_history", 'Reverting tags of >>'.$stored_image_id.' to ['.$stored_tags.']');
         // all should be ok so we can revert by firing the SetUserTags event.
@@ -176,7 +216,7 @@ class TagHistory extends Extension
         $page->set_redirect(make_link('post/view/'.$stored_image_id));
     }
 
-    protected function process_bulk_revert_request()
+    protected function process_bulk_revert_request(): void
     {
         if (isset($_POST['revert_name']) && !empty($_POST['revert_name'])) {
             $revert_name = $_POST['revert_name'];
@@ -185,7 +225,7 @@ class TagHistory extends Extension
         }
 
         if (isset($_POST['revert_ip']) && !empty($_POST['revert_ip'])) {
-            $revert_ip = filter_var($_POST['revert_ip'], FILTER_VALIDATE_IP, FILTER_FLAG_NO_RES_RANGE);
+            $revert_ip = filter_var_ex($_POST['revert_ip'], FILTER_VALIDATE_IP, FILTER_FLAG_NO_RES_RANGE);
 
             if ($revert_ip === false) {
                 // invalid ip given.
@@ -215,6 +255,9 @@ class TagHistory extends Extension
         $this->theme->display_revert_ip_results();
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function get_tag_history_from_revert(int $revert_id): ?array
     {
         global $database;
@@ -226,6 +269,9 @@ class TagHistory extends Extension
         return ($row ? $row : null);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function get_tag_history_from_id(int $image_id): array
     {
         global $database;
@@ -240,6 +286,9 @@ class TagHistory extends Extension
         );
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function get_global_tag_history(int $page_id): array
     {
         global $database;
@@ -255,7 +304,7 @@ class TagHistory extends Extension
     /**
      * This function attempts to revert all changes by a given IP within an (optional) timeframe.
      */
-    public function process_revert_all_changes(?string $name, ?string $ip, ?string $date)
+    public function process_revert_all_changes(?string $name, ?string $ip, ?string $date): void
     {
         global $database;
 
@@ -341,72 +390,5 @@ class TagHistory extends Extension
         }
 
         log_info("tag_history", 'Reverted '.count($result).' edits.');
-    }
-
-    /**
-     * This function is called just before an images tag are changed.
-     *
-     * @param string[] $tags
-     */
-    private function add_tag_history(Image $image, array $tags)
-    {
-        global $database, $config, $user;
-
-        $new_tags = Tag::implode($tags);
-        $old_tags = $image->get_tag_list();
-
-        if ($new_tags == $old_tags) {
-            return;
-        }
-
-        if (empty($old_tags)) {
-            /* no old tags, so we are probably adding the image for the first time */
-            log_debug("tag_history", "adding new tag history: [$new_tags]");
-        } else {
-            log_debug("tag_history", "adding tag history: [$old_tags] -> [$new_tags]");
-        }
-
-        $allowed = $config->get_int("history_limit");
-        if ($allowed == 0) {
-            return;
-        }
-
-        // if the image has no history, make one with the old tags
-        $entries = $database->get_one("SELECT COUNT(*) FROM tag_histories WHERE image_id = :id", ["id" => $image->id]);
-        if ($entries == 0 && !empty($old_tags)) {
-            $database->execute(
-                "
-				INSERT INTO tag_histories(image_id, tags, user_id, user_ip, date_set)
-				VALUES (:image_id, :tags, :user_id, :user_ip, now())",
-                ["image_id" => $image->id, "tags" => $old_tags, "user_id" => $config->get_int('anon_id'), "user_ip" => '127.0.0.1']
-            );
-            $entries++;
-        }
-
-        // add a history entry
-        $database->execute(
-            "
-				INSERT INTO tag_histories(image_id, tags, user_id, user_ip, date_set)
-				VALUES (:image_id, :tags, :user_id, :user_ip, now())",
-            ["image_id" => $image->id, "tags" => $new_tags, "user_id" => $user->id, "user_ip" => get_real_ip()]
-        );
-        $entries++;
-
-        // if needed remove oldest one
-        if ($allowed == -1) {
-            return;
-        }
-        if ($entries > $allowed) {
-            // TODO: Make these queries better
-            /*
-                MySQL does NOT allow you to modify the same table which you use in the SELECT part.
-                Which means that these will probably have to stay as TWO separate queries...
-
-                https://dev.mysql.com/doc/refman/5.1/en/subquery-restrictions.html
-                https://stackoverflow.com/questions/45494/mysql-error-1093-cant-specify-target-table-for-update-in-from-clause
-            */
-            $min_id = $database->get_one("SELECT MIN(id) FROM tag_histories WHERE image_id = :image_id", ["image_id" => $image->id]);
-            $database->execute("DELETE FROM tag_histories WHERE id = :id", ["id" => $min_id]);
-        }
     }
 }

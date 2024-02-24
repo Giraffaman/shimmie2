@@ -6,9 +6,11 @@ namespace Shimmie2;
 
 use MicroHTML\HTMLElement;
 
+use function MicroHTML\{FORM,INPUT};
+
 class ImageAdminBlockBuildingEvent extends Event
 {
-    /** @var HTMLElement[]|string[] */
+    /** @var HTMLElement[] */
     public array $parts = [];
     public Image $image;
     public User $user;
@@ -22,11 +24,25 @@ class ImageAdminBlockBuildingEvent extends Event
         $this->context = $context;
     }
 
-    public function add_part(HTMLElement|string $html, int $position = 50)
+    public function add_part(HTMLElement $html, int $position = 50): void
     {
         while (isset($this->parts[$position])) {
             $position++;
         }
         $this->parts[$position] = $html;
+    }
+
+    public function add_button(string $name, string $path, int $position = 50): void
+    {
+        $this->add_part(
+            SHM_SIMPLE_FORM(
+                $path,
+                INPUT([
+                    "type" => "submit",
+                    "value" => $name,
+                ])
+            ),
+            $position
+        );
     }
 }

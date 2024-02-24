@@ -25,7 +25,7 @@ use function MicroHTML\OPTION;
 
 class UserPageTheme extends Themelet
 {
-    public function display_login_page(Page $page)
+    public function display_login_page(Page $page): void
     {
         $page->set_title("Login");
         $page->set_heading("Login");
@@ -36,20 +36,18 @@ class UserPageTheme extends Themelet
         ));
     }
 
-    public function display_user_list(Page $page, $table, $paginator)
-    {
-        $page->set_title("User List");
-        $page->set_heading("User List");
-        $page->add_block(new NavBlock());
-        $page->add_block(new Block("Users", $table . $paginator));
-    }
-
-    public function display_user_links(Page $page, User $user, $parts)
+    /**
+     * @param array<int, array{name: string|HTMLElement, link: string}> $parts
+     */
+    public function display_user_links(Page $page, User $user, array $parts): void
     {
         # $page->add_block(new Block("User Links", join(", ", $parts), "main", 10));
     }
 
-    public function display_user_block(Page $page, User $user, $parts)
+    /**
+     * @param array<array{link: string, name: string|HTMLElement}> $parts
+     */
+    public function display_user_block(Page $page, User $user, array $parts): void
     {
         $html = emptyHTML('Logged in as ', $user->name);
         foreach ($parts as $part) {
@@ -61,7 +59,7 @@ class UserPageTheme extends Themelet
         $page->add_block($b);
     }
 
-    public function display_signup_page(Page $page)
+    public function display_signup_page(Page $page): void
     {
         global $config, $user;
         $tac = $config->get_string("login_tac", "");
@@ -117,7 +115,7 @@ class UserPageTheme extends Themelet
         $page->add_block(new Block("Signup", $html));
     }
 
-    public function display_user_creator()
+    public function display_user_creator(): void
     {
         global $page;
 
@@ -154,7 +152,7 @@ class UserPageTheme extends Themelet
         $page->add_block(new Block("Create User", (string)$form, "main", 75));
     }
 
-    public function display_signups_disabled(Page $page)
+    public function display_signups_disabled(Page $page): void
     {
         $page->set_title("Signups Disabled");
         $page->set_heading("Signups Disabled");
@@ -165,7 +163,7 @@ class UserPageTheme extends Themelet
         ));
     }
 
-    public function display_login_block(Page $page)
+    public function display_login_block(Page $page): void
     {
         $page->add_block(new Block("Login", $this->create_login_block(), "left", 90));
     }
@@ -202,6 +200,9 @@ class UserPageTheme extends Themelet
         return $html;
     }
 
+    /**
+     * @param array<string, int> $ips
+     */
     private function _ip_list(string $name, array $ips): HTMLElement
     {
         $td = TD("$name: ");
@@ -218,7 +219,12 @@ class UserPageTheme extends Themelet
         return $td;
     }
 
-    public function display_ip_list(Page $page, array $uploads, array $comments, array $events)
+    /**
+     * @param array<string, int> $uploads
+     * @param array<string, int> $comments
+     * @param array<string, int> $events
+     */
+    public function display_ip_list(Page $page, array $uploads, array $comments, array $events): void
     {
         $html = TABLE(
             ["id" => "ip-history"],
@@ -235,10 +241,12 @@ class UserPageTheme extends Themelet
         $page->add_block(new Block("IPs", $html, "main", 70));
     }
 
-    public function display_user_page(User $duser, $stats)
+    /**
+     * @param string[] $stats
+     */
+    public function display_user_page(User $duser, array $stats): void
     {
         global $page;
-        assert(is_array($stats));
         $stats[] = 'User ID: '.$duser->id;
 
         $page->set_title(html_escape($duser->name)."'s Page");
@@ -297,9 +305,8 @@ class UserPageTheme extends Themelet
             ));
 
             if ($user->can(Permissions::EDIT_USER_CLASS)) {
-                global $_shm_user_classes;
                 $select = SELECT(["name" => "class"]);
-                foreach ($_shm_user_classes as $name => $values) {
+                foreach (UserClass::$known_classes as $name => $values) {
                     $select->appendChild(
                         OPTION(["value" => $name, "selected" => $name == $duser->class->name], ucwords($name))
                     );

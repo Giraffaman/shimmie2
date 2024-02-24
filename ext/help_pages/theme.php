@@ -6,7 +6,10 @@ namespace Shimmie2;
 
 class HelpPagesTheme extends Themelet
 {
-    public function display_list_page(array $pages)
+    /**
+     * @param array<string,string> $pages
+     */
+    public function display_list_page(array $pages): void
     {
         global $page;
 
@@ -23,7 +26,7 @@ class HelpPagesTheme extends Themelet
         $page->add_block(new Block("Help Pages", "See list of pages to left"));
     }
 
-    public function display_help_page(string $title)
+    public function display_help_page(string $title): void
     {
         global $page;
 

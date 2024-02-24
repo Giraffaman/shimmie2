@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Shimmie2;
 
+use function MicroHTML\{rawHTML};
+
 class SourceHistory extends Extension
 {
     /** @var SourceHistoryTheme */
@@ -15,54 +17,44 @@ class SourceHistory extends Extension
         return 40;
     }
 
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
         $config->set_default_int("history_limit", -1);
     }
 
-    public function onAdminBuilding(AdminBuildingEvent $event)
+    public function onAdminBuilding(AdminBuildingEvent $event): void
     {
         $this->theme->display_admin_block();
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page, $user;
 
-        if ($event->page_matches("source_history/revert")) {
+        if ($event->page_matches("source_history/revert", method: "POST", permission: Permissions::EDIT_IMAGE_TAG)) {
             // this is a request to revert to a previous version of the source
-            if ($user->can(Permissions::EDIT_IMAGE_TAG)) {
-                if (isset($_POST['revert'])) {
-                    $this->process_revert_request((int)$_POST['revert']);
-                }
-            }
-        } elseif ($event->page_matches("source_history/bulk_revert")) {
-            if ($user->can(Permissions::BULK_EDIT_IMAGE_TAG) && $user->check_auth_token()) {
-                $this->process_bulk_revert_request();
-            }
-        } elseif ($event->page_matches("source_history/all")) {
-            $page_id = int_escape($event->get_arg(0));
+            $this->process_revert_request((int)$event->req_POST('revert'));
+        } elseif ($event->page_matches("source_history/bulk_revert", method: "POST", permission: Permissions::BULK_EDIT_IMAGE_TAG)) {
+            $this->process_bulk_revert_request();
+        } elseif ($event->page_matches("source_history/all/{page}")) {
+            $page_id = $event->get_iarg('page');
             $this->theme->display_global_page($page, $this->get_global_source_history($page_id), $page_id);
-        } elseif ($event->page_matches("source_history") && $event->count_args() == 1) {
+        } elseif ($event->page_matches("source_history/{image_id}")) {
             // must be an attempt to view a source history
-            $image_id = int_escape($event->get_arg(0));
+            $image_id = $event->get_iarg('image_id');
             $this->theme->display_history_page($page, $image_id, $this->get_source_history_from_id($image_id));
         }
     }
 
-    public function onRobotsBuilding(RobotsBuildingEvent $event)
+    public function onRobotsBuilding(RobotsBuildingEvent $event): void
     {
         $event->add_disallow("source_history");
     }
 
-    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event)
+    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event): void
     {
-        $event->add_part("
-			<form action='".make_link("source_history/{$event->image->id}")."' method='GET'>
-				<input type='submit' value='View Source History'>
-			</form>
-		", 20);
+        $event->add_button("View Source History", "source_history/{$event->image->id}", 20);
     }
 
     /*
@@ -78,12 +70,12 @@ class SourceHistory extends Extension
     }
     */
 
-    public function onSourceSet(SourceSetEvent $event)
+    public function onSourceSet(SourceSetEvent $event): void
     {
         $this->add_source_history($event->image, $event->source);
     }
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         global $user;
         if ($event->parent === "system") {
@@ -93,7 +85,7 @@ class SourceHistory extends Extension
         }
     }
 
-    public function onUserBlockBuilding(UserBlockBuildingEvent $event)
+    public function onUserBlockBuilding(UserBlockBuildingEvent $event): void
     {
         global $user;
         if ($user->can(Permissions::BULK_EDIT_IMAGE_TAG)) {
@@ -101,7 +93,7 @@ class SourceHistory extends Extension
         }
     }
 
-    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event)
+    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event): void
     {
         global $database;
 
@@ -135,7 +127,7 @@ class SourceHistory extends Extension
     /**
      * This function is called when a revert request is received.
      */
-    private function process_revert_request(int $revert_id)
+    private function process_revert_request(int $revert_id): void
     {
         global $page;
 
@@ -178,7 +170,7 @@ class SourceHistory extends Extension
         $page->set_redirect(make_link('post/view/'.$stored_image_id));
     }
 
-    protected function process_bulk_revert_request()
+    protected function process_bulk_revert_request(): void
     {
         if (isset($_POST['revert_name']) && !empty($_POST['revert_name'])) {
             $revert_name = $_POST['revert_name'];
@@ -187,7 +179,7 @@ class SourceHistory extends Extension
         }
 
         if (isset($_POST['revert_ip']) && !empty($_POST['revert_ip'])) {
-            $revert_ip = filter_var($_POST['revert_ip'], FILTER_VALIDATE_IP, FILTER_FLAG_NO_RES_RANGE);
+            $revert_ip = filter_var_ex($_POST['revert_ip'], FILTER_VALIDATE_IP, FILTER_FLAG_NO_RES_RANGE);
 
             if ($revert_ip === false) {
                 // invalid ip given.
@@ -217,6 +209,9 @@ class SourceHistory extends Extension
         $this->theme->display_revert_ip_results();
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function get_source_history_from_revert(int $revert_id): ?array
     {
         global $database;
@@ -228,6 +223,9 @@ class SourceHistory extends Extension
         return ($row ? $row : null);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function get_source_history_from_id(int $image_id): array
     {
         global $database;
@@ -242,6 +240,9 @@ class SourceHistory extends Extension
         );
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function get_global_source_history(int $page_id): array
     {
         global $database;
@@ -257,7 +258,7 @@ class SourceHistory extends Extension
     /**
      * This function attempts to revert all changes by a given IP within an (optional) timeframe.
      */
-    public function process_revert_all_changes(?string $name, ?string $ip, ?string $date)
+    public function process_revert_all_changes(?string $name, ?string $ip, ?string $date): void
     {
         global $database;
 
@@ -349,7 +350,7 @@ class SourceHistory extends Extension
     /**
      * This function is called just before an images source is changed.
      */
-    private function add_source_history(Image $image, string $source)
+    private function add_source_history(Image $image, string $source): void
     {
         global $database, $config, $user;
 

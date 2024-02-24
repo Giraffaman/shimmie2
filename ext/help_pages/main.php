@@ -6,9 +6,10 @@ namespace Shimmie2;
 
 class HelpPageListBuildingEvent extends Event
 {
+    /** @var array<string,string> */
     public array $pages = [];
 
-    public function add_page(string $key, string $name)
+    public function add_page(string $key, string $name): void
     {
         $this->pages[$key] = $name;
     }
@@ -17,6 +18,7 @@ class HelpPageListBuildingEvent extends Event
 class HelpPageBuildingEvent extends Event
 {
     public string $key;
+    /** @var array<int,Block> */
     public array $blocks = [];
 
     public function __construct(string $key)
@@ -25,12 +27,12 @@ class HelpPageBuildingEvent extends Event
         $this->key = $key;
     }
 
-    public function add_block(Block $block, int $position = 50)
+    public function add_block(Block $block, int $position = 50): void
     {
-        if (!array_key_exists("$position", $this->blocks)) {
-            $this->blocks["$position"] = [];
+        while (array_key_exists($position, $this->blocks)) {
+            $position++;
         }
-        $this->blocks["$position"][] = $block;
+        $this->blocks[$position] = $block;
     }
 }
 
@@ -40,52 +42,46 @@ class HelpPages extends Extension
     protected Themelet $theme;
     public const SEARCH = "search";
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page;
 
-        if ($event->page_matches("help")) {
+        if ($event->page_matches("help/{topic}")) {
             $pages = send_event(new HelpPageListBuildingEvent())->pages;
-            if ($event->count_args() == 0) {
-                $name = array_key_first($pages);
-                $page->set_mode(PageMode::REDIRECT);
-                $page->set_redirect(make_link("help/".$name));
-                return;
+            $page->set_mode(PageMode::PAGE);
+            $name = $event->get_arg('topic');
+            if (array_key_exists($name, $pages)) {
+                $title = $pages[$name];
             } else {
-                $page->set_mode(PageMode::PAGE);
-                $name = $event->get_arg(0);
-                if (array_key_exists($name, $pages)) {
-                    $title = $pages[$name];
-                } else {
-                    return;
-                }
-
-                $this->theme->display_help_page($title);
-
-                $hpbe = send_event(new HelpPageBuildingEvent($name));
-                asort($hpbe->blocks);
-
-                foreach ($hpbe->blocks as $key => $value) {
-                    foreach ($value as $block) {
-                        $page->add_block($block);
-                    }
-                }
+                return;
             }
+
+            $this->theme->display_help_page($title);
+            $hpbe = send_event(new HelpPageBuildingEvent($name));
+            ksort($hpbe->blocks);
+            foreach ($hpbe->blocks as $block) {
+                $page->add_block($block);
+            }
+        } elseif ($event->page_matches("help")) {
+            $pages = send_event(new HelpPageListBuildingEvent())->pages;
+            $name = array_key_first($pages);
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("help/".$name));
         }
     }
 
-    public function onHelpPageListBuilding(HelpPageListBuildingEvent $event)
+    public function onHelpPageListBuilding(HelpPageListBuildingEvent $event): void
     {
         $event->add_page("search", "Searching");
         $event->add_page("licenses", "Licenses");
     }
 
-    public function onPageNavBuilding(PageNavBuildingEvent $event)
+    public function onPageNavBuilding(PageNavBuildingEvent $event): void
     {
         $event->add_nav_link("help", new Link('help'), "Help");
     }
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         if ($event->parent == "help") {
             $pages = send_event(new HelpPageListBuildingEvent())->pages;
@@ -95,12 +91,12 @@ class HelpPages extends Extension
         }
     }
 
-    public function onUserBlockBuilding(UserBlockBuildingEvent $event)
+    public function onUserBlockBuilding(UserBlockBuildingEvent $event): void
     {
         $event->add_link("Help", make_link("help"));
     }
 
-    public function onHelpPageBuilding(HelpPageBuildingEvent $event)
+    public function onHelpPageBuilding(HelpPageBuildingEvent $event): void
     {
         if ($event->key == "licenses") {
             $block = new Block("Software Licenses");

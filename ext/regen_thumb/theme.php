@@ -9,21 +9,9 @@ use function MicroHTML\INPUT;
 class RegenThumbTheme extends Themelet
 {
     /**
-     * Show a form which offers to regenerate the thumb of an image with ID #$image_id
-     */
-    public function get_buttons_html(int $image_id): string
-    {
-        return (string)SHM_SIMPLE_FORM(
-            "regen_thumb/one",
-            INPUT(["type" => 'hidden', "name" => 'image_id', "value" => $image_id]),
-            SHM_SUBMIT('Regenerate Thumbnail')
-        );
-    }
-
-    /**
      * Show a link to the new thumbnail.
      */
-    public function display_results(Page $page, Image $image)
+    public function display_results(Page $page, Image $image): void
     {
         $page->set_title("Thumbnail Regenerated");
         $page->set_heading("Thumbnail Regenerated");
@@ -62,7 +50,7 @@ class RegenThumbTheme extends Themelet
                 <tr><td colspan='2'><input type='submit' value='Regenerate Thumbnails'></td></tr>
 				</table>
 			</form></p>
-			<p>".make_form(make_link("admin/delete_thumbs"), "POST", false, "", "return confirm('Are you sure you want to delete all thumbnails?')")."
+			<p>".make_form(make_link("admin/delete_thumbs"), onsubmit: "return confirm('Are you sure you want to delete all thumbnails?')")."
 				<table class='form'>
                     <tr><th><label for='delete_thumb_mime'>MIME</label></th><td>
                         <select name='delete_thumb_mime' id='delete_thumb_mime'>

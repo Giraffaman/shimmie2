@@ -6,7 +6,7 @@ namespace Shimmie2;
 
 class ImageIOTest extends ShimmiePHPUnitTestCase
 {
-    public function testUserStats()
+    public function testUserStats(): void
     {
         $this->log_in_as_user();
         $image_id = $this->post_image("tests/pbx_screenshot.jpg", "test");
@@ -26,12 +26,11 @@ class ImageIOTest extends ShimmiePHPUnitTestCase
         $this->assertEquals(200, $page->code);
     }
 
-    public function testDeleteRequest()
+    public function testDeleteRequest(): void
     {
         $this->log_in_as_admin();
         $image_id = $this->post_image("tests/pbx_screenshot.jpg", "test");
-        $_POST['image_id'] = "$image_id";
-        send_event(new PageRequestEvent("POST", "image/delete"));
+        send_event(new PageRequestEvent("POST", "image/delete", [], ['image_id' => "$image_id"]));
         $this->assertTrue(true);  // FIXME: assert image was deleted?
     }
 }

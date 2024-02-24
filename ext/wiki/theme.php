@@ -12,7 +12,7 @@ class WikiTheme extends Themelet
      * $wiki_page The wiki page, has ->title and ->body
      * $nav_page A wiki page object with navigation, has ->body
      */
-    public function display_page(Page $page, WikiPage $wiki_page, ?WikiPage $nav_page = null)
+    public function display_page(Page $page, WikiPage $wiki_page, ?WikiPage $nav_page = null): void
     {
         global $user;
 
@@ -30,7 +30,7 @@ class WikiTheme extends Themelet
 
         // see if title is a category'd tag
         $title_html = html_escape($wiki_page->title);
-        if (class_exists('Shimmie2\TagCategories')) {
+        if (Extension::is_enabled(TagCategoriesInfo::KEY)) {
             $tagcategories = new TagCategories();
             $tag_category_dict = $tagcategories->getKeyedDict();
             $title_html = $tagcategories->getTagHtml($title_html, $tag_category_dict);
@@ -47,7 +47,11 @@ class WikiTheme extends Themelet
         $page->add_block(new Block($title_html, $this->create_display_html($wiki_page)));
     }
 
-    public function display_page_history(Page $page, string $title, array $history)
+    /**
+     * @param array<array{revision: string, date: string}> $history
+     */
+
+    public function display_page_history(Page $page, string $title, array $history): void
     {
         $html = "<table class='zebra'>";
         foreach ($history as $row) {
@@ -61,7 +65,7 @@ class WikiTheme extends Themelet
         $page->add_block(new Block(html_escape($title), $html));
     }
 
-    public function display_page_editor(Page $page, WikiPage $wiki_page)
+    public function display_page_editor(Page $page, WikiPage $wiki_page): void
     {
         $page->set_title(html_escape($wiki_page->title));
         $page->set_heading(html_escape($wiki_page->title));
@@ -71,7 +75,7 @@ class WikiTheme extends Themelet
 
     protected function create_edit_html(WikiPage $page): string
     {
-        $h_title = html_escape($page->title);
+        $u_title = url_escape($page->title);
         $i_revision = $page->revision + 1;
 
         global $user;
@@ -81,9 +85,7 @@ class WikiTheme extends Themelet
         } else {
             $lock = "";
         }
-        return "
-			".make_form(make_link("wiki_admin/save"))."
-				<input type='hidden' name='title' value='$h_title'>
+        return make_form(make_link("wiki/$u_title/save"))."
 				<input type='hidden' name='revision' value='$i_revision'>
 				<textarea name='body' style='width: 100%' rows='20'>".html_escape($page->body)."</textarea>
 				$lock
@@ -96,6 +98,7 @@ class WikiTheme extends Themelet
     {
         global $user;
 
+        $u_title = url_escape($page->title);
         $owner = $page->get_owner();
 
         $formatted_body = Wiki::format_tag_wiki_page($page);
@@ -103,8 +106,7 @@ class WikiTheme extends Themelet
         $edit = "<table><tr>";
         $edit .= Wiki::can_edit($user, $page) ?
             "
-				<td>".make_form(make_link("wiki_admin/edit"))."
-					<input type='hidden' name='title' value='".html_escape($page->title)."'>
+				<td>".make_form(make_link("wiki/$u_title/edit"))."
 					<input type='hidden' name='revision' value='".$page->revision."'>
 					<input type='submit' value='Edit'>
 				</form></td>
@@ -112,13 +114,11 @@ class WikiTheme extends Themelet
             "";
         if ($user->can(Permissions::WIKI_ADMIN)) {
             $edit .= "
-				<td>".make_form(make_link("wiki_admin/delete_revision"))."
-					<input type='hidden' name='title' value='".html_escape($page->title)."'>
+				<td>".make_form(make_link("wiki/$u_title/delete_revision"))."
 					<input type='hidden' name='revision' value='".$page->revision."'>
 					<input type='submit' value='Delete This Version'>
 				</form></td>
-				<td>".make_form(make_link("wiki_admin/delete_all"))."
-					<input type='hidden' name='title' value='".html_escape($page->title)."'>
+				<td>".make_form(make_link("wiki/$u_title/delete_all"))."
 					<input type='submit' value='Delete All'>
 				</form></td>
 			";
@@ -130,7 +130,7 @@ class WikiTheme extends Themelet
 			$formatted_body
 			<hr>
 			<p class='wiki-footer'>
-				<a href='".make_link("wiki_admin/history", "title={$page->title}")."'>Revision {$page->revision}</a>
+				<a href='".make_link("wiki/$u_title/history")."'>Revision {$page->revision}</a>
 				by <a href='".make_link("user/{$owner->name}")."'>{$owner->name}</a>
 				at {$page->date}
 				$edit

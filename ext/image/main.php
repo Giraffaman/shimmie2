@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 namespace Shimmie2;
 
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\{InputInterface,InputArgument};
+use Symfony\Component\Console\Output\OutputInterface;
+
+use function MicroHTML\{INPUT, emptyHTML};
+
 require_once "config.php";
 
 /**
@@ -11,9 +17,6 @@ require_once "config.php";
  */
 class ImageIO extends Extension
 {
-    /** @var ImageIOTheme */
-    protected Themelet $theme;
-
     public const COLLISION_OPTIONS = [
         'Error' => ImageConfig::COLLISION_ERROR,
         'Merge' => ImageConfig::COLLISION_MERGE
@@ -36,7 +39,7 @@ class ImageIO extends Extension
         'WEBP (Not IE compatible)' => MimeType::WEBP
     ];
 
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
         $config->set_default_string(ImageConfig::THUMB_ENGINE, MediaEngine::GD);
@@ -58,7 +61,7 @@ class ImageIO extends Extension
         $config->set_default_int(ImageConfig::EXPIRES, (60 * 60 * 24 * 31));	// defaults to one month
     }
 
-    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event)
+    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event): void
     {
         global $config;
 
@@ -77,7 +80,7 @@ class ImageIO extends Extension
         }
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $config, $page;
 
@@ -85,145 +88,77 @@ class ImageIO extends Extension
         $thumb_height = $config->get_int(ImageConfig::THUMB_HEIGHT, 192);
         $page->add_html_header("<style>:root {--thumb-width: {$thumb_width}px; --thumb-height: {$thumb_height}px;}</style>");
 
-        if ($event->page_matches("image/delete")) {
+        if ($event->page_matches("image/delete", method: "POST", permission: Permissions::DELETE_IMAGE)) {
             global $page, $user;
-            if ($user->can(Permissions::DELETE_IMAGE) && isset($_POST['image_id']) && $user->check_auth_token()) {
-                $image = Image::by_id(int_escape($_POST['image_id']));
-                if ($image) {
-                    send_event(new ImageDeletionEvent($image));
+            $image = Image::by_id(int_escape($event->req_POST('image_id')));
+            if ($image) {
+                send_event(new ImageDeletionEvent($image));
 
-                    if ($config->get_string(ImageConfig::ON_DELETE) === ImageConfig::ON_DELETE_NEXT) {
-                        redirect_to_next_image($image);
-                    } else {
-                        $page->set_mode(PageMode::REDIRECT);
-                        $page->set_redirect(referer_or(make_link(), ['post/view']));
-                    }
+                if ($config->get_string(ImageConfig::ON_DELETE) === ImageConfig::ON_DELETE_NEXT) {
+                    redirect_to_next_image($image, $event->get_GET('search'));
+                } else {
+                    $page->set_mode(PageMode::REDIRECT);
+                    $page->set_redirect(referer_or(make_link(), ['post/view']));
                 }
             }
-        } elseif ($event->page_matches("image")) {
-            $num = int_escape($event->get_arg(0));
-            $this->send_file($num, "image");
-        } elseif ($event->page_matches("thumb")) {
-            $num = int_escape($event->get_arg(0));
-            $this->send_file($num, "thumb");
+        } elseif ($event->page_matches("image/{image_id}/{filename}")) {
+            $num = $event->get_iarg('image_id');
+            $this->send_file($num, "image", $event->GET);
+        } elseif ($event->page_matches("thumb/{image_id}/{filename}")) {
+            $num = $event->get_iarg('image_id');
+            $this->send_file($num, "thumb", $event->GET);
         }
     }
 
-    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event)
+    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event): void
     {
         global $user;
 
         if ($user->can(Permissions::DELETE_IMAGE)) {
-            $event->add_part($this->theme->get_deleter_html($event->image->id));
-        }
-        /* In the future, could perhaps allow users to replace images that they own as well... */
-        if ($user->can(Permissions::REPLACE_IMAGE)) {
-            $event->add_part($this->theme->get_replace_html($event->image->id));
+            $form = SHM_FORM("image/delete", form_id: "image_delete_form");
+            $form->appendChild(emptyHTML(
+                INPUT(["type" => 'hidden', "name" => 'image_id', "value" => $event->image->id]),
+                INPUT(["type" => 'submit', "value" => 'Delete', "onclick" => 'return confirm("Delete the image?");', "id" => "image_delete_button"]),
+            ));
+            $event->add_part($form);
         }
     }
 
-    public function onImageAddition(ImageAdditionEvent $event)
+    public function onCliGen(CliGenEvent $event): void
     {
-        global $config;
-
-        try {
-            $image = $event->image;
-
-            /*
-             * Check for an existing image
-             */
-            $existing = Image::by_hash($image->hash);
-            if (!is_null($existing)) {
-                $handler = $config->get_string(ImageConfig::UPLOAD_COLLISION_HANDLER);
-                if ($handler == ImageConfig::COLLISION_MERGE || isset($_GET['update'])) {
-                    $event->merged = true;
-                    $event->image = $existing;
-                    return;
-                } else {
-                    throw new ImageAdditionException(">>{$existing->id} already has hash {$image->hash}");
-                }
-            }
-
-            // actually insert the info
-            $image->save_to_db();
-
-            log_info("image", "Uploaded >>{$image->id} ({$image->hash})");
-        } catch (ImageAdditionException $e) {
-            throw new UploadException($e->error);
-        }
+        $event->app->register('delete')
+            ->addArgument('id', InputArgument::REQUIRED)
+            ->setDescription('Delete a specific post')
+            ->setCode(function (InputInterface $input, OutputInterface $output): int {
+                $post_id = (int)$input->getArgument('id');
+                $image = Image::by_id_ex($post_id);
+                send_event(new ImageDeletionEvent($image));
+                return Command::SUCCESS;
+            });
     }
 
-    public function onImageDeletion(ImageDeletionEvent $event)
+    public function onImageAddition(ImageAdditionEvent $event): void
+    {
+        send_event(new ThumbnailGenerationEvent($event->image));
+        log_info("image", "Uploaded >>{$event->image->id} ({$event->image->hash})");
+    }
+
+    public function onImageDeletion(ImageDeletionEvent $event): void
     {
         $event->image->delete();
     }
 
-    public function onCommand(CommandEvent $event)
-    {
-        if ($event->cmd == "help") {
-            print "\tdelete <post id>\n";
-            print "\t\tdelete a specific post\n\n";
-        }
-        if ($event->cmd == "delete") {
-            $post_id = (int)$event->args[0];
-            $image = Image::by_id($post_id);
-            send_event(new ImageDeletionEvent($image));
-        }
-    }
-
-    public function onImageReplace(ImageReplaceEvent $event)
-    {
-        $original = $event->original;
-        $replacement = $event->replacement;
-
-        try {
-            $duplicate = Image::by_hash($replacement->hash);
-            if (!is_null($duplicate) && $duplicate->id != $original->id) {
-                throw new ImageReplaceException(">>{$duplicate->id} already has hash {$replacement->hash}");
-            }
-
-            $replacement->set_mime(
-                MimeType::get_for_file($replacement->get_image_filename())
-            );
-
-            // Update the data in the database.
-            if (empty($replacement->source)) {
-                $replacement->source = $original->get_source();
-            }
-            $replacement->posted = $original->posted;
-            $replacement->id = $original->id;
-            send_event(new MediaCheckPropertiesEvent($replacement));
-            $replacement->save_to_db();
-
-            /*
-                This step could be optional, ie: perhaps move the image somewhere
-                and have it stored in a 'replaced images' list that could be
-                inspected later by an admin?
-            */
-
-            log_debug("image", "Removing image with hash " . $original->hash);
-            $original->remove_image_only(); // Actually delete the old image file from disk
-
-            /* Generate new thumbnail */
-            send_event(new ThumbnailGenerationEvent($replacement->hash, $replacement->get_mime()));
-
-            log_info("image", "Replaced >>{$original->id} with ({$replacement->hash})");
-        } catch (ImageReplaceException $e) {
-            throw new UploadException($e->error);
-        }
-    }
-
-    public function onUserPageBuilding(UserPageBuildingEvent $event)
+    public function onUserPageBuilding(UserPageBuildingEvent $event): void
     {
         $u_name = url_escape($event->display_user->name);
         $i_image_count = Search::count_images(["user={$event->display_user->name}"]);
-        $i_days_old = ((time() - strtotime($event->display_user->join_date)) / 86400) + 1;
+        $i_days_old = ((time() - \Safe\strtotime($event->display_user->join_date)) / 86400) + 1;
         $h_image_rate = sprintf("%.1f", ($i_image_count / $i_days_old));
         $images_link = search_link(["user=$u_name"]);
         $event->add_stats("<a href='$images_link'>Posts uploaded</a>: $i_image_count, $h_image_rate per day");
     }
 
-    public function onSetupBuilding(SetupBuildingEvent $event)
+    public function onSetupBuilding(SetupBuildingEvent $event): void
     {
         global $config;
 
@@ -266,10 +201,10 @@ class ImageIO extends Extension
         $sb->end_table();
     }
 
-    public function onParseLinkTemplate(ParseLinkTemplateEvent $event)
+    public function onParseLinkTemplate(ParseLinkTemplateEvent $event): void
     {
         $fname = $event->image->get_filename();
-        $base_fname = str_contains($fname, '.') ? substr($fname, 0, strrpos($fname, '.')) : $fname;
+        $base_fname = basename($fname, '.' . $event->image->get_ext());
 
         $event->replace('$id', (string)$event->image->id);
         $event->replace('$hash_ab', substr($event->image->hash, 0, 2));
@@ -278,68 +213,64 @@ class ImageIO extends Extension
         $event->replace('$filesize', to_shorthand_int($event->image->filesize));
         $event->replace('$filename', $base_fname);
         $event->replace('$ext', $event->image->get_ext());
-        $event->replace('$date', autodate($event->image->posted, false));
+        if(isset($event->image->posted)) {
+            $event->replace('$date', autodate($event->image->posted, false));
+        }
         $event->replace("\\n", "\n");
     }
 
-    private function send_file(int $image_id, string $type)
+    /**
+     * @param array<string, string|string[]> $params
+     */
+    private function send_file(int $image_id, string $type, array $params): void
     {
         global $config, $page;
 
-        $image = Image::by_id($image_id);
-        if (!is_null($image)) {
-            if ($type == "thumb") {
-                $mime = $config->get_string(ImageConfig::THUMB_MIME);
-                $file = $image->get_thumb_filename();
-            } else {
-                $mime = $image->get_mime();
-                $file = $image->get_image_filename();
-            }
-            if (!file_exists($file)) {
-                http_response_code(404);
-                die();
-            }
+        $image = Image::by_id_ex($image_id);
 
-            $page->set_mime($mime);
-
-
-            if (isset($_SERVER["HTTP_IF_MODIFIED_SINCE"])) {
-                $if_modified_since = preg_replace('/;.*$/', '', $_SERVER["HTTP_IF_MODIFIED_SINCE"]);
-            } else {
-                $if_modified_since = "";
-            }
-            $gmdate_mod = gmdate('D, d M Y H:i:s', filemtime($file)) . ' GMT';
-
-            if ($if_modified_since == $gmdate_mod) {
-                $page->set_mode(PageMode::DATA);
-                $page->set_code(304);
-                $page->set_data("");
-            } else {
-                $page->set_mode(PageMode::FILE);
-                $page->add_http_header("Last-Modified: $gmdate_mod");
-                if ($type != "thumb") {
-                    $page->set_filename($image->get_nice_image_name(), 'inline');
-                }
-
-                $page->set_file($file);
-
-                if ($config->get_int(ImageConfig::EXPIRES)) {
-                    $expires = date(DATE_RFC1123, time() + $config->get_int(ImageConfig::EXPIRES));
-                } else {
-                    $expires = 'Fri, 2 Sep 2101 12:42:42 GMT'; // War was beginning
-                }
-                $page->add_http_header('Expires: ' . $expires);
-            }
-
-            send_event(new ImageDownloadingEvent($image, $file, $mime));
+        if ($type == "thumb") {
+            $mime = $config->get_string(ImageConfig::THUMB_MIME);
+            $file = $image->get_thumb_filename();
         } else {
-            $page->set_title("Not Found");
-            $page->set_heading("Not Found");
-            $page->add_block(new Block("Navigation", "<a href='" . make_link() . "'>Index</a>", "left", 0));
-            $page->add_block(new Block(
-                "Post not in database",
-                "The requested image was not found in the database"
-            ));
+            $mime = $image->get_mime();
+            $file = $image->get_image_filename();
         }
+        if (!file_exists($file)) {
+            http_response_code(404);
+            die();
+        }
+
+        $page->set_mime($mime);
+
+
+        if (isset($_SERVER["HTTP_IF_MODIFIED_SINCE"])) {
+            $if_modified_since = preg_replace('/;.*$/', '', $_SERVER["HTTP_IF_MODIFIED_SINCE"]);
+        } else {
+            $if_modified_since = "";
+        }
+        $gmdate_mod = gmdate('D, d M Y H:i:s', \Safe\filemtime($file)) . ' GMT';
+
+        if ($if_modified_since == $gmdate_mod) {
+            $page->set_mode(PageMode::DATA);
+            $page->set_code(304);
+            $page->set_data("");
+        } else {
+            $page->set_mode(PageMode::FILE);
+            $page->add_http_header("Last-Modified: $gmdate_mod");
+            if ($type != "thumb") {
+                $page->set_filename($image->get_nice_image_name(), 'inline');
+            }
+
+            $page->set_file($file);
+
+            if ($config->get_int(ImageConfig::EXPIRES)) {
+                $expires = date(DATE_RFC1123, time() + $config->get_int(ImageConfig::EXPIRES));
+            } else {
+                $expires = 'Fri, 2 Sep 2101 12:42:42 GMT'; // War was beginning
+            }
+            $page->add_http_header('Expires: ' . $expires);
+        }
+
+        send_event(new ImageDownloadingEvent($image, $file, $mime, $params));
     }
 }

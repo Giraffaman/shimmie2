@@ -24,12 +24,12 @@ class CBZFileHandler extends DataHandlerExtension
         unlink($tmp);
     }
 
-    protected function create_thumb(string $hash, string $mime): bool
+    protected function create_thumb(Image $image): bool
     {
-        $cover = $this->get_representative_image(warehouse_path(Image::IMAGE_DIR, $hash));
+        $cover = $this->get_representative_image($image->get_image_filename());
         create_scaled_image(
             $cover,
-            warehouse_path(Image::THUMBNAIL_DIR, $hash),
+            $image->get_thumb_filename(),
             get_thumbnail_max_size_scaled(),
             MimeType::get_for_file($cover),
             null
@@ -39,7 +39,7 @@ class CBZFileHandler extends DataHandlerExtension
 
     protected function check_contents(string $tmpname): bool
     {
-        $fp = fopen($tmpname, "r");
+        $fp = \Safe\fopen($tmpname, "r");
         $head = fread($fp, 4);
         fclose($fp);
         return $head == "PK\x03\x04";
@@ -53,7 +53,7 @@ class CBZFileHandler extends DataHandlerExtension
         $za->open($archive);
         $names = [];
         for ($i = 0; $i < $za->numFiles;$i++) {
-            $file = $za->statIndex($i);
+            $file = false_throws($za->statIndex($i));
             $names[] = $file['name'];
         }
         sort($names);

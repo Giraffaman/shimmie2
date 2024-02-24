@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Shimmie2;
 
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\{InputInterface,InputArgument};
+use Symfony\Component\Console\Output\OutputInterface;
+
 require_once "config.php";
 require_once "events.php";
 require_once "media_engine.php";
@@ -13,6 +17,10 @@ require_once "video_codecs.php";
 * This is used by the media code when there is an error
 */
 class MediaException extends SCoreException
+{
+}
+
+class InsufficientMemoryException extends ServerError
 {
 }
 
@@ -57,7 +65,7 @@ class Media extends Extension
         return 30;
     }
 
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
         $config->set_default_string(MediaConfig::FFPROBE_PATH, 'ffprobe');
@@ -66,12 +74,12 @@ class Media extends Extension
         $config->set_default_string(MediaConfig::CONVERT_PATH, 'convert');
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page, $user;
 
-        if ($event->page_matches("media_rescan/") && $user->can(Permissions::RESCAN_MEDIA) && isset($_POST['image_id'])) {
-            $image = Image::by_id(int_escape($_POST['image_id']));
+        if ($event->page_matches("media_rescan/{image_id}", method: "POST", permission: Permissions::RESCAN_MEDIA)) {
+            $image = Image::by_id_ex($event->get_iarg('image_id'));
 
             send_event(new MediaCheckPropertiesEvent($image));
             $image->save_to_db();
@@ -81,7 +89,7 @@ class Media extends Extension
         }
     }
 
-    public function onSetupBuilding(SetupBuildingEvent $event)
+    public function onSetupBuilding(SetupBuildingEvent $event): void
     {
         $sb = $event->panel->create_new_block("Media Engine Commands");
 
@@ -106,15 +114,15 @@ class Media extends Extension
         $sb->end_table();
     }
 
-    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event)
+    public function onImageAdminBlockBuilding(ImageAdminBlockBuildingEvent $event): void
     {
         global $user;
         if ($user->can(Permissions::DELETE_IMAGE)) {
-            $event->add_part($this->theme->get_buttons_html($event->image->id));
+            $event->add_button("Scan Media Properties", "media_rescan/{$event->image->id}");
         }
     }
 
-    public function onBulkActionBlockBuilding(BulkActionBlockBuildingEvent $event)
+    public function onBulkActionBlockBuilding(BulkActionBlockBuildingEvent $event): void
     {
         global $user;
         if ($user->can(Permissions::RESCAN_MEDIA)) {
@@ -122,7 +130,7 @@ class Media extends Extension
         }
     }
 
-    public function onBulkAction(BulkActionEvent $event)
+    public function onBulkAction(BulkActionEvent $event): void
     {
         global $page, $user;
 
@@ -147,30 +155,28 @@ class Media extends Extension
         }
     }
 
-    public function onCommand(CommandEvent $event)
+    public function onCliGen(CliGenEvent $event): void
     {
-        if ($event->cmd == "help") {
-            print "\tmedia-rescan <id / hash>\n";
-            print "\t\trefresh metadata for a given post\n\n";
-        }
-        if ($event->cmd == "media-rescan") {
-            $uid = $event->args[0];
-            $image = Image::by_id_or_hash($uid);
-            if ($image) {
-                send_event(new MediaCheckPropertiesEvent($image));
-                $image->save_to_db();
-            } else {
-                print("No post with ID '$uid'\n");
-            }
-        }
+        $event->app->register('media-rescan')
+            ->addArgument('id_or_hash', InputArgument::REQUIRED)
+            ->setDescription('Refresh metadata for a given post')
+            ->setCode(function (InputInterface $input, OutputInterface $output): int {
+                $uid = $input->getArgument('id_or_hash');
+                $image = Image::by_id_or_hash($uid);
+                if ($image) {
+                    send_event(new MediaCheckPropertiesEvent($image));
+                    $image->save_to_db();
+                } else {
+                    $output->writeln("No post with ID '$uid'");
+                }
+                return Command::SUCCESS;
+            });
     }
 
     /**
      * @param MediaResizeEvent $event
-     * @throws MediaException
-     * @throws InsufficientMemoryException
      */
-    public function onMediaResize(MediaResizeEvent $event)
+    public function onMediaResize(MediaResizeEvent $event): void
     {
         if (!in_array(
             $event->resize_type,
@@ -231,26 +237,42 @@ class Media extends Extension
         //        }
     }
 
-    public const CONTENT_SEARCH_TERM_REGEX = "/^content[=|:]((video)|(audio)|(image)|(unknown))$/i";
-
-    public function onSearchTermParse(SearchTermParseEvent $event)
+    public function onSearchTermParse(SearchTermParseEvent $event): void
     {
         if (is_null($event->term)) {
             return;
         }
 
         $matches = [];
-        if (preg_match(self::CONTENT_SEARCH_TERM_REGEX, $event->term, $matches)) {
+        if (preg_match("/^content[=|:]((video)|(audio)|(image)|(unknown))$/i", $event->term, $matches)) {
             $field = $matches[1];
             if ($field === "unknown") {
                 $event->add_querylet(new Querylet("video IS NULL OR audio IS NULL OR image IS NULL"));
             } else {
                 $event->add_querylet(new Querylet("$field = :true", ["true" => true]));
             }
+        } elseif (preg_match("/^ratio([:]?<|[:]?>|[:]?<=|[:]?>=|[:|=])(\d+):(\d+)$/i", $event->term, $matches)) {
+            $cmp = preg_replace('/^:/', '=', $matches[1]);
+            $args = ["width{$event->id}" => int_escape($matches[2]), "height{$event->id}" => int_escape($matches[3])];
+            $event->add_querylet(new Querylet("width / :width{$event->id} $cmp height / :height{$event->id}", $args));
+        } elseif (preg_match("/^size([:]?<|[:]?>|[:]?<=|[:]?>=|[:|=])(\d+)x(\d+)$/i", $event->term, $matches)) {
+            $cmp = ltrim($matches[1], ":") ?: "=";
+            $args = ["width{$event->id}" => int_escape($matches[2]), "height{$event->id}" => int_escape($matches[3])];
+            $event->add_querylet(new Querylet("width $cmp :width{$event->id} AND height $cmp :height{$event->id}", $args));
+        } elseif (preg_match("/^width([:]?<|[:]?>|[:]?<=|[:]?>=|[:|=])(\d+)$/i", $event->term, $matches)) {
+            $cmp = ltrim($matches[1], ":") ?: "=";
+            $event->add_querylet(new Querylet("width $cmp :width{$event->id}", ["width{$event->id}" => int_escape($matches[2])]));
+        } elseif (preg_match("/^height([:]?<|[:]?>|[:]?<=|[:]?>=|[:|=])(\d+)$/i", $event->term, $matches)) {
+            $cmp = ltrim($matches[1], ":") ?: "=";
+            $event->add_querylet(new Querylet("height $cmp :height{$event->id}", ["height{$event->id}" => int_escape($matches[2])]));
+        } elseif (preg_match("/^length([:]?<|[:]?>|[:]?<=|[:]?>=|[:|=])(.+)$/i", $event->term, $matches)) {
+            $value = parse_to_milliseconds($matches[2]);
+            $cmp = ltrim($matches[1], ":") ?: "=";
+            $event->add_querylet(new Querylet("length $cmp :length{$event->id}", ["length{$event->id}" => $value]));
         }
     }
 
-    public function onHelpPageBuilding(HelpPageBuildingEvent $event)
+    public function onHelpPageBuilding(HelpPageBuildingEvent $event): void
     {
         if ($event->key === HelpPages::SEARCH) {
             $block = new Block();
@@ -260,14 +282,7 @@ class Media extends Extension
         }
     }
 
-    public function onTagTermCheck(TagTermCheckEvent $event)
-    {
-        if (preg_match(self::CONTENT_SEARCH_TERM_REGEX, $event->term)) {
-            $event->metatag = true;
-        }
-    }
-
-    public function onParseLinkTemplate(ParseLinkTemplateEvent $event)
+    public function onParseLinkTemplate(ParseLinkTemplateEvent $event): void
     {
         if ($event->image->width && $event->image->height && $event->image->length) {
             $s = ((int)($event->image->length / 100)) / 10;
@@ -294,7 +309,7 @@ class Media extends Extension
      * The factor of 2.5 is simply a rough guideline.
      * https://stackoverflow.com/questions/527532/reasonable-php-memory-limit-for-image-resize
      *
-     * @param array $info The output of getimagesize() for the source file in question.
+     * @param array{0:int,1:int,2:int,bits?:int,channels?:int} $info The output of getimagesize() for the source file in question.
      * @return int The number of bytes an image resize operation is estimated to use.
      */
     public static function calc_memory_use(array $info): int
@@ -317,7 +332,7 @@ class Media extends Extension
      * @return bool true if successful, false if not.
      * @throws MediaException
      */
-    public static function create_thumbnail_ffmpeg($hash): bool
+    public static function create_thumbnail_ffmpeg(Image $image): bool
     {
         global $config;
 
@@ -327,10 +342,10 @@ class Media extends Extension
         }
 
         $ok = false;
-        $inname = warehouse_path(Image::IMAGE_DIR, $hash);
-        $tmpname = tempnam(sys_get_temp_dir(), "shimmie_ffmpeg_thumb");
+        $inname = $image->get_image_filename();
+        $tmpname = shm_tempnam("ffmpeg_thumb");
         try {
-            $outname = warehouse_path(Image::THUMBNAIL_DIR, $hash);
+            $outname = $image->get_thumb_filename();
 
             $orig_size = self::video_size($inname);
             $scaled_size = get_thumbnail_size($orig_size[0], $orig_size[1], true);
@@ -364,8 +379,10 @@ class Media extends Extension
         return $ok;
     }
 
-
-    public static function get_ffprobe_data($filename): array
+    /**
+     * @return array<string, mixed>
+     */
+    public static function get_ffprobe_data(string $filename): array
     {
         global $config;
 
@@ -401,12 +418,12 @@ class Media extends Extension
     {
         $ext = FileExtension::get_for_mime($mime);
         if (empty($ext)) {
-            throw new SCoreException("Could not determine extension for $mime");
+            throw new ServerError("Could not determine extension for $mime");
         }
         return $ext;
     }
 
-    //    private static function image_save_imagick(Imagick $image, string $path, string $format, int $output_quality = 80, bool $minimize)
+    //    private static function image_save_imagick(Imagick $image, string $path, string $format, int $output_quality = 80, bool $minimize): void
     //    {
     //        switch ($format) {
     //            case FileExtension::PNG:
@@ -634,14 +651,12 @@ class Media extends Extension
      * Performs a resize operation on an image file using GD.
      *
      * @param string $image_filename The source file to be resized.
-     * @param array $info The output of getimagesize() for the source file.
+     * @param array{0:int,1:int,2:int} $info The output of getimagesize() for the source file.
      * @param int $new_width
      * @param int $new_height
      * @param string $output_filename
      * @param ?string $output_mime If set to null, the output file type will be automatically determined via the $info parameter. Otherwise an exception will be thrown.
      * @param int $output_quality Defaults to 80.
-     * @throws MediaException
-     * @throws InsufficientMemoryException if the estimated memory usage exceeds the memory limit.
      */
     public static function image_resize_gd(
         string $image_filename,
@@ -654,7 +669,7 @@ class Media extends Extension
         string $resize_type = self::RESIZE_TYPE_FIT,
         int $output_quality = 80,
         bool $allow_upscale = true
-    ) {
+    ): void {
         $width = $info[0];
         $height = $info[1];
 
@@ -696,16 +711,17 @@ class Media extends Extension
             $new_width = $width;
         }
 
-        $image = imagecreatefromstring(file_get_contents($image_filename));
-        $image_resized = imagecreatetruecolor($new_width, $new_height);
-        try {
-            if ($image === false) {
-                throw new MediaException("Could not load image: " . $image_filename);
-            }
-            if ($image_resized === false) {
-                throw new MediaException("Could not create output image with dimensions $new_width c $new_height ");
-            }
+        $image = imagecreatefromstring(\Safe\file_get_contents($image_filename));
+        if ($image === false) {
+            throw new MediaException("Could not load image: " . $image_filename);
+        }
 
+        $image_resized = imagecreatetruecolor($new_width, $new_height);
+        if ($image_resized === false) {
+            throw new MediaException("Could not create output image with dimensions $new_width x $new_height ");
+        }
+
+        try {
             // Handle transparent images
             switch ($info[2]) {
                 case IMAGETYPE_GIF:
@@ -781,9 +797,6 @@ class Media extends Extension
                     }
 
                     $background_color = Media::hex_color_allocate($new_image, $alpha_color);
-                    if ($background_color === false) {
-                        throw new ImageTranscodeException("Could not allocate background color");
-                    }
                     if (imagefilledrectangle($new_image, 0, 0, $width, $height, $background_color) === false) {
                         throw new ImageTranscodeException("Could not fill background color");
                     }
@@ -835,7 +848,7 @@ class Media extends Extension
      * Determines the dimensions of a video file using ffmpeg.
      *
      * @param string $filename
-     * @return array [width, height]
+     * @return array{0: int, 1: int}
      */
     public static function video_size(string $filename): array
     {
@@ -846,7 +859,12 @@ class Media extends Extension
             "-y", "-i", escapeshellarg($filename),
             "-vstats"
         ]));
+        // \Safe\shell_exec is a little broken
+        // https://github.com/thecodingmachine/safe/issues/281
         $output = shell_exec($cmd . " 2>&1");
+        if(is_null($output) || $output === false) {
+            throw new MediaException("Failed to execute command: $cmd");
+        }
         // error_log("Getting size with `$cmd`");
 
         $regex_sizes = "/Video: .* ([0-9]{1,4})x([0-9]{1,4})/";
@@ -863,7 +881,7 @@ class Media extends Extension
         return $size;
     }
 
-    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event)
+    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event): void
     {
         global $config, $database;
         if ($this->get_version(MediaConfig::VERSION) < 1) {
@@ -935,12 +953,14 @@ class Media extends Extension
         }
     }
 
-    public static function hex_color_allocate($im, $hex)
+    public static function hex_color_allocate(mixed $im, string $hex): int
     {
         $hex = ltrim($hex, '#');
-        $a = hexdec(substr($hex, 0, 2));
-        $b = hexdec(substr($hex, 2, 2));
-        $c = hexdec(substr($hex, 4, 2));
-        return imagecolorallocate($im, $a, $b, $c);
+        $a = (int)hexdec(substr($hex, 0, 2));
+        $b = (int)hexdec(substr($hex, 2, 2));
+        $c = (int)hexdec(substr($hex, 4, 2));
+        $col = imagecolorallocate($im, $a, $b, $c);
+        assert($col !== false);
+        return $col;
     }
 }

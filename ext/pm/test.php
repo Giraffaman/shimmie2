@@ -6,7 +6,7 @@ namespace Shimmie2;
 
 class PrivMsgTest extends ShimmiePHPUnitTestCase
 {
-    public function testUserReadOwnMessage()
+    public function testUserReadOwnMessage(): void
     {
         // Send from admin to user
         $this->log_in_as_admin();
@@ -20,7 +20,7 @@ class PrivMsgTest extends ShimmiePHPUnitTestCase
 
         // Check that user can see own messages
         $this->log_in_as_user();
-        $this->get_page("user");
+        $this->get_page("user/" . self::$user_name);
         $this->assert_text("message demo to test");
 
         // FIXME: read PM
@@ -37,7 +37,7 @@ class PrivMsgTest extends ShimmiePHPUnitTestCase
         // $this->assert_text("No such PM");
     }
 
-    public function testAdminReadOtherMessage()
+    public function testAdminReadOtherMessage(): void
     {
         // Send from admin to user
         $this->log_in_as_admin();

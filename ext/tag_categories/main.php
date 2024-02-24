@@ -11,7 +11,7 @@ class TagCategories extends Extension
     /** @var TagCategoriesTheme */
     protected Themelet $theme;
 
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
 
@@ -20,7 +20,7 @@ class TagCategories extends Extension
         $config->set_default_bool(TagCategoriesConfig::SPLIT_ON_VIEW, true);
     }
 
-    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event)
+    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event): void
     {
         global $database;
 
@@ -58,26 +58,26 @@ class TagCategories extends Extension
         }
     }
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         if ($event->parent == "tags") {
             $event->add_nav_link("tag_categories", new Link('tags/categories'), "Tag Categories", NavLink::is_active(["tag_categories"]));
         }
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
-        global $page, $user;
+        global $database, $page, $user;
 
-        if ($event->page_matches("tags/categories")) {
-            if ($user->can(Permissions::EDIT_TAG_CATEGORIES)) {
-                $this->page_update();
-                $this->show_tag_categories($page);
-            }
+        if ($event->page_matches("tags/categories", method: "GET")) {
+            $this->theme->show_tag_categories($page, $database->get_all('SELECT * FROM image_tag_categories'));
+        }
+        if ($event->page_matches("tags/categories", method: "POST", permission: Permissions::EDIT_TAG_CATEGORIES)) {
+            $this->page_update();
         }
     }
 
-    public function onSearchTermParse(SearchTermParseEvent $event)
+    public function onSearchTermParse(SearchTermParseEvent $event): void
     {
         if (is_null($event->term)) {
             return;
@@ -106,7 +106,7 @@ class TagCategories extends Extension
         }
     }
 
-    public function onHelpPageBuilding(HelpPageBuildingEvent $event)
+    public function onHelpPageBuilding(HelpPageBuildingEvent $event): void
     {
         if ($event->key === HelpPages::SEARCH) {
             $block = new Block();
@@ -116,26 +116,26 @@ class TagCategories extends Extension
         }
     }
 
-    public function getDict(): array
+    /**
+     * @return array<string, array{category: string, display_singular: string, display_multiple: string, color: string}>
+     */
+    public function getKeyedDict(): array
     {
         global $database;
-        return $database->get_all('SELECT * FROM image_tag_categories;');
-    }
-
-    public function getKeyedDict($key_with = 'category'): array
-    {
-        $tc_dict = $this->getDict();
+        $tc_dict = $database->get_all('SELECT * FROM image_tag_categories');
         $tc_keyed_dict = [];
 
         foreach ($tc_dict as $row) {
-            $key = $row[$key_with];
-            $tc_keyed_dict[$key] = $row;
+            $tc_keyed_dict[(string)$row['category']] = $row;
         }
 
         return $tc_keyed_dict;
     }
 
-    public function getTagHtml(string $h_tag, $tag_category_dict, string $extra_text = ''): string
+    /**
+     * @param array<string, array{color: string}> $tag_category_dict
+     */
+    public function getTagHtml(string $h_tag, array $tag_category_dict, string $extra_text = ''): string
     {
         $h_tag_no_underscores = str_replace("_", " ", $h_tag);
 
@@ -156,12 +156,12 @@ class TagCategories extends Extension
         return $h_tag_no_underscores;
     }
 
-    public function page_update(): bool
+    public function page_update(): void
     {
         global $user, $database;
 
         if (!$user->can(Permissions::EDIT_TAG_CATEGORIES)) {
-            return false;
+            return;
         }
 
         if (!isset($_POST['tc_status']) and
@@ -169,13 +169,11 @@ class TagCategories extends Extension
            !isset($_POST['tc_display_singular']) and
            !isset($_POST['tc_display_multiple']) and
            !isset($_POST['tc_color'])) {
-            return false;
+            return;
         }
 
-        $is_success = null;
-
         if ($_POST['tc_status'] == 'edit') {
-            $is_success = $database->execute(
+            $database->execute(
                 'UPDATE image_tag_categories
 				SET display_singular=:display_singular,
 					display_multiple=:display_multiple,
@@ -189,7 +187,7 @@ class TagCategories extends Extension
                 ]
             );
         } elseif ($_POST['tc_status'] == 'new') {
-            $is_success = $database->execute(
+            $database->execute(
                 'INSERT INTO image_tag_categories
 				VALUES (:category, :display_singular, :display_multiple, :color)',
                 [
@@ -200,7 +198,7 @@ class TagCategories extends Extension
                 ]
             );
         } elseif ($_POST['tc_status'] == 'delete') {
-            $is_success = $database->execute(
+            $database->execute(
                 'DELETE FROM image_tag_categories
 				WHERE category=:category',
                 [
@@ -208,12 +206,5 @@ class TagCategories extends Extension
                 ]
             );
         }
-
-        return $is_success;
-    }
-
-    public function show_tag_categories($page)
-    {
-        $this->theme->show_tag_categories($page, $this->getDict());
     }
 }

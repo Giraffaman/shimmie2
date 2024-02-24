@@ -46,10 +46,6 @@ class WikiDeletePageEvent extends Event
     }
 }
 
-class WikiUpdateException extends SCoreException
-{
-}
-
 #[Type(name: "WikiPage")]
 class WikiPage
 {
@@ -67,6 +63,9 @@ class WikiPage
     #[Field]
     public string $body;
 
+    /**
+     * @param array<string, mixed> $row
+     */
     public function __construct(array $row = null)
     {
         //assert(!empty($row));
@@ -115,7 +114,7 @@ class Wiki extends Extension
     /** @var WikiTheme */
     protected Themelet $theme;
 
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
         $config->set_default_string(
@@ -131,7 +130,7 @@ class Wiki extends Extension
     }
 
     // Add a block to the Board Config / Setup
-    public function onSetupBuilding(SetupBuildingEvent $event)
+    public function onSetupBuilding(SetupBuildingEvent $event): void
     {
         $sb = $event->panel->create_new_block("Wiki");
         $sb->add_bool_option(WikiConfig::ENABLE_REVISIONS, "Enable wiki revisions: ");
@@ -140,7 +139,7 @@ class Wiki extends Extension
         $sb->add_bool_option(WikiConfig::TAG_SHORTWIKIS, "<br/>Show shortwiki entry when searching for a single tag: ");
     }
 
-    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event)
+    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event): void
     {
         global $database;
 
@@ -170,83 +169,82 @@ class Wiki extends Extension
         }
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page, $user;
-        if ($event->page_matches("wiki")) {
-            if ($event->count_args() == 0 || strlen(trim($event->get_arg(0))) === 0) {
-                $title = "Index";
-            } else {
-                $title = $event->get_arg(0);
+        if ($event->page_matches("wiki/{title}/{action}", method: "GET")) {
+            $title = $event->get_arg('title');
+            $action = $event->get_arg('action');
+
+            if($action == "history") {
+                $history = $this->get_history($title);
+                $this->theme->display_page_history($page, $title, $history);
+            } elseif($action == "edit") {
+                $content = $this->get_page($title);
+                if ($this->can_edit($user, $content)) {
+                    $this->theme->display_page_editor($page, $content);
+                } else {
+                    throw new PermissionDenied("You are not allowed to edit this page");
+                }
             }
+        }
+        if ($event->page_matches("wiki/{title}/{action}", method: "POST")) {
+            $title = $event->get_arg('title');
+            $action = $event->get_arg('action');
 
-            $revision = -1;
-            if (isset($_GET['revision'])) {
-                $revision = int_escape($_GET['revision']);
-            }
+            if($action == "save") {
+                $rev = int_escape($event->req_POST('revision'));
+                $body = $event->req_POST('body');
+                $lock = $user->can(Permissions::WIKI_ADMIN) && ($event->get_POST('lock') == "on");
 
-            $content = $this->get_page($title, $revision);
-            $this->theme->display_page($page, $content, $this->get_page("wiki:sidebar"));
-        } elseif ($event->page_matches("wiki_admin/edit")) {
-            $content = $this->get_page($_POST['title']);
-            $this->theme->display_page_editor($page, $content);
-        } elseif ($event->page_matches("wiki_admin/save")) {
-            $title = $_POST['title'];
-            $rev = int_escape($_POST['revision']);
-            $body = $_POST['body'];
-            $lock = $user->can(Permissions::WIKI_ADMIN) && isset($_POST['lock']) && ($_POST['lock'] == "on");
-
-            if ($this->can_edit($user, $this->get_page($title))) {
-                $wikipage = $this->get_page($title);
-                $wikipage->revision = $rev;
-                $wikipage->body = $body;
-                $wikipage->locked = $lock;
-                try {
+                if ($this->can_edit($user, $this->get_page($title))) {
+                    $wikipage = $this->get_page($title);
+                    $wikipage->revision = $rev;
+                    $wikipage->body = $body;
+                    $wikipage->locked = $lock;
                     send_event(new WikiUpdateEvent($user, $wikipage));
-
                     $u_title = url_escape($title);
                     $page->set_mode(PageMode::REDIRECT);
                     $page->set_redirect(make_link("wiki/$u_title"));
-                } catch (WikiUpdateException $e) {
-                    $original = $this->get_page($title);
-                    // @ because arr_diff is full of warnings
-                    $original->body = @$this->arr_diff(
-                        explode("\n", $original->body),
-                        explode("\n", $wikipage->body)
-                    );
-                    $this->theme->display_page_editor($page, $original);
+                } else {
+                    throw new PermissionDenied("You are not allowed to edit this page");
                 }
-            } else {
-                $this->theme->display_permission_denied();
+            } elseif($action == "delete_revision") {
+                $content = $this->get_page($title);
+                if ($user->can(Permissions::WIKI_ADMIN)) {
+                    $revision = int_escape($event->req_POST('revision'));
+                    send_event(new WikiDeleteRevisionEvent($title, $revision));
+                    $u_title = url_escape($title);
+                    $page->set_mode(PageMode::REDIRECT);
+                    $page->set_redirect(make_link("wiki/$u_title"));
+                } else {
+                    throw new PermissionDenied("You are not allowed to edit this page");
+                }
+            } elseif($action == "delete_all") {
+                if ($user->can(Permissions::WIKI_ADMIN)) {
+                    send_event(new WikiDeletePageEvent($title));
+                    $u_title = url_escape($title);
+                    $page->set_mode(PageMode::REDIRECT);
+                    $page->set_redirect(make_link("wiki/$u_title"));
+                }
             }
-        } elseif ($event->page_matches("wiki_admin/history")) {
-            $history = $this->get_history($_GET['title']);
-            $this->theme->display_page_history($page, $_GET['title'], $history);
-        } elseif ($event->page_matches("wiki_admin/delete_revision")) {
-            if ($user->can(Permissions::WIKI_ADMIN)) {
-                send_event(new WikiDeleteRevisionEvent($_POST["title"], (int)$_POST["revision"]));
-                $u_title = url_escape($_POST["title"]);
-                $page->set_mode(PageMode::REDIRECT);
-                $page->set_redirect(make_link("wiki/$u_title"));
-            }
-        } elseif ($event->page_matches("wiki_admin/delete_all")) {
-            if ($user->can(Permissions::WIKI_ADMIN)) {
-                send_event(new WikiDeletePageEvent($_POST["title"]));
-                $u_title = url_escape($_POST["title"]);
-                $page->set_mode(PageMode::REDIRECT);
-                $page->set_redirect(make_link("wiki/$u_title"));
-            }
+        } elseif ($event->page_matches("wiki/{title}")) {
+            $title = $event->get_arg('title');
+            $revision = int_escape($event->get_GET('revision') ?? "-1");
+            $content = $this->get_page($title, $revision);
+            $this->theme->display_page($page, $content, $this->get_page("wiki:sidebar"));
+        } elseif ($event->page_matches("wiki")) {
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("wiki/Index"));
         }
     }
 
-
-    public function onPageNavBuilding(PageNavBuildingEvent $event)
+    public function onPageNavBuilding(PageNavBuildingEvent $event): void
     {
         $event->add_nav_link("wiki", new Link('wiki'), "Wiki");
     }
 
-
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         if ($event->parent == "wiki") {
             $event->add_nav_link("wiki_rules", new Link('wiki/rules'), "Rules");
@@ -254,7 +252,7 @@ class Wiki extends Extension
         }
     }
 
-    public function onWikiUpdate(WikiUpdateEvent $event)
+    public function onWikiUpdate(WikiUpdateEvent $event): void
     {
         global $database, $config;
         $wpage = $event->wikipage;
@@ -265,26 +263,26 @@ class Wiki extends Extension
             if ($config->get_bool(WikiConfig::ENABLE_REVISIONS) || !$exists) {
                 $database->execute(
                     "
-                                INSERT INTO wiki_pages(owner_id, owner_ip, date, title, revision, locked, body)
-                                VALUES (:owner_id, :owner_ip, now(), :title, :revision, :locked, :body)",
+                        INSERT INTO wiki_pages(owner_id, owner_ip, date, title, revision, locked, body)
+                        VALUES (:owner_id, :owner_ip, now(), :title, :revision, :locked, :body)",
                     ["owner_id" => $event->user->id, "owner_ip" => get_real_ip(),
                     "title" => $wpage->title, "revision" => $wpage->revision, "locked" => $wpage->locked, "body" => $wpage->body]
                 );
             } else {
                 $database->execute(
                     "
-                                UPDATE wiki_pages SET owner_id=:owner_id, owner_ip=:owner_ip, date=now(), locked=:locked, body=:body
-                                WHERE title = :title ORDER BY revision DESC LIMIT 1",
+                        UPDATE wiki_pages SET owner_id=:owner_id, owner_ip=:owner_ip, date=now(), locked=:locked, body=:body
+                        WHERE title = :title ORDER BY revision DESC LIMIT 1",
                     ["owner_id" => $event->user->id, "owner_ip" => get_real_ip(),
                     "title" => $wpage->title, "locked" => $wpage->locked, "body" => $wpage->body]
                 );
             }
         } catch (\Exception $e) {
-            throw new WikiUpdateException("Somebody else edited that page at the same time :-(");
+            throw new UserError("Somebody else edited that page at the same time :-(");
         }
     }
 
-    public function onWikiDeleteRevision(WikiDeleteRevisionEvent $event)
+    public function onWikiDeleteRevision(WikiDeleteRevisionEvent $event): void
     {
         global $database;
         $database->execute(
@@ -293,7 +291,7 @@ class Wiki extends Extension
         );
     }
 
-    public function onWikiDeletePage(WikiDeletePageEvent $event)
+    public function onWikiDeletePage(WikiDeletePageEvent $event): void
     {
         global $database;
         $database->execute(
@@ -325,6 +323,9 @@ class Wiki extends Extension
         return false;
     }
 
+    /**
+     * @return array<array{revision: string, date: string}>
+     */
     public static function get_history(string $title): array
     {
         global $database;
@@ -403,7 +404,7 @@ class Wiki extends Extension
             $template = $config->get_string(WikiConfig::TAG_PAGE_TEMPLATE);
 
             //CATEGORIES
-            if (class_exists("Shimmie2\TagCategories")) {
+            if (Extension::is_enabled(TagCategoriesInfo::KEY)) {
                 $tagcategories = new TagCategories();
                 $tag_category_dict = $tagcategories->getKeyedDict();
             }
@@ -426,7 +427,7 @@ class Wiki extends Extension
             $template = format_text($template);
             //Things after this line will NOT be escaped!!! Be careful what you add.
 
-            if (class_exists("Shimmie2\AutoTagger")) {
+            if (Extension::is_enabled(AutoTaggerInfo::KEY)) {
                 $auto_tags = $database->get_one("
                     SELECT additional_tags
                     FROM auto_tag
@@ -459,238 +460,5 @@ class Wiki extends Extension
 
         //Insert page body AT LAST to avoid replacing its contents with the actions above.
         return str_replace("{body}", format_text($page->body), $template ?? "{body}");
-    }
-
-    /**
-        Diff implemented in pure php, written from scratch.
-        Copyright (C) 2003  Daniel Unterberger <diff.phpnet@holomind.de>
-
-        This program is free software; you can redistribute it and/or
-        modify it under the terms of the GNU General Public License
-        as published by the Free Software Foundation; either version 2
-        of the License, or (at your option) any later version.
-
-        This program is distributed in the hope that it will be useful,
-        but WITHOUT ANY WARRANTY; without even the implied warranty of
-        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-        GNU General Public License for more details.
-
-        You should have received a copy of the GNU General Public License
-        along with this program; if not, write to the Free Software
-        Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
-        https://www.gnu.org/licenses/gpl.html
-
-        About:
-        I searched a function to compare arrays and the array_diff()
-        was not specific enough. It ignores the order of the array-values.
-        So I reimplemented the diff-function which is found on unix-systems
-        but this you can use directly in your code and adopt for your needs.
-        Simply adopt the formatline-function. with the third-parameter of arr_diff()
-        you can hide matching lines. Hope someone has use for this.
-
-        Contact: d.u.diff@holomind.de <daniel unterberger>
-    **/
-
-    private function arr_diff(array $f1, array $f2, int $show_equal = 0): string
-    {
-        $c1         = 0 ;                   # current line of left
-        $c2         = 0 ;                   # current line of right
-        $max1       = count($f1) ;          # maximal lines of left
-        $max2       = count($f2) ;          # maximal lines of right
-        $outcount   = 0;                    # output counter
-        $hit1       = [];                   # hit in left
-        $hit2       = [];                   # hit in right
-        $stop       = 0;
-        $out        = "";
-
-        while (
-            $c1 < $max1                 # have next line in left
-            and
-            $c2 < $max2                 # have next line in right
-            and
-            ($stop++) < 1000            # don-t have more then 1000 ( loop-stopper )
-            and
-            $outcount < 20              # output count is less then 20
-        ) {
-            /**
-            *   is the trimmed line of the current left and current right line
-            *   the same ? then this is a hit (no difference)
-            */
-            if (trim($f1[$c1]) == trim($f2[$c2])) {
-                /**
-                *   add to output-string, if "show_equal" is enabled
-                */
-                $out    .= ($show_equal == 1)
-                         ? $this->formatline(($c1), ($c2), "=", $f1[ $c1 ])
-                         : "" ;
-                /**
-                *   increase the out-putcounter, if "show_equal" is enabled
-                *   this ist more for demonstration purpose
-                */
-                if ($show_equal == 1) {
-                    $outcount++ ;
-                }
-
-                /**
-                *   move the current-pointer in the left and right side
-                */
-                $c1++;
-                $c2++;
-            }
-
-            /**
-            *   the current lines are different so we search in parallel
-            *   on each side for the next matching pair, we walk on both
-            *   sided at the same time comparing with the current-lines
-            *   this should be most probable to find the next matching pair
-            *   we only search in a distance of 10 lines, because then it
-            *   is not the same function most of the time. other algos
-            *   would be very complicated, to detect 'real' block movements.
-            */
-            else {
-                $b      = "" ;
-                $s1     = 0  ;      # search on left
-                $s2     = 0  ;      # search on right
-                $found  = 0  ;      # flag, found a matching pair
-                $b1     = "" ;
-                $b2     = "" ;
-                $fstop  = 0  ;      # distance of maximum search
-
-                #fast search in on both sides for next match.
-                while (
-                    $found == 0             # search until we find a pair
-                    and
-                    ($c1 + $s1 <= $max1)  # and we are inside of the left lines
-                    and
-                    ($c2 + $s2 <= $max2)  # and we are inside of the right lines
-                    and
-                    $fstop++  < 10          # and the distance is lower than 10 lines
-                ) {
-                    /**
-                    *   test the left side for a hit
-                    *
-                    *   comparing current line with the searching line on the left
-                    *   b1 is a buffer, which collects the line which not match, to
-                    *   show the differences later, if one line hits, this buffer will
-                    *   be used, else it will be discarded later
-                    */
-                    #hit
-                    if (trim($f1[$c1 + $s1]) == trim($f2[$c2])) {
-                        $found  = 1   ;     # set flag to stop further search
-                        $s2     = 0   ;     # reset right side search-pointer
-                        $c2--         ;     # move back the current right, so next loop hits
-                        $b      = $b1 ;     # set b=output (b)uffer
-                    }
-                    #no hit: move on
-                    else {
-                        /**
-                        *   prevent finding a line again, which would show wrong results
-                        *
-                        *   add the current line to leftbuffer, if this will be the hit
-                        */
-                        if ($hit1[ ($c1 + $s1) . "_" . ($c2) ] != 1) {
-                            /**
-                            *   add current search-line to diffence-buffer
-                            */
-                            $b1  .= $this->formatline(($c1 + $s1), ($c2), "-", $f1[ $c1 + $s1 ]);
-
-                            /**
-                            *   mark this line as 'searched' to prevent doubles.
-                            */
-                            $hit1[ ($c1 + $s1) . "_" . $c2 ] = 1 ;
-                        }
-                    }
-
-
-
-                    /**
-                    *   test the right side for a hit
-                    *
-                    *   comparing current line with the searching line on the right
-                    */
-                    if (trim($f1[$c1]) == trim($f2[$c2 + $s2])) {
-                        $found  = 1   ;     # flag to stop search
-                        $s1     = 0   ;     # reset pointer for search
-                        $c1--         ;     # move current line back, so we hit next loop
-                        $b      = $b2 ;     # get the buffered difference
-                    } else {
-                        /**
-                        *   prevent to find line again
-                        */
-                        if ($hit2[ ($c1) . "_" . ($c2 + $s2) ] != 1) {
-                            /**
-                            *   add current searchline to buffer
-                            */
-                            $b2   .= $this->formatline(($c1), ($c2 + $s2), "+", $f2[ $c2 + $s2 ]);
-
-                            /**
-                            *   mark current line to prevent double-hits
-                            */
-                            $hit2[ ($c1) . "_" . ($c2 + $s2) ] = 1;
-                        }
-                    }
-
-                    /**
-                    *   search in bigger distance
-                    *
-                    *   increase the search-pointers (satelites) and try again
-                    */
-                    $s1++ ;     # increase left  search-pointer
-                    $s2++ ;     # increase right search-pointer
-                }
-
-                /**
-                *   add line as different on both arrays (no match found)
-                */
-                if ($found == 0) {
-                    $b  .= $this->formatline(($c1), ($c2), "-", $f1[ $c1 ]);
-                    $b  .= $this->formatline(($c1), ($c2), "+", $f2[ $c2 ]);
-                }
-
-                /**
-                *   add current buffer to outputstring
-                */
-                $out        .= $b;
-                $outcount++ ;       #increase outcounter
-
-                $c1++  ;    #move currentline forward
-                $c2++  ;    #move currentline forward
-
-                /**
-                *   comment the lines are tested quite fast, because
-                *   the current line always moves forward
-                */
-            } /*endif*/
-        }/*endwhile*/
-
-        return $out;
-    }/*end func*/
-
-    /**
-     *   callback function to format the diffence-lines with your 'style'
-     */
-    private function formatline(int $nr1, int $nr2, string $stat, $value): string
-    { #change to $value if problems
-        if (trim($value) == "") {
-            return "";
-        }
-
-        switch ($stat) {
-            case "=":
-                // return $nr1. " : $nr2 : = ".htmlentities( $value )  ."<br>";
-                return "$value\n";
-
-            case "+":
-                //return $nr1. " : $nr2 : + <font color='blue' >".htmlentities( $value )  ."</font><br>";
-                return "+++ $value\n";
-
-            case "-":
-                //return $nr1. " : $nr2 : - <font color='red' >".htmlentities( $value )  ."</font><br>";
-                return "--- $value\n";
-
-            default:
-                throw new \RuntimeException("stat needs to be =, + or -");
-        }
     }
 }

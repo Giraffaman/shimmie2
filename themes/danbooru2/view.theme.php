@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 namespace Shimmie2;
 
+use MicroHTML\HTMLElement;
+
 class CustomViewPostTheme extends ViewPostTheme
 {
-    public function display_page(Image $image, $editor_parts)
+    /**
+     * @param HTMLElement[] $editor_parts
+     */
+    public function display_page(Image $image, array $editor_parts): void
     {
         global $page;
         $page->set_heading(html_escape($image->get_tag_list()));
@@ -44,19 +49,17 @@ class CustomViewPostTheme extends ViewPostTheme
 
 
         if (!is_null($image->source)) {
-            $h_source = html_escape($image->source);
-            if (substr($image->source, 0, 7) != "http://" && substr($image->source, 0, 8) != "https://") {
-                $h_source = "http://" . $h_source;
-            }
+            $h_source = html_escape(make_http($image->source));
             $html .= "<br>Source: <a href='$h_source'>link</a>";
         }
 
         if (Extension::is_enabled(RatingsInfo::KEY)) {
-            if ($image->rating === null || $image->rating == "?") {
-                $image->rating = "?";
+            if ($image['rating'] === null || $image['rating'] == "?") {
+                $image['rating'] = "?";
             }
+            // @phpstan-ignore-next-line - ???
             if (Extension::is_enabled(RatingsInfo::KEY)) {
-                $h_rating = Ratings::rating_to_human($image->rating);
+                $h_rating = Ratings::rating_to_human($image['rating']);
                 $html .= "<br>Rating: $h_rating";
             }
         }
@@ -68,10 +71,10 @@ class CustomViewPostTheme extends ViewPostTheme
     {
         //$h_pin = $this->build_pin($image);
         $h_search = "
-			<form action='".make_link()."' method='GET'>
+			<form action='".search_link()."' method='GET'>
 				<input name='search' type='text'  style='width:75%'>
 				<input type='submit' value='Go' style='width:20%'>
-				<input type='hidden' name='q' value='/post/list'>
+				<input type='hidden' name='q' value='post/list'>
 			</form>
 		";
 

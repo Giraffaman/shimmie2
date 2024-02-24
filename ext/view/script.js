@@ -6,9 +6,15 @@ function joinUrlSegments(base, query) {
     return base + separatorChar + query;
 }
 
+/**
+ * @param {HTMLElement} el
+ */
 function autosize(el) {
 	setTimeout(function() {
-		el.style.cssText = 'height:' + el.scrollHeight + 'px';
+		if(el.offsetHeight < el.scrollHeight) {
+			el.style.height = `calc(${el.scrollHeight}px + 0.5em)`;
+			el.style.width = el.offsetWidth + 'px';
+		}
 	}, 0);
 }
 
@@ -49,6 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
 		updateAttr("LINK#nextlink", "href", query);
 		updateAttr("A#prevlink", "href", query);
 		updateAttr("A#nextlink", "href", query);
-		updateAttr("span#image_delete_form form", "action", query);
+		updateAttr("form#image_delete_form", "action", query);
 	}
 });

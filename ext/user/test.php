@@ -6,11 +6,10 @@ namespace Shimmie2;
 
 class UserPageTest extends ShimmiePHPUnitTestCase
 {
-    public function testUserPage()
+    public function testUserPage(): void
     {
-        $this->get_page('user');
-        $this->assert_title("Not Logged In");
-        $this->assert_no_text("Stats");
+        $page = $this->get_page('user');
+        $this->assertEquals(PageMode::REDIRECT, $page->mode);
 
         $this->get_page('user/demo');
         $this->assert_title("demo's Page");
@@ -42,23 +41,23 @@ class UserPageTest extends ShimmiePHPUnitTestCase
     # FIXME: test user creation
     # FIXME: test adminifying
     # FIXME: test password reset
-    public function testUserList()
+    public function testUserList(): void
     {
         $this->get_page('user_admin/list');
         $this->assert_text("demo");
     }
 
-    public function testUserClasses()
+    public function testUserClasses(): void
     {
         $this->get_page('user_admin/classes');
         $this->assert_text("admin");
     }
 
-    public function testCreateOther()
+    public function testCreateOther(): void
     {
         global $page;
 
-        $this->assertException(UserCreationException::class, function () {
+        $this->assertException(PermissionDenied::class, function () {
             $this->log_out();
             $this->post_page('user_admin/create_other', [
                 'name' => 'testnew',

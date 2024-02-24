@@ -9,23 +9,16 @@ namespace Shimmie2;
  */
 class ImageAdditionEvent extends Event
 {
-    public User $user;
-    public bool $merged = false;
-
     /**
-     * Inserts a new image into the database with its associated
-     * information. Also calls TagSetEvent to set the tags for
-     * this new image.
+     * A new image is being added to the database - just the image,
+     * metadata will come later with ImageInfoSetEvent (and if that
+     * fails, then the image addition transaction will be rolled back)
      */
     public function __construct(
         public Image $image,
     ) {
         parent::__construct();
     }
-}
-
-class ImageAdditionException extends SCoreException
-{
 }
 
 /**
@@ -52,18 +45,25 @@ class ImageDeletionEvent extends Event
  */
 class ImageReplaceEvent extends Event
 {
+    public string $old_hash;
+    public string $new_hash;
+
     /**
-     * Replaces an image.
+     * Replaces an image file.
      *
      * Updates an existing ID in the database to use a new image
      * file, leaving the tags and such unchanged. Also removes
      * the old image file and thumbnail from the disk.
      */
     public function __construct(
-        public Image $original,
-        public Image $replacement
+        public Image $image,
+        public string $tmp_filename,
     ) {
         parent::__construct();
+        $this->old_hash = $image->hash;
+        $hash = md5_file($tmp_filename);
+        assert($hash !== false, "Failed to hash file $tmp_filename");
+        $this->new_hash = $hash;
     }
 }
 
@@ -82,8 +82,7 @@ class ThumbnailGenerationEvent extends Event
      * Request a thumbnail be made for an image object
      */
     public function __construct(
-        public string $hash,
-        public string $mime,
+        public Image $image,
         public bool $force = false
     ) {
         parent::__construct();

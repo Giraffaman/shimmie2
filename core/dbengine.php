@@ -16,7 +16,7 @@ abstract class DBEngine
 {
     public DatabaseDriverID $id;
 
-    public function init(PDO $db)
+    public function init(PDO $db): void
     {
     }
 
@@ -30,7 +30,7 @@ abstract class DBEngine
         return 'CREATE TABLE '.$name.' ('.$data.')';
     }
 
-    abstract public function set_timeout(PDO $db, ?int $time);
+    abstract public function set_timeout(PDO $db, ?int $time): void;
 
     abstract public function get_version(PDO $db): string;
 
@@ -41,7 +41,7 @@ class MySQL extends DBEngine
 {
     public DatabaseDriverID $id = DatabaseDriverID::MYSQL;
 
-    public function init(PDO $db)
+    public function init(PDO $db): void
     {
         $db->exec("SET NAMES utf8;");
     }
@@ -72,7 +72,7 @@ class MySQL extends DBEngine
 
     public function get_version(PDO $db): string
     {
-        return $db->query('select version()')->fetch()[0];
+        return $db->execute('select version()')->fetch()[0];
     }
 }
 
@@ -80,13 +80,10 @@ class PostgreSQL extends DBEngine
 {
     public DatabaseDriverID $id = DatabaseDriverID::PGSQL;
 
-    public function init(PDO $db)
+    public function init(PDO $db): void
     {
-        if (array_key_exists('REMOTE_ADDR', $_SERVER)) {
-            $db->exec("SET application_name TO 'shimmie [{$_SERVER['REMOTE_ADDR']}]';");
-        } else {
-            $db->exec("SET application_name TO 'shimmie [local]';");
-        }
+        $addr = array_key_exists('REMOTE_ADDR', $_SERVER) ? get_real_ip() : 'local';
+        $db->exec("SET application_name TO 'shimmie [$addr]';");
         if (defined("DATABASE_TIMEOUT")) {
             $this->set_timeout($db, DATABASE_TIMEOUT);
         }
@@ -124,44 +121,44 @@ class PostgreSQL extends DBEngine
 
     public function get_version(PDO $db): string
     {
-        return $db->query('select version()')->fetch()[0];
+        return $db->execute('select version()')->fetch()[0];
     }
 }
 
 // shimmie functions for export to sqlite
-function _unix_timestamp($date): int
+function _unix_timestamp(string $date): int
 {
-    return strtotime($date);
+    return \Safe\strtotime($date);
 }
 function _now(): string
 {
     return date("Y-m-d H:i:s");
 }
-function _floor($a): float
+function _floor(float|int $a): float
 {
     return floor($a);
 }
-function _log($a, $b = null): float
+function _log(float $a, ?float $b = null): float
 {
     if (is_null($b)) {
         return log($a);
     } else {
-        return log($a, $b);
+        return log($b, $a);
     }
 }
-function _isnull($a): bool
+function _isnull(mixed $a): bool
 {
     return is_null($a);
 }
-function _md5($a): string
+function _md5(string $a): string
 {
     return md5($a);
 }
-function _concat($a, $b): string
+function _concat(string $a, string $b): string
 {
     return $a . $b;
 }
-function _lower($a): string
+function _lower(string $a): string
 {
     return strtolower($a);
 }
@@ -169,7 +166,7 @@ function _rand(): int
 {
     return rand();
 }
-function _ln($n): float
+function _ln(float $n): float
 {
     return log($n);
 }
@@ -178,7 +175,7 @@ class SQLite extends DBEngine
 {
     public DatabaseDriverID $id = DatabaseDriverID::SQLITE;
 
-    public function init(PDO $db)
+    public function init(PDO $db): void
     {
         ini_set('sqlite.assoc_case', '0');
         $db->exec("PRAGMA foreign_keys = ON;");
@@ -231,6 +228,6 @@ class SQLite extends DBEngine
 
     public function get_version(PDO $db): string
     {
-        return $db->query('select sqlite_version()')->fetch()[0];
+        return $db->execute('select sqlite_version()')->fetch()[0];
     }
 }

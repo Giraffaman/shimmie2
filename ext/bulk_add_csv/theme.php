@@ -6,12 +6,13 @@ namespace Shimmie2;
 
 class BulkAddCSVTheme extends Themelet
 {
+    /** @var Block[] */
     private array $messages = [];
 
     /*
      * Show a standard page for results to be put into
      */
-    public function display_upload_results(Page $page)
+    public function display_upload_results(Page $page): void
     {
         $page->set_title("Adding posts from csv");
         $page->set_heading("Adding posts from csv");
@@ -26,7 +27,7 @@ class BulkAddCSVTheme extends Themelet
      * links to bulk_add_csv with POST[csv] set to the name of a server-side
      * csv file
      */
-    public function display_admin_block()
+    public function display_admin_block(): void
     {
         global $page;
         $html = "
@@ -44,7 +45,7 @@ class BulkAddCSVTheme extends Themelet
         $page->add_block(new Block("Bulk Add CSV", $html));
     }
 
-    public function add_status($title, $body)
+    public function add_status(string $title, string $body): void
     {
         $this->messages[] = new Block($title, $body);
     }

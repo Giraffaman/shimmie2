@@ -6,43 +6,35 @@ namespace Shimmie2;
 
 class NumericScoreTheme extends Themelet
 {
-    public function get_voter(Image $image)
+    public function get_voter(Image $image): void
     {
         global $user, $page;
         $i_image_id = $image->id;
-        if (is_string($image->numeric_score)) {
-            $image->numeric_score = (int)$image->numeric_score;
-        }
-        $i_score = $image->numeric_score;
+        $i_score = (int)$image['numeric_score'];
 
         $html = "
 			Current Score: $i_score
 
-			<p><form action='".make_link("numeric_score_vote")."' method='POST'>
-			".$user->get_auth_html()."
+			<p>".make_form(make_link("numeric_score_vote"))."
 			<input type='hidden' name='image_id' value='$i_image_id'>
 			<input type='hidden' name='vote' value='1'>
 			<input type='submit' value='Vote Up'>
 			</form>
 
-			<form action='".make_link("numeric_score_vote")."' method='POST'>
-			".$user->get_auth_html()."
+			".make_form(make_link("numeric_score_vote"))."
 			<input type='hidden' name='image_id' value='$i_image_id'>
 			<input type='hidden' name='vote' value='0'>
 			<input type='submit' value='Remove Vote'>
 			</form>
 
-			<form action='".make_link("numeric_score_vote")."' method='POST'>
-			".$user->get_auth_html()."
+			".make_form(make_link("numeric_score_vote"))."
 			<input type='hidden' name='image_id' value='$i_image_id'>
 			<input type='hidden' name='vote' value='-1'>
 			<input type='submit' value='Vote Down'>
 			</form>
 		";
         if ($user->can(Permissions::EDIT_OTHER_VOTE)) {
-            $html .= "
-			<form action='".make_link("numeric_score/remove_votes_on")."' method='POST'>
-			".$user->get_auth_html()."
+            $html .= make_form(make_link("numeric_score/remove_votes_on"))."
 			<input type='hidden' name='image_id' value='$i_image_id'>
 			<input type='submit' value='Remove All Votes'>
 			</form>
@@ -58,12 +50,10 @@ class NumericScoreTheme extends Themelet
         $page->add_block(new Block("Post Score", $html, "left", 20));
     }
 
-    public function get_nuller(User $duser)
+    public function get_nuller(User $duser): void
     {
         global $user, $page;
-        $html = "
-			<form action='".make_link("numeric_score/remove_votes_by")."' method='POST'>
-			".$user->get_auth_html()."
+        $html = make_form(make_link("numeric_score/remove_votes_by"))."
 			<input type='hidden' name='user_id' value='{$duser->id}'>
 			<input type='submit' value='Delete all votes by this user'>
 			</form>
@@ -71,7 +61,10 @@ class NumericScoreTheme extends Themelet
         $page->add_block(new Block("Votes", $html, "main", 80));
     }
 
-    public function view_popular($images, $dte)
+    /**
+     * @param Image[] $images
+     */
+    public function view_popular(array $images, string $totaldate, string $current, string $name, string $fmt): void
     {
         global $page, $config;
 
@@ -80,12 +73,12 @@ class NumericScoreTheme extends Themelet
             $pop_images .= $this->build_thumb_html($image)."\n";
         }
 
-        $b_dte = make_link("popular_by_".$dte[3], date($dte[2], (strtotime('-1 '.$dte[3], strtotime($dte[0])))));
-        $f_dte = make_link("popular_by_".$dte[3], date($dte[2], (strtotime('+1 '.$dte[3], strtotime($dte[0])))));
+        $b_dte = make_link("popular_by_$name", date($fmt, \Safe\strtotime("-1 $name", \Safe\strtotime($totaldate))));
+        $f_dte = make_link("popular_by_$name", date($fmt, \Safe\strtotime("+1 $name", \Safe\strtotime($totaldate))));
 
         $html = "\n".
             "<h3 style='text-align: center;'>\n".
-            "	<a href='{$b_dte}'>&laquo;</a> {$dte[1]} <a href='{$f_dte}'>&raquo;</a>\n".
+            "	<a href='{$b_dte}'>&laquo;</a> {$current} <a href='{$f_dte}'>&raquo;</a>\n".
             "</h3>\n".
             "<br/>\n".$pop_images;
 

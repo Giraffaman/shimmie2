@@ -9,7 +9,7 @@ class Blotter extends Extension
     /** @var BlotterTheme */
     protected Themelet $theme;
 
-    public function onInitExt(InitExtEvent $event)
+    public function onInitExt(InitExtEvent $event): void
     {
         global $config;
         $config->set_default_int("blotter_recent", 5);
@@ -17,7 +17,7 @@ class Blotter extends Extension
         $config->set_default_string("blotter_position", "subheading");
     }
 
-    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event)
+    public function onDatabaseUpgrade(DatabaseUpgradeEvent $event): void
     {
         global $database;
 
@@ -42,7 +42,7 @@ class Blotter extends Extension
         }
     }
 
-    public function onSetupBuilding(SetupBuildingEvent $event)
+    public function onSetupBuilding(SetupBuildingEvent $event): void
     {
         $sb = $event->panel->create_new_block("Blotter");
         $sb->add_int_option("blotter_recent", "<br />Number of recent entries to display: ");
@@ -50,7 +50,7 @@ class Blotter extends Extension
         $sb->add_choice_option("blotter_position", ["Top of page" => "subheading", "In navigation bar" => "left"], "<br>Position: ");
     }
 
-    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event)
+    public function onPageSubNavBuilding(PageSubNavBuildingEvent $event): void
     {
         global $user;
         if ($event->parent === "system") {
@@ -61,7 +61,7 @@ class Blotter extends Extension
     }
 
 
-    public function onUserBlockBuilding(UserBlockBuildingEvent $event)
+    public function onUserBlockBuilding(UserBlockBuildingEvent $event): void
     {
         global $user;
         if ($user->can(Permissions::BLOTTER_ADMIN)) {
@@ -69,66 +69,35 @@ class Blotter extends Extension
         }
     }
 
-    public function onPageRequest(PageRequestEvent $event)
+    public function onPageRequest(PageRequestEvent $event): void
     {
         global $page, $database, $user;
-        if ($event->page_matches("blotter") && $event->count_args() > 0) {
-            switch ($event->get_arg(0)) {
-                case "editor":
-                    /**
-                     * Displays the blotter editor.
-                     */
-                    if (!$user->can(Permissions::BLOTTER_ADMIN)) {
-                        $this->theme->display_permission_denied();
-                    } else {
-                        $entries = $database->get_all("SELECT * FROM blotter ORDER BY id DESC");
-                        $this->theme->display_editor($entries);
-                    }
-                    break;
-                case "add":
-                    /**
-                     * Adds an entry
-                     */
-                    if (!$user->can(Permissions::BLOTTER_ADMIN) || !$user->check_auth_token()) {
-                        $this->theme->display_permission_denied();
-                    } else {
-                        $entry_text = $_POST['entry_text'];
-                        if ($entry_text == "") {
-                            die("No entry message!");
-                        }
-                        $important = isset($_POST['important']);
-                        // Now insert into db:
-                        $database->execute(
-                            "INSERT INTO blotter (entry_date, entry_text, important) VALUES (now(), :text, :important)",
-                            ["text" => $entry_text, "important" => $important]
-                        );
-                        log_info("blotter", "Added Message: $entry_text");
-                        $page->set_mode(PageMode::REDIRECT);
-                        $page->set_redirect(make_link("blotter/editor"));
-                    }
-                    break;
-                case "remove":
-                    /**
-                     * Removes an entry
-                     */
-                    if (!$user->can(Permissions::BLOTTER_ADMIN) || !$user->check_auth_token()) {
-                        $this->theme->display_permission_denied();
-                    } else {
-                        $id = int_escape($_POST['id']);
-                        $database->execute("DELETE FROM blotter WHERE id=:id", ["id" => $id]);
-                        log_info("blotter", "Removed Entry #$id");
-                        $page->set_mode(PageMode::REDIRECT);
-                        $page->set_redirect(make_link("blotter/editor"));
-                    }
-                    break;
-                case "list":
-                    /**
-                     * Displays all blotter entries
-                     */
-                    $entries = $database->get_all("SELECT * FROM blotter ORDER BY id DESC");
-                    $this->theme->display_blotter_page($entries);
-                    break;
-            }
+        if ($event->page_matches("blotter/editor", method: "GET", permission: Permissions::BLOTTER_ADMIN)) {
+            $entries = $database->get_all("SELECT * FROM blotter ORDER BY id DESC");
+            $this->theme->display_editor($entries);
+        }
+        if ($event->page_matches("blotter/add", method: "POST", permission: Permissions::BLOTTER_ADMIN)) {
+            $entry_text = $event->req_POST('entry_text');
+            $important = !is_null($event->get_POST('important'));
+            // Now insert into db:
+            $database->execute(
+                "INSERT INTO blotter (entry_date, entry_text, important) VALUES (now(), :text, :important)",
+                ["text" => $entry_text, "important" => $important]
+            );
+            log_info("blotter", "Added Message: $entry_text");
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("blotter/editor"));
+        }
+        if ($event->page_matches("blotter/remove", method: "POST", permission: Permissions::BLOTTER_ADMIN)) {
+            $id = int_escape($event->req_POST('id'));
+            $database->execute("DELETE FROM blotter WHERE id=:id", ["id" => $id]);
+            log_info("blotter", "Removed Entry #$id");
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("blotter/editor"));
+        }
+        if ($event->page_matches("blotter/list", method: "GET")) {
+            $entries = $database->get_all("SELECT * FROM blotter ORDER BY id DESC");
+            $this->theme->display_blotter_page($entries);
         }
         /**
          * Finally, display the blotter on whatever page we're viewing.
@@ -136,12 +105,13 @@ class Blotter extends Extension
         $this->display_blotter();
     }
 
-    private function display_blotter()
+    private function display_blotter(): void
     {
         global $database, $config;
-        $limit = $config->get_int("blotter_recent", 5);
-        $sql = 'SELECT * FROM blotter ORDER BY id DESC LIMIT '.intval($limit);
-        $entries = $database->get_all($sql);
+        $entries = $database->get_all(
+            'SELECT * FROM blotter ORDER BY id DESC LIMIT :limit',
+            ["limit" => $config->get_int("blotter_recent", 5)]
+        );
         $this->theme->display_blotter($entries);
     }
 }

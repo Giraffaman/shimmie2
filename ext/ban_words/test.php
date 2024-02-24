@@ -6,7 +6,7 @@ namespace Shimmie2;
 
 class BanWordsTest extends ShimmiePHPUnitTestCase
 {
-    public function check_blocked($image_id, $words)
+    public function check_blocked(int $image_id, string $words): void
     {
         global $user;
         try {
@@ -17,7 +17,7 @@ class BanWordsTest extends ShimmiePHPUnitTestCase
         }
     }
 
-    public function testWordBan()
+    public function testWordBan(): void
     {
         global $config;
         $config->set_string("banned_words", "viagra\nporn\n\n/http:.*\.cn\//");
