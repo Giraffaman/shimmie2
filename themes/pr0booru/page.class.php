@@ -52,7 +52,7 @@ class Page extends BasePage
 {
     public bool $left_enabled = true;
 
-    public function disable_left()
+    public function disable_left(): void
     {
         $this->left_enabled = false;
     }
@@ -96,7 +96,7 @@ class Page extends BasePage
         return $html;
     }
 
-    public function render()
+    public function render(): void
     {
         global $config;
         $deblog = true;
