@@ -108,7 +108,9 @@ class Ratings extends Extension
 
     /*
         need to also check user's default ratings when navigating to another image in /view
-    */
+
+        update 2024-02-22: likely obsolete since upstream https://github.com/shish/shimmie2/commit/fb49b785ef814f12933e8ff690665c2b2f7ff65a
+
     public function check_user_ratings(Image $image): bool {
         $user_ratings = Ratings::get_user_default_ratings();
         if (!in_array($image->rating, $user_ratings)) {
@@ -116,6 +118,7 @@ class Ratings extends Extension
         }
         return true;
     }
+    */
 
     public function onInitUserConfig(InitUserConfigEvent $event): void
     {
@@ -184,12 +187,15 @@ class Ratings extends Extension
             cannot dynamically set prev/next links to the next good image with matching rating.
             Maybe a solution could be to auto-navigate to the prev/next image and, 
             while image->rating != what we want, keep "clicking" the prev/next link
-        */
+        
+            update 2024-02-22: likely obsolete since upstream https://github.com/shish/shimmie2/commit/fb49b785ef814f12933e8ff690665c2b2f7ff65a
+
         if(!$this->check_user_ratings($event->image)) {
             $page->set_mode(PageMode::REDIRECT);
             $page->set_redirect(make_link());
             error_log("don't want to see this!");
         }
+        */
     }
 
     public function onBulkExport(BulkExportEvent $event): void
