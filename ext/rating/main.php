@@ -399,16 +399,6 @@ class Ratings extends Extension
         # 2023-12-21: added to process default rating chages from form added in pr0rooru theme
         # TODO: put this into its own extension so we don't touch Ratings
         if(($event->page_matches("rating/save_ratingView")) || ($event->page_matches("save_ratingView"))) {
-            # this part is obsolete
-            if($event->count_args() > 0) {
-                echo $this->make_logentry("arg count: ".$event->count_args());
-                foreach($event->args as $a) {
-                    echo $this->make_logentry($a);
-                } 
-            } else {
-                echo $this->make_logentry("no args?");
-            }
-            #echo $this->make_logentry("extension - page requested: ".$event);
             if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
                 throw new PermissionDeniedException("Permission denied");
             } else {
