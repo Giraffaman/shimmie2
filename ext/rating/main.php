@@ -403,13 +403,13 @@ class Ratings extends Extension
                 throw new PermissionDeniedException("Permission denied");
             } else {
                 error_log("can save rating...");
-                foreach($_POST as $p => $v) {
+                foreach($event->POST as $p => $v) {
                     error_log("p: ".$p." - v: ".$v);
                 }
 
-                if(isset($_POST["_config_ratings_default"])) {
+                if(isset($event->POST["_config_ratings_default"])) {
                     error_log("_config_ratings_default[] is present...");
-                    foreach($_POST["_config_ratings_default"] as $crd) {
+                    foreach($event->POST["_config_ratings_default"] as $crd) {
                         error_log("_config_ratings_default[] contains ".$crd);
                         switch($crd) {
                             case "s": 
@@ -425,10 +425,10 @@ class Ratings extends Extension
                         }
                     }
                     if($add) {
-                        $_POST["_config_ratings_default"] = array_merge($_POST["_config_ratings_default"], $add);
+                        $event->POST["_config_ratings_default"] = array_merge($event->POST["_config_ratings_default"], $add);
                     }
                     error_log("_config_ratings_default is now: ");
-                    foreach($_POST["_config_ratings_default"] as $crd) {
+                    foreach($event->POST["_config_ratings_default"] as $crd) {
                         error_log("_config_ratings_default[] contains ".$crd);
                     }
                 } else {
