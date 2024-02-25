@@ -129,7 +129,8 @@ new UserClass("user", "base", [
     Permissions::POOLS_CREATE => true,
     Permissions::POOLS_UPDATE => true,
     # 2024-02-25: added permissions to view pools and tags to restrict this to logged in users only
-    Permissions::POOLS_VIEW => true,
+    Permissions::VIEW_POOLS => true,
+    Permissions::VIEW_TAGS => true,
 ]);
 
 new UserClass("hellbanned", "user", [

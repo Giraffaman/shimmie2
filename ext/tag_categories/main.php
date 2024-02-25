@@ -69,7 +69,7 @@ class TagCategories extends Extension
     {
         global $database, $page, $user;
 
-        if ($event->page_matches("tags/categories", method: "GET")) {
+        if ($event->page_matches("tags/categories", method: "GET", permission: Permissions::VIEW_TAGS)) {
             $this->theme->show_tag_categories($page, $database->get_all('SELECT * FROM image_tag_categories'));
         }
         if ($event->page_matches("tags/categories", method: "POST", permission: Permissions::EDIT_TAG_CATEGORIES)) {

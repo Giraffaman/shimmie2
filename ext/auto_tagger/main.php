@@ -83,7 +83,7 @@ class AutoTagger extends Extension
             $page->set_mode(PageMode::REDIRECT);
             $page->set_redirect(make_link("auto_tag/list"));
         }
-        if ($event->page_matches("auto_tag/list")) {
+        if ($event->page_matches("auto_tag/list", permission: Permissions::VIEW_TAGS)) {
             $t = new AutoTaggerTable($database->raw_db());
             $t->token = $user->get_auth_token();
             $t->inputs = $event->GET;
@@ -94,7 +94,7 @@ class AutoTagger extends Extension
             }
             $this->theme->display_auto_tagtable($t->table($t->query()), $t->paginator());
         }
-        if ($event->page_matches("auto_tag/export/auto_tag.csv")) {
+        if ($event->page_matches("auto_tag/export/auto_tag.csv", permission: Permissions::VIEW_TAGS)) {
             $page->set_mode(PageMode::DATA);
             $page->set_mime(MimeType::CSV);
             $page->set_filename("auto_tag.csv");

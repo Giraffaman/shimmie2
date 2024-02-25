@@ -130,8 +130,6 @@ abstract class Permissions
     public const POOLS_ADMIN = "pools_admin";
     public const POOLS_CREATE = "pools_create";
     public const POOLS_UPDATE = "pools_update";
-    # 2024-02-25: added pool view permission to restrict to logged in users only
-    public const POOLS_VIEW = "pools_view";
 
     public const SET_PRIVATE_IMAGE = "set_private_image";
     public const SET_OTHERS_PRIVATE_IMAGES = "set_others_private_images";
@@ -141,4 +139,7 @@ abstract class Permissions
     public const BULK_EXPORT = "bulk_export";
     public const BULK_DOWNLOAD = "bulk_download";
     public const BULK_PARENT_CHILD = "bulk_parent_child";
+    # 2024-02-25: added pool view permission to restrict to logged in users only
+    public const VIEW_POOLS = "view_pools";
+    public const VIEW_TAGS = "view_tags";
 }

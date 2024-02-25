@@ -233,8 +233,8 @@ class Pools extends Extension
     {
         global $config, $database, $page, $user;
         if (
-            $event->page_matches("pool/list", paged: true, permission: Permissions::POOLS_VIEW)
-            || $event->page_matches("pool/list/{search}", paged: true, permission: Permissions::POOLS_VIEW)
+            $event->page_matches("pool/list", paged: true, permission: Permissions::VIEW_POOLS)
+            || $event->page_matches("pool/list/{search}", paged: true, permission: Permissions::VIEW_POOLS)
         ) { //index
             if ($event->get_GET('search')) {
                 $page->set_mode(PageMode::REDIRECT);
@@ -260,11 +260,11 @@ class Pools extends Extension
             $page->set_mode(PageMode::REDIRECT);
             $page->set_redirect(make_link("pool/view/" . $pce->new_id));
         }
-        if ($event->page_matches("pool/view/{pool_id}", method: "GET", paged: true, permission: Permissions::POOLS_VIEW)) {
+        if ($event->page_matches("pool/view/{pool_id}", method: "GET", paged: true, permission: Permissions::VIEW_POOLS)) {
             $pool_id = $event->get_iarg('pool_id');
             $this->get_posts($event->get_iarg('page_num', 1) - 1, $pool_id);
         }
-        if ($event->page_matches("pool/updated", paged: true, permission: Permissions::POOLS_VIEW)) {
+        if ($event->page_matches("pool/updated", paged: true, permission: Permissions::VIEW_POOLS)) {
             $this->get_history($event->get_iarg('page_num', 1) - 1);
         }
         if ($event->page_matches("pool/revert/{history_id}", method: "POST", permission: Permissions::POOLS_UPDATE)) {

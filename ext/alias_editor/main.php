@@ -77,7 +77,7 @@ class AliasEditor extends Extension
             $page->set_mode(PageMode::REDIRECT);
             $page->set_redirect(make_link("alias/list"));
         }
-        if ($event->page_matches("alias/list")) {
+        if ($event->page_matches("alias/list", permission: Permissions::VIEW_TAGS)) {
             $t = new AliasTable($database->raw_db());
             $t->token = $user->get_auth_token();
             $t->inputs = $event->GET;
@@ -88,7 +88,7 @@ class AliasEditor extends Extension
             }
             $this->theme->display_aliases($t->table($t->query()), $t->paginator());
         }
-        if ($event->page_matches("alias/export/aliases.csv")) {
+        if ($event->page_matches("alias/export/aliases.csv", permission: Permissions::VIEW_TAGS)) {
             $page->set_mode(PageMode::DATA);
             $page->set_mime(MimeType::CSV);
             $page->set_filename("aliases.csv");

@@ -15,7 +15,7 @@ class AutoComplete extends Extension
     {
         global $page, $user;
 
-        if ($event->page_matches("api/internal/autocomplete")) {
+        if ($event->page_matches("api/internal/autocomplete") && $user->is_logged_in()) {
             $limit = (int)($event->get_GET("limit") ?? 1000);
             $s = $event->get_GET("s") ?? "";
 
