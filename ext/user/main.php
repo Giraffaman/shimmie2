@@ -220,7 +220,7 @@ class UserPage extends Extension
             $page->flash("Created new user");
         }
         # 2024-02-25: prevent anon users from seeing user list
-        if ($event->page_matches("user_admin/list", method: "GET") && $user->is_logged_in()) {
+        if ($event->page_matches("user_admin/list", method: "GET", permission: Permissions::CHANGE_USER_SETTING)) {
             $t = new UserTable($database->raw_db());
             $t->token = $user->get_auth_token();
             $t->inputs = $event->GET;
@@ -232,7 +232,7 @@ class UserPage extends Extension
             $this->theme->display_crud("Users", $t->table($t->query()), $t->paginator());
         }
         # 2024-02-25: prevent anon users from seeing user class table        
-        if ($event->page_matches("user_admin/classes", method: "GET") && $user->is_logged_in()) {
+        if ($event->page_matches("user_admin/classes", method: "GET", permission: Permissions::CHANGE_USER_SETTING)) {
             $this->theme->display_user_classes(
                 $page,
                 UserClass::$known_classes,
@@ -312,7 +312,7 @@ class UserPage extends Extension
             );
         }
         # 2024-02-25: prevent anon users from seeing any user's properties
-        if ($event->page_matches("user/{name}") && $user->is_logged_in()) {
+        if ($event->page_matches("user/{name}", permission: Permissions::CHANGE_USER_SETTING)) {
             $display_user = User::by_name($event->get_arg('name'));
             if (!is_null($display_user) && ($display_user->id != $config->get_int("anon_id"))) {
                 $e = send_event(new UserPageBuildingEvent($display_user));
