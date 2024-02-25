@@ -405,8 +405,9 @@ class Ratings extends Extension
         # 2023-12-21: added to process default rating chages from form added in pr0rooru theme
         # TODO: put this into its own extension so we don't touch Ratings
         if(($event->page_matches("rating/save_ratingView")) || ($event->page_matches("save_ratingView"))) {
-            if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
-                throw new PermissionDeniedException("Permission denied");
+            #if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
+            if (!$user->can(Permissions::VIEW_NSFW_RATING)) {
+                throw new PermissionDenied("Permission denied");
             } else {
                 error_log("can save rating...");
                 foreach($event->POST as $p => $v) {
