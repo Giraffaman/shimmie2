@@ -406,7 +406,7 @@ class Ratings extends Extension
         # TODO: put this into its own extension so we don't touch Ratings
         if(($event->page_matches("rating/save_ratingView")) || ($event->page_matches("save_ratingView"))) {
             #if (!$user->can(Permissions::BULK_EDIT_IMAGE_RATING)) {
-            if (!$user->can(Permissions::VIEW_NSFW_RATING)) {
+            if(! ((in_array("e", $this->get_user_class_privs($user))) || (in_array("?", $this->get_user_class_privs($user)))))
                 throw new PermissionDenied("Permission denied");
             } else {
                 error_log("can save rating...");
