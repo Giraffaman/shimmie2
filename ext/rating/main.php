@@ -416,15 +416,16 @@ class Ratings extends Extension
 
                 if(isset($event->POST["_config_ratings_default"])) {
                     error_log("_config_ratings_default[] is present...");
+                    $add = [];
                     foreach($event->POST["_config_ratings_default"] as $crd) {
                         error_log("_config_ratings_default[] contains ".$crd);
                         switch($crd) {
                             case "s": 
-                                $add = ["p"];
+                                array_push($add, "p");
                                 error_log("have S, adding P");
                                 break;
                             case "e":
-                                $add = ["q", "?"];
+                                array_push($add, "q", "?");
                                 error_log("have E, adding Q and ?");
                                 break;
                             default:
