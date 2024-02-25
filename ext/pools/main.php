@@ -232,200 +232,195 @@ class Pools extends Extension
     public function onPageRequest(PageRequestEvent $event): void
     {
         global $config, $database, $page, $user;
-        if(! $user->is_logged_in()) {
-            $errMessage = "You must be registered and logged in to use pools.";
-            $this->theme->display_error(401, "Unauthorized", $errMessage);
-        } else {
-            if (
-                $event->page_matches("pool/list", paged: true)
-                || $event->page_matches("pool/list/{search}", paged: true)
-            ) { //index
-                if ($event->get_GET('search')) {
-                    $page->set_mode(PageMode::REDIRECT);
-                    $page->set_redirect(make_link('pool/list') . '/' . url_escape($event->get_GET('search')) . '/' . strval($event->page_num));
-                    return;
-                }
-                $search = $event->get_arg('search', "");
-                $page_num = $event->get_iarg('page_num', 1) - 1;
-                $this->list_pools($page, $page_num, $search);
+        if (
+            $event->page_matches("pool/list", paged: true, permission: Permissions::POOLS_VIEW)
+            || $event->page_matches("pool/list/{search}", paged: true, permission: Permissions::POOLS_VIEW)
+        ) { //index
+            if ($event->get_GET('search')) {
+                $page->set_mode(PageMode::REDIRECT);
+                $page->set_redirect(make_link('pool/list') . '/' . url_escape($event->get_GET('search')) . '/' . strval($event->page_num));
+                return;
             }
-            if ($event->page_matches("pool/new", method: "GET", permission: Permissions::POOLS_CREATE)) {
-                $this->theme->new_pool_composer($page);
+            $search = $event->get_arg('search', "");
+            $page_num = $event->get_iarg('page_num', 1) - 1;
+            $this->list_pools($page, $page_num, $search);
+        }
+        if ($event->page_matches("pool/new", method: "GET", permission: Permissions::POOLS_CREATE)) {
+            $this->theme->new_pool_composer($page);
+        }
+        if ($event->page_matches("pool/create", method: "POST", permission: Permissions::POOLS_CREATE)) {
+            $pce = send_event(
+                new PoolCreationEvent(
+                    $event->req_POST("title"),
+                    $user,
+                    bool_escape($event->req_POST("public")),
+                    $event->req_POST("description")
+                )
+            );
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("pool/view/" . $pce->new_id));
+        }
+        if ($event->page_matches("pool/view/{pool_id}", method: "GET", paged: true, permission: Permissions::POOLS_VIEW)) {
+            $pool_id = $event->get_iarg('pool_id');
+            $this->get_posts($event->get_iarg('page_num', 1) - 1, $pool_id);
+        }
+        if ($event->page_matches("pool/updated", paged: true, permission: Permissions::POOLS_VIEW)) {
+            $this->get_history($event->get_iarg('page_num', 1) - 1);
+        }
+        if ($event->page_matches("pool/revert/{history_id}", method: "POST", permission: Permissions::POOLS_UPDATE)) {
+            $history_id = $event->get_iarg('history_id');
+            $this->revert_history($history_id);
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("pool/updated"));
+        }
+        if ($event->page_matches("pool/edit/{pool_id}")) {
+            $pool_id = $event->get_iarg('pool_id');
+            $pool = $this->get_single_pool($pool_id);
+            $this->assert_permission($user, $pool);
+
+            $result = $database->execute("SELECT image_id FROM pool_images WHERE pool_id=:pid ORDER BY image_order ASC", ["pid" => $pool_id]);
+            $images = [];
+            while ($row = $result->fetch()) {
+                $images[] = Image::by_id_ex((int) $row["image_id"]);
             }
-            if ($event->page_matches("pool/create", method: "POST", permission: Permissions::POOLS_CREATE)) {
-                $pce = send_event(
-                    new PoolCreationEvent(
-                        $event->req_POST("title"),
-                        $user,
-                        bool_escape($event->req_POST("public")),
-                        $event->req_POST("description")
-                    )
+            $this->theme->edit_pool($page, $pool, $images);
+        }
+        if ($event->page_matches("pool/order/{pool_id}")) {
+            $pool_id = $event->get_iarg('pool_id');
+            $pool = $this->get_single_pool($pool_id);
+            $this->assert_permission($user, $pool);
+
+            $result = $database->execute(
+                "SELECT image_id FROM pool_images WHERE pool_id=:pid ORDER BY image_order ASC",
+                ["pid" => $pool_id]
+            );
+            $images = [];
+
+            while ($row = $result->fetch()) {
+                $image = $database->get_row(
+                    "
+                            SELECT * FROM images AS i
+                            INNER JOIN pool_images AS p ON i.id = p.image_id
+                            WHERE pool_id=:pid AND i.id=:iid",
+                    ["pid" => $pool_id, "iid" => (int) $row['image_id']]
                 );
-                $page->set_mode(PageMode::REDIRECT);
-                $page->set_redirect(make_link("pool/view/" . $pce->new_id));
+                $images[] = ($image ? new Image($image) : null);
             }
-            if ($event->page_matches("pool/view/{pool_id}", method: "GET", paged: true)) {
-                $pool_id = $event->get_iarg('pool_id');
-                $this->get_posts($event->get_iarg('page_num', 1) - 1, $pool_id);
-            }
-            if ($event->page_matches("pool/updated", paged: true)) {
-                $this->get_history($event->get_iarg('page_num', 1) - 1);
-            }
-            if ($event->page_matches("pool/revert/{history_id}", method: "POST", permission: Permissions::POOLS_UPDATE)) {
-                $history_id = $event->get_iarg('history_id');
-                $this->revert_history($history_id);
-                $page->set_mode(PageMode::REDIRECT);
-                $page->set_redirect(make_link("pool/updated"));
-            }
-            if ($event->page_matches("pool/edit/{pool_id}")) {
-                $pool_id = $event->get_iarg('pool_id');
-                $pool = $this->get_single_pool($pool_id);
-                $this->assert_permission($user, $pool);
-    
-                $result = $database->execute("SELECT image_id FROM pool_images WHERE pool_id=:pid ORDER BY image_order ASC", ["pid" => $pool_id]);
-                $images = [];
-                while ($row = $result->fetch()) {
-                    $images[] = Image::by_id_ex((int) $row["image_id"]);
-                }
-                $this->theme->edit_pool($page, $pool, $images);
-            }
-            if ($event->page_matches("pool/order/{pool_id}")) {
-                $pool_id = $event->get_iarg('pool_id');
-                $pool = $this->get_single_pool($pool_id);
-                $this->assert_permission($user, $pool);
-    
-                $result = $database->execute(
-                    "SELECT image_id FROM pool_images WHERE pool_id=:pid ORDER BY image_order ASC",
-                    ["pid" => $pool_id]
-                );
-                $images = [];
-    
-                while ($row = $result->fetch()) {
-                    $image = $database->get_row(
-                        "
-                                SELECT * FROM images AS i
-                                INNER JOIN pool_images AS p ON i.id = p.image_id
-                                WHERE pool_id=:pid AND i.id=:iid",
-                        ["pid" => $pool_id, "iid" => (int) $row['image_id']]
-                    );
-                    $images[] = ($image ? new Image($image) : null);
-                }
-    
-                $this->theme->edit_order($page, $pool, $images);
-            }
-            if ($event->page_matches("pool/save_order/{pool_id}", method: "POST")) {
-                $pool_id = $event->get_iarg('pool_id');
-                $pool = $this->get_single_pool($pool_id);
-                $this->assert_permission($user, $pool);
-    
-                foreach ($event->POST as $key => $value) {
-                    if (str_starts_with($key, "order_")) {
-                        $imageID = (int) substr($key, 6);
-                        $database->execute(
-                            "
-                                UPDATE pool_images
-                                SET image_order = :ord
-                                WHERE pool_id = :pid AND image_id = :iid",
-                            ["ord" => $value, "pid" => $pool_id, "iid" => $imageID]
-                        );
-                    }
-                }
-                $page->set_mode(PageMode::REDIRECT);
-                $page->set_redirect(make_link("pool/view/" . $pool_id));
-            }
-            if ($event->page_matches("pool/reverse/{pool_id}", method: "POST")) {
-                $pool_id = $event->get_iarg('pool_id');
-                $pool = $this->get_single_pool($pool_id);
-                $this->assert_permission($user, $pool);
-    
-                $database->with_savepoint(function () use ($pool_id) {
-                    global $database;
-                    $result = $database->execute(
-                        "SELECT image_id FROM pool_images WHERE pool_id=:pid ORDER BY image_order DESC",
-                        ["pid" => $pool_id]
-                    );
-                    $image_order = 1;
-                    while ($row = $result->fetch()) {
-                        $database->execute(
-                            "
-                                    UPDATE pool_images 
-                                    SET image_order=:ord 
-                                    WHERE pool_id = :pid AND image_id = :iid",
-                            ["ord" => $image_order, "pid" => $pool_id, "iid" => (int) $row['image_id']]
-                        );
-                        $image_order = $image_order + 1;
-                    }
-                });
-                $page->set_mode(PageMode::REDIRECT);
-                $page->set_redirect(make_link("pool/view/" . $pool_id));
-            }
-            if ($event->page_matches("pool/import/{pool_id}")) {
-                $pool_id = $event->get_iarg('pool_id');
-                $pool = $this->get_single_pool($pool_id);
-                $this->assert_permission($user, $pool);
-    
-                $images = Search::find_images(
-                    limit: $config->get_int(PoolsConfig::MAX_IMPORT_RESULTS, 1000),
-                    tags: Tag::explode($event->req_POST("pool_tag"))
-                );
-                $this->theme->pool_result($page, $images, $pool);
-            }
-            if ($event->page_matches("pool/add_posts/{pool_id}")) {
-                $pool_id = $event->get_iarg('pool_id');
-                $pool = $this->get_single_pool($pool_id);
-                $this->assert_permission($user, $pool);
-    
-                $image_ids = array_map('intval', $event->req_POST_array('check'));
-                send_event(new PoolAddPostsEvent($pool_id, $image_ids));
-                $page->set_mode(PageMode::REDIRECT);
-                $page->set_redirect(make_link("pool/view/" . $pool_id));
-            }
-            if ($event->page_matches("pool/remove_posts/{pool_id}")) {
-                $pool_id = $event->get_iarg('pool_id');
-                $pool = $this->get_single_pool($pool_id);
-                $this->assert_permission($user, $pool);
-    
-                $images = "";
-                foreach ($event->req_POST_array('check') as $imageID) {
+
+            $this->theme->edit_order($page, $pool, $images);
+        }
+        if ($event->page_matches("pool/save_order/{pool_id}", method: "POST")) {
+            $pool_id = $event->get_iarg('pool_id');
+            $pool = $this->get_single_pool($pool_id);
+            $this->assert_permission($user, $pool);
+
+            foreach ($event->POST as $key => $value) {
+                if (str_starts_with($key, "order_")) {
+                    $imageID = (int) substr($key, 6);
                     $database->execute(
-                        "DELETE FROM pool_images WHERE pool_id = :pid AND image_id = :iid",
-                        ["pid" => $pool_id, "iid" => $imageID]
+                        "
+                            UPDATE pool_images
+                            SET image_order = :ord
+                            WHERE pool_id = :pid AND image_id = :iid",
+                        ["ord" => $value, "pid" => $pool_id, "iid" => $imageID]
                     );
-                    $images .= " " . $imageID;
                 }
-                $count = (int) $database->get_one(
-                    "SELECT COUNT(*) FROM pool_images WHERE pool_id=:pid",
+            }
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("pool/view/" . $pool_id));
+        }
+        if ($event->page_matches("pool/reverse/{pool_id}", method: "POST")) {
+            $pool_id = $event->get_iarg('pool_id');
+            $pool = $this->get_single_pool($pool_id);
+            $this->assert_permission($user, $pool);
+
+            $database->with_savepoint(function () use ($pool_id) {
+                global $database;
+                $result = $database->execute(
+                    "SELECT image_id FROM pool_images WHERE pool_id=:pid ORDER BY image_order DESC",
                     ["pid" => $pool_id]
                 );
-                $this->add_history($pool_id, 0, $images, $count);
-                $page->set_mode(PageMode::REDIRECT);
-                $page->set_redirect(make_link("pool/view/" . $pool_id));
-            }
-            if ($event->page_matches("pool/edit_description/{pool_id}")) {
-                $pool_id = $event->get_iarg('pool_id');
-                $pool = $this->get_single_pool($pool_id);
-                $this->assert_permission($user, $pool);
-    
-                $database->execute(
-                    "UPDATE pools SET description=:dsc,lastupdated=CURRENT_TIMESTAMP WHERE id=:pid",
-                    ["dsc" => $event->req_POST('description'), "pid" => $pool_id]
-                );
-                $page->set_mode(PageMode::REDIRECT);
-                $page->set_redirect(make_link("pool/view/" . $pool_id));
-            }
-            if ($event->page_matches("pool/nuke/{pool_id}")) {
-                // Completely remove the given pool.
-                //  -> Only admins and owners may do this
-                $pool_id = $event->get_iarg('pool_id');
-                $pool = $this->get_single_pool($pool_id);
-    
-                if ($user->can(Permissions::POOLS_ADMIN) || $user->id == $pool->user_id) {
-                    send_event(new PoolDeletionEvent($pool_id));
-                    $page->set_mode(PageMode::REDIRECT);
-                    $page->set_redirect(make_link("pool/list"));
-                } else {
-                    throw new PermissionDenied("You do not have permission to access this page");
+                $image_order = 1;
+                while ($row = $result->fetch()) {
+                    $database->execute(
+                        "
+                                UPDATE pool_images 
+                                SET image_order=:ord 
+                                WHERE pool_id = :pid AND image_id = :iid",
+                        ["ord" => $image_order, "pid" => $pool_id, "iid" => (int) $row['image_id']]
+                    );
+                    $image_order = $image_order + 1;
                 }
+            });
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("pool/view/" . $pool_id));
+        }
+        if ($event->page_matches("pool/import/{pool_id}")) {
+            $pool_id = $event->get_iarg('pool_id');
+            $pool = $this->get_single_pool($pool_id);
+            $this->assert_permission($user, $pool);
+
+            $images = Search::find_images(
+                limit: $config->get_int(PoolsConfig::MAX_IMPORT_RESULTS, 1000),
+                tags: Tag::explode($event->req_POST("pool_tag"))
+            );
+            $this->theme->pool_result($page, $images, $pool);
+        }
+        if ($event->page_matches("pool/add_posts/{pool_id}")) {
+            $pool_id = $event->get_iarg('pool_id');
+            $pool = $this->get_single_pool($pool_id);
+            $this->assert_permission($user, $pool);
+
+            $image_ids = array_map('intval', $event->req_POST_array('check'));
+            send_event(new PoolAddPostsEvent($pool_id, $image_ids));
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("pool/view/" . $pool_id));
+        }
+        if ($event->page_matches("pool/remove_posts/{pool_id}")) {
+            $pool_id = $event->get_iarg('pool_id');
+            $pool = $this->get_single_pool($pool_id);
+            $this->assert_permission($user, $pool);
+
+            $images = "";
+            foreach ($event->req_POST_array('check') as $imageID) {
+                $database->execute(
+                    "DELETE FROM pool_images WHERE pool_id = :pid AND image_id = :iid",
+                    ["pid" => $pool_id, "iid" => $imageID]
+                );
+                $images .= " " . $imageID;
+            }
+            $count = (int) $database->get_one(
+                "SELECT COUNT(*) FROM pool_images WHERE pool_id=:pid",
+                ["pid" => $pool_id]
+            );
+            $this->add_history($pool_id, 0, $images, $count);
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("pool/view/" . $pool_id));
+        }
+        if ($event->page_matches("pool/edit_description/{pool_id}")) {
+            $pool_id = $event->get_iarg('pool_id');
+            $pool = $this->get_single_pool($pool_id);
+            $this->assert_permission($user, $pool);
+
+            $database->execute(
+                "UPDATE pools SET description=:dsc,lastupdated=CURRENT_TIMESTAMP WHERE id=:pid",
+                ["dsc" => $event->req_POST('description'), "pid" => $pool_id]
+            );
+            $page->set_mode(PageMode::REDIRECT);
+            $page->set_redirect(make_link("pool/view/" . $pool_id));
+        }
+        if ($event->page_matches("pool/nuke/{pool_id}")) {
+            // Completely remove the given pool.
+            //  -> Only admins and owners may do this
+            $pool_id = $event->get_iarg('pool_id');
+            $pool = $this->get_single_pool($pool_id);
+
+            if ($user->can(Permissions::POOLS_ADMIN) || $user->id == $pool->user_id) {
+                send_event(new PoolDeletionEvent($pool_id));
+                $page->set_mode(PageMode::REDIRECT);
+                $page->set_redirect(make_link("pool/list"));
+            } else {
+                throw new PermissionDenied("You do not have permission to access this page");
             }
         }
     }
