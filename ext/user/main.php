@@ -219,7 +219,8 @@ class UserPage extends Extension
             $page->set_redirect(make_link("admin"));
             $page->flash("Created new user");
         }
-        if ($event->page_matches("user_admin/list", method: "GET")) {
+        # 2024-02-25: prevent anon users from seeing user list
+        if ($event->page_matches("user_admin/list", method: "GET") && $user->is_logged_in()) {
             $t = new UserTable($database->raw_db());
             $t->token = $user->get_auth_token();
             $t->inputs = $event->GET;
@@ -230,7 +231,8 @@ class UserPage extends Extension
             }
             $this->theme->display_crud("Users", $t->table($t->query()), $t->paginator());
         }
-        if ($event->page_matches("user_admin/classes", method: "GET")) {
+        # 2024-02-25: prevent anon users from seeing user class table        
+        if ($event->page_matches("user_admin/classes", method: "GET") && $user->is_logged_in()) {
             $this->theme->display_user_classes(
                 $page,
                 UserClass::$known_classes,
@@ -309,8 +311,8 @@ class UserPage extends Extension
                 $event->get_POST("with_comments") == "on"
             );
         }
-
-        if ($event->page_matches("user/{name}")) {
+        # 2024-02-25: prevent anon users from seeing any user's properties
+        if ($event->page_matches("user/{name}") && $user->is_logged_in()) {
             $display_user = User::by_name($event->get_arg('name'));
             if (!is_null($display_user) && ($display_user->id != $config->get_int("anon_id"))) {
                 $e = send_event(new UserPageBuildingEvent($display_user));
