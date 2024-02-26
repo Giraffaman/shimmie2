@@ -92,7 +92,10 @@ class UploadTheme extends Themelet
     {
         global $config;
         $upload_list = emptyHTML();
+        # let's create a number of file inputs based on form_count, rather than upload_count
+        # so we don't get like 1000 lines if upload_count=1000
         $upload_count = $config->get_int(UploadConfig::COUNT);
+        $form_count = $config->get_int(UploadConfig::FORM_COUNT);
         $tl_enabled = ($config->get_string(UploadConfig::TRANSLOAD_ENGINE, "none") != "none");
         $accept = $this->get_accept();
 
@@ -106,7 +109,11 @@ class UploadTheme extends Themelet
             )
         );
 
-        for ($i = 0; $i < $upload_count; $i++) {
+        # probably not a good idea to show more file inputs than max_file_uploads
+        if($form_count > $upload_count) {
+            $form_count = $upload_count;
+        }
+        for ($i = 0; $i < $form_count; $i++) {
             $upload_list->appendChild(
                 TR(
                     TD(

@@ -112,6 +112,7 @@ class Upload extends Extension
     {
         global $config;
         $config->set_default_int(UploadConfig::COUNT, 3);
+        $config->set_default_int(UploadConfig::FORM_COUNT, 5);
         $config->set_default_int(UploadConfig::SIZE, parse_shorthand_int('1MB'));
         $config->set_default_int(UploadConfig::MIN_FREE_SPACE, parse_shorthand_int('100MB'));
         $config->set_default_bool(UploadConfig::TLSOURCE, true);
@@ -150,6 +151,7 @@ class Upload extends Extension
         $sb = $event->panel->create_new_block("Upload");
         $sb->position = 10;
         // Output the limits from PHP so the user has an idea of what they can set.
+        $sb->add_int_option(UploadConfig::FORM_COUNT, "Number of file inputs: ");
         $sb->add_int_option(UploadConfig::COUNT, "Max uploads: ");
         $sb->add_label("<i>PHP Limit = " . ini_get('max_file_uploads') . "</i>");
         $sb->add_shorthand_int_option(UploadConfig::SIZE, "<br/>Max size per file: ");
