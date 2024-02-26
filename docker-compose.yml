@@ -46,6 +46,8 @@ services:
       - UPLOAD_MAX_FILESIZE=${UPLOAD_MAX_FILESIZE}
       - MAX_FILE_UPLOADS=${MAX_FILE_UPLOADS}
       - MAX_EXECUTION_TIME=${MAX_EXECUTION_TIME}
+      - POST_MAX_SIZE=${POST_MAX_SIZE}
+      - MEMORY_LIMIT=${MEMORY_LIMIT}
 
       #INSTALL_DSN: "pgsql:user=shimmie;password=shimmie;host=sql;dbname=shimmie"
     ports:

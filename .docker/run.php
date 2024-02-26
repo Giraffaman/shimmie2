@@ -11,7 +11,9 @@ chgrp('/app/data', 'shimmie');
 $MAX_FILE_UPLOADS = getenv('MAX_FILE_UPLOADS') ?: "100";
 $UPLOAD_MAX_FILESIZE = getenv('UPLOAD_MAX_FILESIZE') ?: '100M';
 $MAX_TOTAL_UPLOAD = ini_parse_quantity($UPLOAD_MAX_FILESIZE) * intval($MAX_FILE_UPLOADS);
-$MAX_EXECUTION_TIME = getenv('MAX_EXECUTION_TIME') ?: "60";
+$MAX_EXECUTION_TIME = getenv('MAX_EXECUTION_TIME') ?: '60';
+$POST_MAX_SIZE = getenv('POST_MAX_SIZE') ?: '500M';
+$MEMORY_LIMIT = getenv('MEMORY_LIMIT') ?: '256M';
 
 // Generate a config file for whatever web server we are using today
 $config = [
@@ -75,6 +77,8 @@ $config = [
                     "upload_max_filesize" => "$UPLOAD_MAX_FILESIZE",
                     "post_max_size" => "$MAX_TOTAL_UPLOAD",
                     "max_execution_time" => "$MAX_EXECUTION_TIME",
+                    "post_max_size" => "$POST_MAX_SIZE",
+                    "memory_limit" => "$MEMORY_LIMIT",
                 ]
             ],
             "processes" => [
