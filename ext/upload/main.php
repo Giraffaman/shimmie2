@@ -152,7 +152,7 @@ class Upload extends Extension
         $sb->position = 10;
         // Output the limits from PHP so the user has an idea of what they can set.
         $sb->add_int_option(UploadConfig::FORM_COUNT, "Number of file inputs: ");
-        $sb->add_int_option(UploadConfig::COUNT, "Max uploads: ");
+        $sb->add_int_option(UploadConfig::COUNT, "<br/>Max uploads: ");
         $sb->add_label("<i>PHP Limit = " . ini_get('max_file_uploads') . "</i>");
         $sb->add_shorthand_int_option(UploadConfig::SIZE, "<br/>Max size per file: ");
         $sb->add_label("<i>PHP Limit = " . ini_get('upload_max_filesize') . "</i>");
