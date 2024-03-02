@@ -96,7 +96,7 @@ class Page extends BasePage
         return $html;
     }
 
-    public function render(): void
+    public function body_html(): string
     {
         global $config;
         $deblog = true;
@@ -209,33 +209,26 @@ class Page extends BasePage
         }
 
         $flash_html = $this->flash ? "<b id='flash'>".nl2br(html_escape(implode("\n", $this->flash)))."</b>" : "";
-        $head_html = $this->head_html();
         $footer_html = $this->footer_html();
 
-        print <<<EOD
-<!doctype html>
-<html class="no-js" lang="en">
-    $head_html
-	<body>
-		<header>
-			$title_link
-			<ul id="navbar" class="flat-list">
-				$custom_links
-			</ul>
-			<ul id="subnavbar" class="flat-list">
-				$custom_sublinks
-			</ul>
-		</header>
-		$subheading
-		$sub_block_html
-		$left
-		<article class="$withleft">
-			$flash_html
-			$main_block_html
-		</article>
-		<footer><em>$footer_html</em></footer>
-	</body>
-</html>
+        return <<<EOD
+            <header>
+                $title_link
+                <ul id="navbar" class="flat-list">
+                    $custom_links
+                </ul>
+                <ul id="subnavbar" class="flat-list">
+                    $custom_sublinks
+                </ul>
+            </header>
+            $subheading
+            $sub_block_html
+            $left
+            <article class="$withleft">
+                $flash_html
+                $main_block_html
+            </article>
+            <footer><em>$footer_html</em></footer>
 EOD;
     }
 
