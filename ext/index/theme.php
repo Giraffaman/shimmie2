@@ -191,17 +191,17 @@ and of course start organising your images :-)
     {
         return emptyHTML(
             H3("Keyboard Controls"),
+            BR(),
             TABLE(
-                TR(TH("Shortcut"), TH("Action")),
-                TR(TD("Ctrl+F"), TD("Focus search")),
-                TR(TD("A | LeftArrow"), TD("Previous Page/Post")),
-                TR(TD("D | RightArrow"), TD("Next Page/Post")),
-                TR(TD("F"), TD("Fullscreen video/image")),
-                TR(TD("Shift+F"), TD("(Un-)Favorite post")),
-                TR(TD("space"), TD("play/pause video")),
-                TR(TD("Q"), TD("go 5 seconds back in video")),
-                TR(TD("E"), TD("go 5 seconds forwards in video")),
-                TR(TD("1-9"), TD("jump to 10%, 20%, ...90% in video"))
+                TR(TH("Ctrl+F"), TD("Focus search")),
+                TR(TH("A | LeftArrow"), TD("Previous Page/Post")),
+                TR(TH("D | RightArrow"), TD("Next Page/Post")),
+                TR(TH("F"), TD("Fullscreen video/image")),
+                TR(TH("Shift+F"), TD("(Un-)Favorite post")),
+                TR(TH("space"), TD("play/pause video")),
+                TR(TH("Q"), TD("go 5 seconds back in video")),
+                TR(TH("E"), TD("go 5 seconds forwards in video")),
+                TR(TH("1-9"), TD("jump to 10%, 20%, ...90% in video"))
             ),
             BR(),
             H3("Tag Searching"),
