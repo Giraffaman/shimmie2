@@ -5,8 +5,8 @@
     var NEXT_KEYS = ["d","n","ArrowRight"];
     var PRPG_KEYS = ["a","p","ArrowLeft"];
     var NXPG_KEYS = ["d","m","ArrowRight"];
-    var FAV_KEYS = ["F"];
-    //var PLAY_KEYS = ("???")
+    // (un-)favorite = shift+f
+    var FAV_KEYS = ["f"];
 
 document.addEventListener('keyup', (e) => {
     // we don't want to react to shortcuts if user is typing into a comment box or the search menu:
@@ -16,21 +16,18 @@ document.addEventListener('keyup', (e) => {
 
     if(window.location.pathname.match("/post/view/")) {
         console.log("post view controls");
-        if(PREV_KEYS.includes(e.key)) {
+        if(PREV_KEYS.includes(e.key) && (!e.shiftKey)) {
             console.log(e.key);
             target = document.getElementById("prevlink").pathname;
             window.location.href = target;
-        } else if(NEXT_KEYS.includes(e.key)) {
+        } else if(NEXT_KEYS.includes(e.key) && (!e.shiftKey)) {
             console.log(e.key);
             target = document.getElementById("nextlink").pathname;
             window.location.href = target;
         } else if(e.shiftKey && FAV_KEYS.includes(e.key)) {
             console.log(e.key);
             // grab "Favorite"/"Un-Favorite"-button and click it
-            fb = document.querySelector('\
-                section#Post_Controlsleft > div.blockbody > form[action="/change_favorite"] > input[value="Favorite"],\
-                section#Post_Controlsleft > div.blockbody > form[action="/change_favorite"] > input[value="Un-Favorite"]\
-            ');
+            fb = document.querySelector('[action*="fav"] > input[type="submit"]')
             if(fb) {
                 fb.click();
             } else {
@@ -48,26 +45,12 @@ document.addEventListener('keyup', (e) => {
             if(prevlink) {
                 window.location.pathname = prevlink.pathname;
             };
-        /*
-            do something to:
-            - check which page we're on
-            - check if there is a previous page
-            - if yes, grab link and send us there
-            - if not, do nothing
-        */
         } else if(NXPG_KEYS.includes(e.key)) {
             console.log(e.key);
             nextlink = paginatorDiv.children[index+1];
             if(nextlink) {
                 window.location.pathname = nextlink.pathname;
             };
-            /*
-                do something to:
-                - check which page we're on
-                - check if there is a next page
-                - if yes, grab link and send us there
-                - if not, do nothing
-             */
         } else {
             ;
         }
@@ -84,15 +67,69 @@ document.addEventListener("keydown", e => {
     }
     console.log(e.key);
 
-    if((window.location.pathname.match("/post/view/")) && (e.key === " ")) {
-        if(e.key === " ") {
-            var video = document.querySelector("video#main_image");
-            if(video != null) {
+    // override ctrl+f to focus search bar instead of browser search
+    if(e.ctrlKey && e.key == "f") {
+        e.preventDefault();
+        document.getElementsByName("search")[0].focus();
+    }
+
+    if(window.location.pathname.match("/post/view/")) {
+        var video = document.querySelector("video#main_image");
+        var img = document.getElementById("main_image");
+
+        if(e.key === "f") {
+            if (!document.fullscreenElement) {
+                img.requestFullscreen();
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen(); 
+                }
+            }
+        }
+        
+        if(video != null) {
+            if(e.key === " ") {
                 e.preventDefault();
                 if(!video.paused) {
                     video.pause();  
                 } else {
                     video.play();
+                }
+            } else if(e.key === "q") {
+                video.currentTime-=5;
+            } else if(e.key === "e") {
+                video.currentTime+=5;
+            } else if(["1","2","3","4","5","6","7","8","9"].includes(e.key)) {
+                switch (e.key) {
+                    case "1":
+                        video.currentTime=video.duration*0.1;
+                        break;
+                    case "2":
+                        video.currentTime=video.duration*0.2;
+                        break;
+                    case "3":
+                        video.currentTime=video.duration*0.3;
+                        break;
+                    case "4":
+                        video.currentTime=video.duration*0.4;
+                        break;
+                    case "5":
+                        video.currentTime=video.duration*0.5;
+                        break;
+                    case "6":
+                        video.currentTime=video.duration*0.6;
+                        break;
+                    case "7":
+                        video.currentTime=video.duration*0.7;
+                        break;
+                    case "8":
+                        video.currentTime=video.duration*0.8;
+                        break;
+                    case "9":
+                        video.currentTime=video.duration*0.9;
+                        break;    
+                    default:
+                        break;
                 }
             }
         } 
@@ -116,91 +153,15 @@ window.addEventListener('load', function () {
     }
 });
 
-/*
-handles state changes in rating view form checkboxes:
-- if SFW is checked, add hidden input to also enable rating PUBLIC
-- if SFW is unchecked, remove hidden input
-- if NSFW is checked, add hidden input to also enabled questionable and unrated (?)
-- if NSFW unchecked, remove hidden inputs for Q and ?
-
-ISSUES:
-- the add/remove parts do work, but the event, no matter if using click, change or else,
-only fires once. So if a user checks, then unchecks e.g. SFW for some reason, the hidden input 
-for PUBLIC is added, but not removed. Also, if a user checks e.g. NSFW and then SFW, hidden inputs
-for Q and ? are added, but not for PUBLIC.
-
-TODO:
-- figure out a better way to evaluate and add/remove hidden inputs, rather than reacting to checkbox
-changes. Maybe better to get called by the submit button, do our thing and then "pass along" the submit event?
-*/
-
-//function validateRatingViewForm(e) {
 document.querySelector("form#rtngViewForm").addEventListener('submit', function (event) {
     console.log("validateRatingViewForm() called...");    
     if($("input[name='_config_ratings_default[]']:checked").length > 0) {
         console.log("at least one option checked...");
-        /*
-        //e.preventDefault();
-            [...document.querySelectorAll("form#rtngViewForm input[type='checkbox']")].forEach(function(cb) {
-//                cb.addEventListener('change', function(e) {
-                    form = document.getElementById("rtngViewForm");
-                    if(cb.checked) {
-                        console.log(cb.id+" checked");
-                        switch(cb.id) {
-                            case "chkbx_e":
-                                /* for some reason, when validating the form through JS and either input's onclick or form's onsubmit,
-                                the form's checkboxes are immediately reset, so only e.g. here ? and q are added, but not e.
-                                Working around this by adding hidden inputs for e and (below) s, but this should not be necessary.
-                                */
-                               /*
-                                form.innerHTML+="<input type='hidden' id='hee' name='_config_ratings_default[]' value='e'>";
-                                form.innerHTML+="<input type='hidden' id='heu' name='_config_ratings_default[]' value='?'>";
-                                form.innerHTML+="<input type='hidden' id='heq' name='_config_ratings_default[]' value='q'>";
-                                console.log("heu and heq added");
-                                break;
-                            case "chkbx_s":
-                                form.innerHTML+="<input type='hidden' id='hss' name='_config_ratings_default[]' value='s'>";
-                                form.innerHTML+="<input type='hidden' id='hsp' name='_config_ratings_default[]' value='p'>";
-                                console.log("hsp added");
-                                break;
-                            default:
-                                console.log("????");
-                        }
-                    } else {
-                        console.log(cb.id+" unchecked");
-                        switch(cb.id) {
-                            case "chkbx_e":
-                                if(document.contains(document.getElementById("heu"))) {
-                                    document.getElementById("heu").remove();
-                                    console.log("heu removed");
-                                }
-                                if(document.contains(document.getElementById("heq"))) {
-                                    document.getElementById("heq").remove();
-                                    console.log("heq removed");
-                                }
-                                break;
-                            case "chkbx_s":
-                                if(document.contains(document.getElementById("hsp"))) {
-                                    document.getElementById("hsp").remove();
-                                    console.log("hsp removed");
-                                }
-                                break;
-                            default:
-                                console.log("!!!");                
-                        }        
-                    }
-//                });
-            });    
-        console.log("validation passed!");
-        return true;
-        //form.submit();
-        */
         } else {
             event.preventDefault(); 
             document.querySelector("form#rtngViewForm").style.color = "red";
             console.log("validation failed!");
             return false;
         }
-//    });    
     return true;
 });

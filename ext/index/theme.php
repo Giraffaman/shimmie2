@@ -7,7 +7,7 @@ namespace Shimmie2;
 use MicroHTML\HTMLElement;
 
 use function MicroHTML\emptyHTML;
-use function MicroHTML\{BR,H3,HR,P};
+use function MicroHTML\{BR,H3,HR,P,TABLE,TR,TH,TD};
 
 class IndexTheme extends Themelet
 {
@@ -190,6 +190,20 @@ and of course start organising your images :-)
     public function get_help_html(): HTMLElement
     {
         return emptyHTML(
+            H3("Keyboard Controls"),
+            TABLE(
+                TR(TH("Shortcut"), TH("Action")),
+                TR(TD("Ctrl+F"), TD("Focus search")),
+                TR(TD("A | LeftArrow"), TD("Previous Page/Post")),
+                TR(TD("D | RightArrow"), TD("Next Page/Post")),
+                TR(TD("F"), TD("Fullscreen video/image")),
+                TR(TD("Shift+F"), TD("(Un-)Favorite post")),
+                TR(TD("space"), TD("play/pause video")),
+                TR(TD("Q"), TD("go 5 seconds back in video")),
+                TR(TD("E"), TD("go 5 seconds forwards in video")),
+                TR(TD("1-9"), TD("jump to 10%, 20%, ...90% in video"))
+            ),
+            BR(),
             H3("Tag Searching"),
             P("Searching is largely based on tags, with a number of special keywords available that allow searching based on properties of the posts."),
             SHM_COMMAND_EXAMPLE("tagname", 'Returns posts that are tagged with "tagname".'),
