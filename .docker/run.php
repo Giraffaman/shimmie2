@@ -49,7 +49,8 @@ $config = [
                     '`/app/data/${uri.replace(/_(thumbs|images)\\/(..)(.*?)\\/.*/, "$1/$2/$2$3")}`'
                 ],
                 "response_headers" => [
-                    "Cache-Control" => "public, max-age=31556926"
+                    "Cache-Control" => "public, max-age=31556926",
+                    "Accept-Ranges" => "bytes"
                 ]
             ]
         ],
