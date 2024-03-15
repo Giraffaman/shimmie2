@@ -1,12 +1,17 @@
     // for testing if this is active
     // alert("running");
 
-    var PREV_KEYS = ["a","p","ArrowLeft"];
-    var NEXT_KEYS = ["d","n","ArrowRight"];
-    var PRPG_KEYS = ["a","p","ArrowLeft"];
-    var NXPG_KEYS = ["d","m","ArrowRight"];
+    // using e.code instead of e.key to not get different results if e.g. user has capslock on
+    var PREV_KEYS = ["KeyA","KeyP","ArrowLeft"];
+    var NEXT_KEYS = ["KeyD","KeyN","ArrowRight"];
+    var PRPG_KEYS = ["KeyA","KeyP","ArrowLeft"];
+    var NXPG_KEYS = ["KeyD","KeyN","ArrowRight"];
+    var FS_KEYS = ["KeyF"];
     // (un-)favorite = shift+f
-    var FAV_KEYS = ["f"];
+    var FAV_KEYS = ["KeyF"];
+    var VPP_KEYS = ["Space"];
+    var VFF_KEYS = ["KeyE"];
+    var VRW_KEYS = ["KeyQ"];
 
 document.addEventListener('keyup', (e) => {
     // we don't want to react to shortcuts if user is typing into a comment box or the search menu:
@@ -16,23 +21,14 @@ document.addEventListener('keyup', (e) => {
 
     if(window.location.pathname.match("/post/view/")) {
         console.log("post view controls");
-        if(PREV_KEYS.includes(e.key) && (!e.shiftKey)) {
-            console.log(e.key);
+        if(PREV_KEYS.includes(e.code)) {
+            console.log(e.code);
             target = document.getElementById("prevlink").pathname;
             window.location.href = target;
-        } else if(NEXT_KEYS.includes(e.key) && (!e.shiftKey)) {
-            console.log(e.key);
+        } else if(NEXT_KEYS.includes(e.code)) {
+            console.log(e.code);
             target = document.getElementById("nextlink").pathname;
             window.location.href = target;
-        } else if(e.shiftKey && FAV_KEYS.includes(e.key)) {
-            console.log(e.key);
-            // grab "Favorite"/"Un-Favorite"-button and click it
-            fb = document.querySelector('[action*="fav"] > input[type="submit"]')
-            if(fb) {
-                fb.click();
-            } else {
-                ;
-            }
         }  else {
             ;
         }
@@ -40,13 +36,13 @@ document.addEventListener('keyup', (e) => {
         console.log("only page controls");
         var paginatorDiv = document.getElementById("paginator");
         var index = Array.prototype.indexOf.call(paginatorDiv.children, document.querySelector("#paginator b"));
-        if(PRPG_KEYS.includes(e.key)) {
+        if(PRPG_KEYS.includes(e.code)) {
             var prevlink = paginatorDiv.children[index-1];
             if(prevlink) {
                 window.location.pathname = prevlink.pathname;
             };
-        } else if(NXPG_KEYS.includes(e.key)) {
-            console.log(e.key);
+        } else if(NXPG_KEYS.includes(e.code)) {
+            console.log(e.code);
             nextlink = paginatorDiv.children[index+1];
             if(nextlink) {
                 window.location.pathname = nextlink.pathname;
@@ -65,19 +61,30 @@ document.addEventListener("keydown", e => {
     if(e.target.matches("input") || e.target.matches("textarea")) {
         return;
     }
-    console.log(e.key);
+    console.log(e.code);
 
     // override ctrl+f to focus search bar instead of browser search
-    if(e.ctrlKey && e.key == "f") {
+    if(e.ctrlKey && e.code == "KeyF") {
         e.preventDefault();
         document.getElementsByName("search")[0].focus();
+        return;
     }
 
     if(window.location.pathname.match("/post/view/")) {
         var video = document.querySelector("video#main_image");
         var img = document.getElementById("main_image");
 
-        if(e.key === "f") {
+        if(e.shiftKey && FAV_KEYS.includes(e.code)) {
+            console.log(e.code);
+            // grab "Favorite"/"Un-Favorite"-button and click it
+            fb = document.querySelector('[action*="fav"] > input[type="submit"]')
+            if(fb) {
+                fb.click();
+            } else {
+                ;
+            }
+            return;
+        } else if(FS_KEYS.includes(e.code)) {
             if (!document.fullscreenElement) {
                 img.requestFullscreen();
             } else {
@@ -88,19 +95,19 @@ document.addEventListener("keydown", e => {
         }
         
         if(video != null) {
-            if(e.key === " ") {
+            if(VPP_KEYS.includes(e.code)) {
                 e.preventDefault();
                 if(!video.paused) {
                     video.pause();  
                 } else {
                     video.play();
                 }
-            } else if(e.key === "q") {
+            } else if(VRW_KEYS.includes(e.code)) {
                 video.currentTime-=5;
-            } else if(e.key === "e") {
+            } else if(VFF_KEYS.includes(e.code)) {
                 video.currentTime+=5;
-            } else if(["1","2","3","4","5","6","7","8","9"].includes(e.key)) {
-                switch (e.key) {
+            } else if(["1","2","3","4","5","6","7","8","9"].includes(e.code)) {
+                switch (e.code) {
                     case "1":
                         video.currentTime=video.duration*0.1;
                         break;
@@ -153,15 +160,12 @@ window.addEventListener('load', function () {
     }
 });
 
+// prevent rating view switcher form being submitted if no checkboxes are checked
 document.querySelector("form#rtngViewForm").addEventListener('submit', function (event) {
-    console.log("validateRatingViewForm() called...");    
-    if($("input[name='_config_ratings_default[]']:checked").length > 0) {
-        console.log("at least one option checked...");
-        } else {
-            event.preventDefault(); 
-            document.querySelector("form#rtngViewForm").style.color = "red";
-            console.log("validation failed!");
-            return false;
-        }
+    if($("input[name='_config_ratings_default[]']:checked").length < 1) {
+        event.preventDefault(); 
+        document.querySelector("form#rtngViewForm").style.color = "red";
+        return false;
+    }
     return true;
 });
