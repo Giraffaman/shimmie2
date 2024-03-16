@@ -123,7 +123,7 @@ class Page extends BasePage
                     if ($block->header == "Posts") {
                         $block->header = "&nbsp;";
                     }
-                    $main_block_html .= $block->get_html(false);
+                    $main_block_html .= $block->get_html(true);
                     break;
                 default:
                     print "<p>error: {$block->header} using an unknown section ({$block->section})";
