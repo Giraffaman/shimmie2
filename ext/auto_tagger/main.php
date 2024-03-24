@@ -145,7 +145,26 @@ class AutoTagger extends Extension
     {
         $results = $this->apply_auto_tags($event->new_tags);
         if (!empty($results)) {
-            $event->new_tags = $results;
+            # need to check tags again for metatags to e.g. recognize rating changes
+            # reset $event->new_tags to prevent duplicates (e.g. may contain 'rating=e' as non-metatag)
+            # don't reset $event->metatags!
+            $tmp_new_tags = [];
+            foreach ($results as $r) {
+                if ((!str_contains($r, ':')) && (!str_contains($r, '='))) {
+                    $tmp_new_tags[] = $r;
+                    continue;
+                }
+    
+                $ttpe = send_event(new TagTermCheckEvent($r));
+    
+                //seperate tags from metatags
+                if (!$ttpe->metatag) {
+                    $tmp_new_tags[] = $r;
+                } else {
+                    $event->metatags[] = $r;
+                }    
+            }
+            $event->new_tags = $tmp_new_tags;
         }
     }
 
