@@ -106,7 +106,7 @@ document.addEventListener("keydown", e => {
                 video.currentTime-=5;
             } else if(VFF_KEYS.includes(e.code)) {
                 video.currentTime+=5;
-            } else if(["1","2","3","4","5","6","7","8","9"].includes(e.code)) {
+            } else if(["Digit1","Digit2","Digit3","Digit4","Digit5","Digit6","Digit7","Digit8","Digit9"].includes(e.code)) {
                 switch (e.code) {
                     case "1":
                         video.currentTime=video.duration*0.1;
