@@ -108,31 +108,31 @@ document.addEventListener("keydown", e => {
                 video.currentTime+=5;
             } else if(["Digit1","Digit2","Digit3","Digit4","Digit5","Digit6","Digit7","Digit8","Digit9"].includes(e.code)) {
                 switch (e.code) {
-                    case "1":
+                    case "Digit1":
                         video.currentTime=video.duration*0.1;
                         break;
-                    case "2":
+                    case "Digit2":
                         video.currentTime=video.duration*0.2;
                         break;
-                    case "3":
+                    case "Digit3":
                         video.currentTime=video.duration*0.3;
                         break;
-                    case "4":
+                    case "Digit4":
                         video.currentTime=video.duration*0.4;
                         break;
-                    case "5":
+                    case "Digit5":
                         video.currentTime=video.duration*0.5;
                         break;
-                    case "6":
+                    case "Digit6":
                         video.currentTime=video.duration*0.6;
                         break;
-                    case "7":
+                    case "Digit7":
                         video.currentTime=video.duration*0.7;
                         break;
-                    case "8":
+                    case "Digit8":
                         video.currentTime=video.duration*0.8;
                         break;
-                    case "9":
+                    case "Digit9":
                         video.currentTime=video.duration*0.9;
                         break;    
                     default:
