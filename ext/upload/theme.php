@@ -119,7 +119,13 @@ class UploadTheme extends Themelet
             )
         );
 
-        for ($i = 0; $i < $upload_count; $i++) {
+        # probably not a good idea to show more file inputs than max_file_uploads
+        if($form_count > $upload_count) {
+            $form_count = $upload_count;
+        } elseif ($form_count < 1) {
+            $form_count = 1;
+        }
+        for ($i = 0; $i < $form_count; $i++) {
             $specific_fields = emptyHTML();
             $usfbe = send_event(new UploadSpecificBuildingEvent((string)$i));
             foreach ($usfbe->get_parts() as $part) {
