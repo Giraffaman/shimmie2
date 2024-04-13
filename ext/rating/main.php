@@ -525,7 +525,10 @@ class Ratings extends Extension
 
     public function onUploadHeaderBuilding(UploadHeaderBuildingEvent $event): void
     {
-        $event->add_part("Rating");
+        global $config;
+        if($config->get_bool(UploadConfig::ALLOW_SPECIFIC_RATINGS)) {
+            $event->add_part("Rating");
+        }
     }
 
     public function onUploadSpecificBuilding(UploadSpecificBuildingEvent $event): void
