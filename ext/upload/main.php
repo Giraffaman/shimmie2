@@ -163,7 +163,7 @@ class Upload extends Extension
         $sb->add_choice_option(UploadConfig::TRANSLOAD_ENGINE, $tes, "<br/>Transload: ");
         $sb->add_bool_option(UploadConfig::TLSOURCE, "<br/>Use transloaded URL as source if none is provided: ");
         $sb->add_bool_option(UploadConfig::ALLOW_SPECIFIC_TAGS, "<br/>Support post-specific tags:");
-        $sb->add_bool_option(UploadConfig::ALLOW_SPECIFIC_RATINGS, "<br/>Support post-specific tags:"); 
+        $sb->add_bool_option(UploadConfig::ALLOW_SPECIFIC_RATINGS, "<br/>Support post-specific ratings:"); 
 
         $sb->start_table();
         $sb->add_bool_option(UploadConfig::MIME_CHECK_ENABLED, "Enable upload MIME checks", true);
