@@ -8,6 +8,8 @@ class UploadConfig
 {
     public const COUNT = "upload_count";
     public const FORM_COUNT = "form_count";
+    public const ALLOW_SPECIFIC_TAGS = "allow_specific_tags";
+    public const ALLOW_SPECIFIC_RATINGS = "allow_specific_ratings";
     public const SIZE = "upload_size";
     public const MIN_FREE_SPACE = "upload_min_free_space";
     public const TLSOURCE = "upload_tlsource";

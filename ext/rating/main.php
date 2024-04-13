@@ -226,9 +226,12 @@ class Ratings extends Extension
     {
         if (empty($event->image['rating'])) {
             $old_rating = "";
+            error_log("ratings: no old rating.");
         } else {
             $old_rating = $event->image['rating'];
+            error_log("ratings: old rating is ".$old_rating);
         }
+        error_log("ratings: calling set_rating for image ".$event->image->id.", new rating ".$event->rating.", old rating ".$old_rating);
         $this->set_rating($event->image->id, $event->rating, $old_rating);
     }
 
@@ -323,6 +326,7 @@ class Ratings extends Extension
     {
         if (preg_match($this->search_regexp, $event->term)) {
             $event->metatag = true;
+            error_log("ratings: ".$event->term." is a ratings tag!");
         }
     }
 
@@ -336,12 +340,14 @@ class Ratings extends Extension
 
             if (count($matches) > 2 && in_array($matches[2], self::UNRATED_KEYWORDS)) {
                 $ratings = "?";
+                error_log("ratings: don't know what rating ".$event->term." is.");
             }
 
             $ratings = array_intersect(str_split($ratings), Ratings::get_user_class_privs($user));
             $rating = $ratings[0];
             $image = Image::by_id_ex($event->image_id);
             send_event(new RatingSetEvent($image, $rating));
+            error_log("ratings: ".$event->term." is rating ".$rating);
         }
     }
 
@@ -524,7 +530,10 @@ class Ratings extends Extension
 
     public function onUploadSpecificBuilding(UploadSpecificBuildingEvent $event): void
     {
-        $event->add_part($this->theme->get_upload_specific_rater_html($event->suffix));
+        global $config;
+        if($config->get_bool(UploadConfig::ALLOW_SPECIFIC_RATINGS)) {
+            $event->add_part($this->theme->get_upload_specific_rater_html($event->suffix));
+        }
     }
 
     /**
@@ -692,7 +701,8 @@ class Ratings extends Extension
         global $database;
         if ($old_rating != $rating) {
             $database->execute("UPDATE images SET rating=:rating WHERE id=:id", ['rating' => $rating, 'id' => $image_id]);
-            log_info("rating", "Rating for >>{$image_id} set to: ".$this->rating_to_human($rating));
+            #log_info("rating", "Rating for >>{$image_id} set to: ".$this->rating_to_human($rating));
+            error_log("Rating for >>{$image_id} set to: ".$this->rating_to_human($rating));
         }
     }
 }

@@ -127,9 +127,12 @@ class UploadTheme extends Themelet
         }
         for ($i = 0; $i < $form_count; $i++) {
             $specific_fields = emptyHTML();
-            $usfbe = send_event(new UploadSpecificBuildingEvent((string)$i));
-            foreach ($usfbe->get_parts() as $part) {
-                $specific_fields->appendChild($part);
+            if($config->get_bool(UploadConfig::ALLOW_SPECIFIC_TAGS)) {
+                $usfbe = send_event(new UploadSpecificBuildingEvent((string)$i));
+            
+                foreach ($usfbe->get_parts() as $part) {
+                    $specific_fields->appendChild($part);
+                }
             }
 
             $upload_list->appendChild(

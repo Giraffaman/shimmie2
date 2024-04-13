@@ -113,6 +113,10 @@ class Upload extends Extension
         global $config;
         $config->set_default_int(UploadConfig::COUNT, 3);
         $config->set_default_int(UploadConfig::FORM_COUNT, 5);
+        $config->set_default_bool(UploadConfig::ALLOW_SPECIFIC_TAGS, true);
+        # disabling post-specific ratings selector since we set ratings through tags and this would override it 
+        # e.g. if tag "nsfw" (rating=e) present but this is left "unrated", image ends up with rating=?
+        $config->set_default_bool(UploadConfig::ALLOW_SPECIFIC_RATINGS, false);
         $config->set_default_int(UploadConfig::SIZE, parse_shorthand_int('1MB'));
         $config->set_default_int(UploadConfig::MIN_FREE_SPACE, parse_shorthand_int('100MB'));
         $config->set_default_bool(UploadConfig::TLSOURCE, true);
@@ -158,6 +162,8 @@ class Upload extends Extension
         $sb->add_label("<i>PHP Limit = " . ini_get('upload_max_filesize') . "</i>");
         $sb->add_choice_option(UploadConfig::TRANSLOAD_ENGINE, $tes, "<br/>Transload: ");
         $sb->add_bool_option(UploadConfig::TLSOURCE, "<br/>Use transloaded URL as source if none is provided: ");
+        $sb->add_bool_option(UploadConfig::ALLOW_SPECIFIC_TAGS, "<br/>Support post-specific tags:");
+        $sb->add_bool_option(UploadConfig::ALLOW_SPECIFIC_RATINGS, "<br/>Support post-specific tags:"); 
 
         $sb->start_table();
         $sb->add_bool_option(UploadConfig::MIME_CHECK_ENABLED, "Enable upload MIME checks", true);
